@@ -175,7 +175,12 @@
     ((j && j.大会) || []).forEach((ev) => {
       if (ev.終わった) return;
       const 日 = (ev.日 || []).map((x) => x.date).filter((x) => x && x > 週末).sort();
-      if (!日.length) return;
+      if (!日.length) {
+        // 期間をまだ入れていない大会。カレンダーには置けないので、ここで名前だけ出す
+        const 日付あり = (ev.日 || []).some((x) => x.date);
+        if (!日付あり && (ev.日 || []).length) out.push({ date: '9999-99-99', いつ: '日にち未定', なに: ev.name, 印: '大会' });
+        return;
+      }
       out.push({
         date: 日[0],
         いつ: 和風(日[0]) + (日.length > 1 ? '〜' + 和風(日[日.length - 1]) : ''),
