@@ -215,19 +215,25 @@
     return Date.now() - (v.時刻 || 0) < 10 * 60 * 1000 ? v : null;   // 10分だけ効かせる
   }
 
+  /*
+    行き先には「どれの話か」を付ける（2026-09-13）。
+    付けないと、飛んだ先でもう一度その大会／その期間を選ばされる。
+    受け取る側（各画面の URLの()）は、知らない値なら今までどおり選ばせる。
+    url は押す先、ページ は「出したかどうか」を見分ける鍵（?付きだと当たらない）。
+  */
   function まだのものを集める(t, j) {
     const out = [];
     (((t && t.当番) || {}).期間 || []).forEach((x) => {
-      if (!x.出した) out.push({ url: 'touban.html', t: '当番の希望　' + x.name });
+      if (!x.出した) out.push({ ページ: 'touban.html', url: 'touban.html?term=' + encodeURIComponent(x.id), t: '当番の希望　' + x.name });
     });
     ((t && t.手入れ) || []).forEach((p) => {
       if (p.broken || p.出した) return;
       const 進み = p.日数 ? '（' + p.入れた + '／' + p.日数 + '日）' : '';
-      out.push({ url: 'teire.html', t: '手入れの希望　' + p.horse + 進み });
+      out.push({ ページ: 'teire.html', url: 'teire.html?plan=' + encodeURIComponent(p.id), t: '手入れの希望　' + p.horse + 進み });
     });
     ((j && j.大会) || []).forEach((ev) => {
       if (ev.終わった || ev.出した) return;
-      out.push({ url: 'taikai.html', t: '大会の出欠　' + ev.name });
+      out.push({ ページ: 'taikai.html', url: 'taikai.html?event=' + encodeURIComponent(ev.id), t: '大会の出欠　' + ev.name });
     });
     return out;
   }
@@ -262,7 +268,7 @@
 
     // まだ出していないもの。いま出したばかりのぶんは、返事を待たずに消しておく
     const 出した = 更新中 ? 出したところ() : null;
-    const まだ = まだのものを集める(t, j).filter((x) => !出した || x.url !== 出した.url);
+    const まだ = まだのものを集める(t, j).filter((x) => !出した || x.ページ !== 出した.url);
     章.push({ id: 'meTodo', html: 節('まだ出していないもの', まだ.length
       ? '<div class="me-list">' + まだ.map((x) =>
           '<a class="me-todo" href="' + esc(x.url) + '">' +

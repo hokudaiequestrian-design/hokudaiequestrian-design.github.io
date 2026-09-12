@@ -499,6 +499,17 @@ M.描く(t2, jm, [], false);
   週の箱.書いた === 書いた回数 && meBody.children[4].書いた === 2,
   '週' + 週の箱.書いた + '回／事実' + meBody.children[4].書いた + '回');
 
+見出し('入口：行き先に「どれの話か」を付ける');
+const 未提出HTML = M.組み立てる(t, jm, [], false);
+確かめる('大会の出欠は、その大会まで飛ぶ',
+  未提出HTML.indexOf('taikai.html?event=e2') > 0, 未提出HTML.slice(未提出HTML.indexOf('taikai.html'), 未提出HTML.indexOf('taikai.html') + 40));
+const t3 = JSON.parse(JSON.stringify(t));
+t3.当番.期間 = [{ id: 'k9', name: '後期', 出した: false }];
+t3.手入れ = [{ id: 'p9', horse: '北冴', 日数: 7, 入れた: 0, 出した: false }];
+const 未提出HTML2 = M.組み立てる(t3, jm, [], false);
+確かめる('当番の希望は、その期間まで飛ぶ', 未提出HTML2.indexOf('touban.html?term=k9') > 0);
+確かめる('手入れの希望は、その馬まで飛ぶ', 未提出HTML2.indexOf('teire.html?plan=p9') > 0);
+
 見出し('入口：出した直後（返事を待たずに消す）');
 const 大会が未提出 = (html) => html.indexOf('大会の出欠') > 0;
 確かめる('ふだんは未提出に出る', 大会が未提出(M.組み立てる(t, jm, [], false)));
@@ -524,6 +535,15 @@ const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) &&
   確かめる(f + '：帯が上に貼り付く（下まで読んでも戻れる）', s.indexOf('header.appbar { position: sticky;') > 0);
   確かめる(f + '：立場を付け直す', s.indexOf("localStorage.getItem('role')") > 0);
 });
+// 部員が出す4ページは、名前を聞き直さない（入口で選んでいる）。戻る道は必ず残す。
+見出し('組み立てたページ：名前を聞き直さない');
+['touban.html', 'teire.html', 'yasumi.html', 'taikai.html'].forEach((f) => {
+  const s = fs.readFileSync(path.join(docs, f), 'utf8');
+  確かめる(f + '：名前を聞き直さない', s.indexOf('function 名前は聞かない') > 0);
+  確かめる(f + '：「ちがう人」で戻せる', s.indexOf('>ちがう人</button>') > 0);
+  確かめる(f + '：URLで「どれの話か」を受け取る', s.indexOf('function URLの') > 0);
+});
+
 const 入口HTML = fs.readFileSync(path.join(docs, 'index.html'), 'utf8');
 確かめる('入口じたいには戻るリンクを付けない', 入口HTML.indexOf('class="backhome"') < 0);
 確かめる('入口は立場を覚える', 入口HTML.indexOf("localStorage.setItem('role'") > 0);

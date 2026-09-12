@@ -228,6 +228,18 @@ th.short { background: #fef2f2; }
   padding: 10px; display: none; align-items: center; gap: 12px; justify-content: space-between;
 }
 .saving-bar.on { display: flex; }
+
+/* マイページから来たときの「◯◯ さんとして出します」。
+   入口で名前を選んでいるので、ここで選び直させない（2026-09-13）。
+   共用の端末で別の人が続けて使うことがあるので、戻す道（ちがう人）は必ず残す。 */
+.wholine { font-size: var(--text-base); margin: var(--space-xs) 0 0; line-height: 1.7; }
+.wholine b { font-size: var(--text-md); }
+button.linklike {
+  background: none; border: 0; padding: 0 6px; min-width: 0; min-height: var(--tap);
+  color: var(--accent-dark); font-size: var(--text-sm); font-weight: 700;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+button.linklike:hover { background: none; color: var(--accent); }
 </style>
 <style>
 /* 「マイページに戻る」は**いつでも左上**に出す（2026-09-13にユーザーが決めた）。
