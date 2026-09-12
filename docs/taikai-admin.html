@@ -1,0 +1,2004 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<style>
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #1f2430;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --border: #e2e5ea;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #b45309;
+  --rider: #c00000;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+header.appbar {
+  background: var(--primary);
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+header.appbar a { color: #fff; text-decoration: underline; font-size: 13px; font-weight: 400; cursor: pointer; }
+
+main { max-width: 720px; margin: 0 auto; padding: 16px; }
+main.wide { max-width: 1400px; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+
+h1 { font-size: 20px; }
+h2 { font-size: 17px; margin-top: 0; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+
+label { display: block; font-weight: 600; margin: 12px 0 4px; font-size: 14px; }
+label.inline { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; margin: 0 10px 0 0; font-size: 13px; }
+
+select, input[type=text], input[type=number], input[type=password], input[type=date], textarea {
+  width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 15px; background: #fff; color: var(--text); font-family: inherit;
+}
+textarea { min-height: 70px; resize: vertical; }
+input[type=checkbox] { width: auto; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.row > * { flex: 1; min-width: 120px; }
+.row.tight > * { flex: 0 0 auto; min-width: 0; }
+
+.checkbox-list, .radio-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px; font-size: 15px; cursor: pointer; user-select: none; background: #fff; }
+.chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+button {
+  background: var(--primary); color: #fff; border: none; border-radius: 8px;
+  padding: 12px 18px; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+button:hover { background: var(--primary-dark); }
+button:disabled { opacity: .5; cursor: default; }
+button.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+button.secondary:hover { background: #eff6ff; }
+button.danger { background: var(--danger); }
+button.small { padding: 6px 10px; font-size: 13px; }
+
+.msg { padding: 10px 12px; border-radius: 8px; margin: 10px 0; font-size: 14px; }
+.msg.success { background: #ecfdf3; color: var(--success); border: 1px solid #b7f0ce; }
+.msg.error { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+.msg.warning { background: #fffbeb; color: var(--warning); border: 1px solid #fde68a; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+th { background: #f0f2f5; }
+
+.muted { color: var(--muted); font-size: 13px; }
+.hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+
+.list-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.list-item:last-child { border-bottom: none; }
+
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tabs button { background: #fff; color: var(--text); border: 1px solid var(--border); }
+.tabs button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.post-tag { display: inline-block; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; background: #eef2ff; color: var(--primary); }
+.post-運営 { background: #eff6ff; color: #1d4ed8; }
+.post-箱番長 { background: #f0fdf4; color: #15803d; }
+.post-馬匹 { background: #fef3c7; color: #a16207; }
+.post-会計 { background: #fae8ff; color: #a21caf; }
+
+.role-card { border: 1px dashed var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+
+/* 大会設定の「1日ぶん」のまとまり */
+.day-block { border-left: 4px solid var(--primary); }
+.day-heading { font-size: 16px; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+
+/* 候補から選ぶプルダウン。「その他（自由入力）」を選んだときだけ下に入力欄が出る */
+.pick { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pick > select, .pick > input { width: 100%; }
+.pick > input.pick-other { border-color: var(--primary); }
+
+/* 人員表のマトリクス */
+.matrix-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; max-height: 70vh; overflow-y: auto; }
+table.matrix { border-collapse: separate; border-spacing: 0; font-size: 12px; width: auto; min-width: 100%; }
+table.matrix th, table.matrix td { border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 2px 4px; white-space: nowrap; }
+table.matrix thead th { background: #f0f2f5; position: sticky; top: 0; z-index: 2; text-align: center; }
+table.matrix thead tr.days th { background: #e5e9f0; top: 0; }
+table.matrix thead tr.comps th { top: 27px; }
+table.matrix th.rowhead, table.matrix td.rowhead {
+  position: sticky; left: 0; z-index: 3; background: #fff; text-align: left;
+  border-right: 2px solid var(--border); min-width: 96px;
+}
+table.matrix thead th.rowhead { z-index: 4; background: #f0f2f5; }
+/* 行にカーソルを合わせても色は変えない（表計算ソフトと同じ）。
+   代わりに、選んでいるマスの行と列の見出しだけを目立たせる。 */
+/* 選んでいる行・列の見出し。選択中のマスより薄くして、マスの青が負けないようにする。 */
+table.matrix thead th.active, table.matrix td.rowhead.active { background: #e8eefb; }
+
+/* 仕事ごとの色は --jb（背景）と --jf（文字）で渡ってくる。
+   選択中や未保存のほうが目立つべきなので、そちらの指定が勝つ順番にしてある。 */
+td.cell {
+  text-align: center; padding: 4px 2px; min-width: 76px; cursor: cell; user-select: none;
+  background: var(--jb, #fff); color: var(--jf, var(--text));
+}
+td.cell .v { display: block; min-height: 1.2em; }
+td.cell select {
+  width: 100%; min-width: 76px; border: 0; background: #fff; padding: 2px;
+  font-size: 12px; border-radius: 0; text-align: center; cursor: pointer; color: var(--text);
+}
+/* 来られないと答えている日のマス。触れるので、右上の小さな角印だけで控えめに示す。
+   仕事を入れればその色が出て、他のマスと同じ見た目になる。 */
+td.cell.absent { position: relative; background: var(--jb, #fafbfc); }
+td.cell.absent::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  border-top: 6px solid #b9c0cc; border-left: 6px solid transparent;
+}
+td.cell.absent .v:empty::after { content: '－'; color: #c7ccd4; }
+td.cell.locked { box-shadow: inset 3px 0 0 var(--warning); }
+td.cell.dirty { background: #fffbeb; }
+/* 人数が足りない競技は、マスの色を潰さないよう下線で示す */
+td.cell.short { border-bottom: 3px solid #f08a8a; }
+
+/* 選択範囲。表計算ソフトと同じ感覚で見えるように */
+.matrix-wrap { user-select: none; }
+#matrixBox:focus { outline: none; }
+/* 選択の青は何よりも優先させたいので、詳細度を高くしてある */
+table.matrix tbody tr td.sel { background: #cfe2ff; }
+table.matrix tbody tr td.sel.dirty { background: #fde68a; }
+table.matrix tbody tr td.anchor { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+.cell-tools {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap; margin: 8px 0 0; padding: 8px 10px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+}
+/* 出場する人の馬名は赤字、手伝い（馬付き）は黒字。マニュアルと同じ見せ方。 */
+td.rider { text-align: center; color: var(--rider); font-weight: 700; background: #fff; }
+td.cell.helper { font-weight: 700; }
+.off-tag { font-size: 11px; color: #9aa1ac; }
+.row-filter { display: block; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
+.row-filter input { margin-right: 6px; vertical-align: -1px; }
+.rider-tag { display: inline-block; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; background: #fff5f5; color: var(--rider); border: 1px solid #fecaca; }
+th.short { background: #fef2f2; }
+
+/* 出欠を日ごとに聞く欄（部員の画面） */
+.day-vote { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
+.day-vote.no { border-color: #fecaca; background: #fef2f2; }
+.day-vote .day-name { font-weight: 700; font-size: 15px; }
+.day-vote .day-plan { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+/* 出る競技と馬を選ぶ欄（部員の画面） */
+.ride-box { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.ride-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ride-row .ride-name { flex: 0 0 110px; font-size: 14px; font-weight: 600; }
+.ride-row select { flex: 1 1 auto; padding: 8px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; font-size: 12px; color: var(--muted); align-items: center; }
+.legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
+.legend .swatch.abs { position: relative; background: #fafbfc; border: 1px solid #d1d5db; border-radius: 0; }
+.legend .swatch.abs::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  border-top: 5px solid #b9c0cc; border-left: 5px solid transparent;
+}
+
+.summary-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.summary-grid .stat { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: #fff; min-width: 108px; }
+.summary-grid .stat b { display: block; font-size: 19px; }
+.summary-grid .stat span { font-size: 12px; color: var(--muted); }
+
+.warn-list { max-height: 220px; overflow-y: auto; margin-top: 8px; }
+.warn-list div { font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.warn-list div:last-child { border-bottom: none; }
+.warn-list .e { color: var(--danger); }
+.warn-list .w { color: var(--warning); }
+
+.pill-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pill { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; background: #fff; }
+.pill.no { background: #fef2f2; border-color: #fecaca; color: var(--danger); }
+.pill.yes { background: #ecfdf3; border-color: #b7f0ce; color: var(--success); }
+
+/* 通信中の表示。Apps Scriptは1往復に数秒かかるので、待ちを必ず見せる */
+#busy {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--warning); color: #fff; text-align: center;
+  padding: 6px; font-size: 13px; font-weight: 700; display: none;
+}
+#busy.on { display: block; }
+
+.saving-bar {
+  position: sticky; bottom: 0; background: #fff; border-top: 2px solid var(--primary);
+  padding: 10px; display: none; align-items: center; gap: 12px; justify-content: space-between;
+}
+.saving-bar.on { display: flex; }
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar">
+  <span>人員表システム（管理者）</span>
+  <a id="logoutLink" style="display:none;">ログアウト</a>
+</header>
+
+<!-- ===== ログイン ===== -->
+<main id="loginView">
+  <div class="card">
+    <h1>管理者ログイン</h1>
+    <p class="muted">運営担当者に共有されているパスワードを入力してください。</p>
+    <label for="pw">パスワード</label>
+    <input type="password" id="pw" autocomplete="current-password">
+    <div style="margin-top:14px;"><button id="loginBtn">ログイン</button></div>
+    <div id="loginMsg"></div>
+  </div>
+</main>
+
+<!-- ===== 本体 ===== -->
+<main id="appView" class="wide" style="display:none;">
+  <div class="tabs">
+    <button data-tab="members" class="active">部員管理</button>
+    <button data-tab="events">大会・競技設定</button>
+    <button data-tab="entries">出欠・選手出場</button>
+    <button data-tab="board">人員表</button>
+  </div>
+
+  <!-- 部員管理 -->
+  <section id="tab-members">
+    <div class="card">
+      <h2>名簿を貼り付けて一括登録</h2>
+      <p class="hint">スプレッドシートから <b>名前・入部年・役職・備考</b> の4列をコピーして貼り付けてください。1行目が見出しなら読み飛ばします。同じ名前の人は飛ばします。</p>
+      <p class="hint">入部年の欄は <b>2025</b> のような西暦でも、<b>2</b> のような今の学年でも構いません。</p>
+      <textarea id="bulkText" placeholder="名前&#9;入部年&#9;役職&#9;備考&#10;塚原&#9;2023&#9;運営&#10;山本&#9;2023&#9;箱番長"></textarea>
+      <div style="margin-top:10px;"><button id="bulkBtn">貼り付けた内容を登録</button></div>
+      <div id="bulkMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2 id="memberFormTitle">部員を1人ずつ追加</h2>
+      <input type="hidden" id="memberId">
+      <div class="row">
+        <div><label for="memberName">名前</label><input type="text" id="memberName" placeholder="例：山田"></div>
+        <div>
+          <label for="memberJoinYear">入部年</label>
+          <input type="number" id="memberJoinYear" min="1990" max="2100" placeholder="例：2025">
+          <p class="hint" id="gradePreview"></p>
+        </div>
+        <div><label for="memberPost">役職</label><select id="memberPost"></select></div>
+        <div><label for="memberNote">備考</label><input type="text" id="memberNote" placeholder="任意"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <button id="saveMemberBtn">保存する</button>
+        <button class="secondary" id="cancelMemberBtn" style="display:none;">キャンセル</button>
+      </div>
+      <div id="memberMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>部員一覧 <span class="muted" id="memberCount"></span></h2>
+      <p class="hint">これは<b>「部員」シートそのもの</b>です。シートを直接直しても構いません（IDは空のままで自動、入部年は「2025」でも「2」でも可、役職はプルダウン、学年は自動計算）。</p>
+      <div id="memberList" class="muted">読み込み中…</div>
+    </div>
+
+    <div class="card">
+      <h2>部の馬</h2>
+      <p class="hint">これは<b>「馬」シートそのもの</b>です。部員が「出る競技と馬」を選ぶときの一覧になります。手放した馬は<b>使用中のチェックを外す</b>と選べなくなりますが、過去の人員表には残ります。</p>
+      <p class="hint"><b>チーフ</b>はその馬の主担当です。その馬が出場する競技の馬付きに、まっさきに付けます（チーフ自身が出場している競技では、別の人が付きます）。</p>
+      <div class="row tight" style="align-items:flex-end;">
+        <input type="hidden" id="horseId">
+        <div style="flex:1 1 160px;">
+          <label for="horseName">馬名</label>
+          <input type="text" id="horseName" placeholder="例：北叡">
+        </div>
+        <div style="flex:1 1 140px;">
+          <label for="horseChief">チーフ</label>
+          <select id="horseChief"></select>
+        </div>
+        <div style="flex:1 1 140px;">
+          <label for="horseNote">備考</label>
+          <input type="text" id="horseNote" placeholder="任意">
+        </div>
+        <div style="flex:0 0 auto;">
+          <label class="inline" style="margin-bottom:10px;"><input type="checkbox" id="horseActive" checked> 使用中</label>
+        </div>
+        <div style="flex:0 0 auto;">
+          <button id="saveHorseBtn">保存する</button>
+          <button class="secondary" id="cancelHorseBtn" style="display:none;">キャンセル</button>
+        </div>
+      </div>
+      <div id="horseMsg"></div>
+      <div id="horseList" class="pill-list" style="margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <!-- 大会・競技設定 -->
+  <section id="tab-events" style="display:none;">
+    <div class="card">
+      <h2 id="eventFormTitle">大会を追加</h2>
+      <input type="hidden" id="eventId">
+      <label for="eventName">大会名</label>
+      <input type="text" id="eventName" placeholder="例：第60回 北海道春季馬術大会">
+      <p class="hint">競技名と仕事名のプルダウンの中身は<b>「選択肢」シート</b>から来ています。よく使うものはそこに足しておくと毎回選ぶだけで済みます。</p>
+      <p class="hint">保存した大会は<b>「大会」シート</b>に、日程と競技は<b>「競技」シート</b>に、仕事は<b>「仕事」シート</b>に入ります。どれもシート側で直せます。</p>
+
+      <label>期間</label>
+      <div class="row tight" style="align-items:center;">
+        <input type="date" id="eventStart" style="flex:0 0 170px;">
+        <span style="flex:0 0 auto;">〜</span>
+        <input type="date" id="eventEnd" style="flex:0 0 170px;">
+        <span id="dayCount" class="muted" style="flex:0 0 auto;"></span>
+      </div>
+      <p class="hint">20日〜22日のように大会の全日を入れてください。<b>この1日ごとに、部員の出欠と仕事の必要人数を持ちます。</b>競技は後から入れられるので、まず期間だけ決めて出欠を取り始めても構いません。</p>
+
+      <div id="dayList"></div>
+
+      <div style="margin-top:16px;">
+        <button id="saveEventBtn">保存する</button>
+        <button class="secondary" id="cancelEventBtn" style="display:none;">キャンセル</button>
+      </div>
+      <div id="eventMsg"></div>
+    </div>
+
+    <div class="card">
+      <h2>大会一覧</h2>
+      <div id="eventList" class="muted">読み込み中…</div>
+    </div>
+  </section>
+
+  <!-- 出欠・選手出場 -->
+  <section id="tab-entries" style="display:none;">
+    <div class="card">
+      <h2>部員に配るURL</h2>
+      <p class="hint">このURLを部員に配ると、出欠を入力してもらえます。URLが変わったときは、スプレッドシートのメニュー「人員表システム」→「部員に配るURLを設定し直す」で入れ直してください。</p>
+      <p class="hint"><b>URLの中の <code>/a/gmail.com/</code> は消さないでください。</b>これがあると、部員が大学のアカウントで開いていても、個人用と大学用に同時ログインしていても、そのまま開けます。無いと、Googleがどのアカウントで開くかを先に決めようとして弾かれることがあります。</p>
+      <div class="row tight" style="align-items:center;">
+        <input type="text" id="shareUrl" readonly style="flex:1 1 320px;">
+        <button class="secondary small" id="copyUrlBtn" style="flex:0 0 auto;">コピー</button>
+      </div>
+      <div id="shareMsg"></div>
+    </div>
+
+    <div class="card">
+      <label for="entryEventSelect">大会を選択</label>
+      <select id="entryEventSelect"></select>
+    </div>
+
+    <div class="card">
+      <h2>回答状況</h2>
+      <div class="summary-grid" id="responseStats"></div>
+      <h3 style="margin-top:16px;">未回答の部員</h3>
+      <div class="pill-list" id="unansweredList"></div>
+      <h3 style="margin-top:16px;">行けない日がある部員</h3>
+      <div class="pill-list" id="absentList"></div>
+      <h3 style="margin-top:16px;">連絡事項</h3>
+      <div id="commentList" class="muted">なし</div>
+    </div>
+
+    <div class="card">
+      <h2>出場する競技と馬</h2>
+      <p class="hint">部員が自分で出した内容がここに出ます。運営が足したり直したりもできます。出場する競技には仕事を割り当てません（馬場と障害の取り違え防止）。</p>
+      <p class="hint"><b>馬付き</b>は、その馬に付ける手伝いの人数です。普通は1人。0にすると手伝いを付けません。</p>
+      <div class="row">
+        <div><label for="entryMember">部員</label><select id="entryMember"></select></div>
+        <div><label for="entryComp">競技</label><select id="entryComp"></select></div>
+        <div><label for="entryHorse">馬</label><select id="entryHorse"></select></div>
+        <div style="flex:0 0 110px;"><label for="entryHelpers">馬付き</label><input type="number" id="entryHelpers" min="0" max="9" value="1"></div>
+        <div style="flex:0 0 auto;"><button id="addEntryBtn">追加</button></div>
+      </div>
+      <div id="entryMsg"></div>
+      <div id="entryList" class="muted" style="margin-top:12px;">大会を選択してください</div>
+    </div>
+  </section>
+
+  <!-- 人員表 -->
+  <section id="tab-board" style="display:none;">
+    <div class="card">
+      <div class="row">
+        <div><label for="boardEventSelect">大会を選択</label><select id="boardEventSelect"></select></div>
+        <div style="flex:0 0 auto;"><button class="secondary" id="editEventBtn" title="この大会の競技や仕事を直します">大会を編集</button></div>
+        <div style="flex:0 0 auto;"><button id="generateBtn">自動生成</button></div>
+        <div style="flex:0 0 auto;"><button class="secondary" id="exportBtn">シートに書き出す</button></div>
+      </div>
+      <div id="boardMsg"></div>
+      <p class="hint">「自動生成」は結果を保存します。🔒で固定したマスは残したまま組み直します。まだ出欠を出していない人を下の欄で仮に「来る」にしておくと、その前提で組めます（出欠シートには書き込まれません）。</p>
+    </div>
+
+    <div class="card" id="assumeCard" style="display:none;">
+      <h2>まだ出欠を出していない人 <span class="muted" id="assumeCount"></span></h2>
+      <p class="hint">この人たちは本来なら人員表に入りません。<b>仮に「来る」ことにして自動生成できます。</b>ここでの操作は出欠シートには書き込まれないので、あとから本人が出した回答を上書きしません。</p>
+      <div class="row tight" style="margin-bottom:10px;">
+        <button class="secondary small" id="assumeAllYes">全員を全日「来る」にする</button>
+        <button class="secondary small" id="assumeClear">全部戻す</button>
+      </div>
+      <div id="assumeList"></div>
+    </div>
+
+    <div class="card">
+      <h2>過不足</h2>
+      <div id="warnBox" class="muted">まだ生成されていません。</div>
+    </div>
+
+    <div class="card">
+      <h2>人員表</h2>
+      <p class="hint">
+        クリックで選択、ドラッグや Shift+クリックで範囲選択。矢印・Tab・Home・End・PageUp/Down で移動（Ctrl+矢印で端まで）。<br>
+        <b>ダブルクリックか Enter で編集</b>。<b>Ctrl+C / Ctrl+V</b> でコピー・貼り付け、<b>Ctrl+D</b> で一番上の行を下へ写す、Delete で空に、<b>Ctrl+L</b> で固定の切り替え、<b>Ctrl+Z / Ctrl+Y</b> で元に戻す・やり直す。<br>
+        固定したマスは自動生成で動きません。名前の横の🔒はその人を丸ごと固定します。<br>
+        <b>行けないと答えている日のマス（灰色）も手で入れられます。</b>自動生成では入りませんが、手で入れたぶんは固定されるので組み直しても消えません。
+      </p>
+      <div class="legend">
+        <span><span class="swatch" style="background:#fff;border:1px solid #fecaca;"></span><b style="color:#c00000;">赤字の馬名</b>＝その競技に出る人</span>
+        <span><span class="swatch" style="background:#fff;border:1px solid #d1d5db;"></span>黒字の馬名＝その馬の手伝い（馬付き）</span>
+        <span><span class="swatch abs"></span>右上の角印＝その日は来られないと答えている（手で入れられます）</span>
+        <span><span class="swatch" style="background:#fef2f2;border:1px solid #fecaca;"></span>人数が足りない競技</span>
+        <span><span class="swatch" style="background:#fffbeb;border:1px solid #fde68a;"></span>未保存の変更</span>
+        <span><span class="swatch" style="background:#fff;border-left:3px solid #b45309;"></span>固定したマス</span>
+      </div>
+      <label class="row-filter">
+        <input type="checkbox" id="showAllRows">
+        行けない人・未回答の人も表に出す
+        <span class="muted">（全日行けないと答えた人や、まだ出欠を出していない人の行も出します）</span>
+      </label>
+      <div class="cell-tools" id="cellTools" style="display:none;">
+        <span><span id="cellCount" class="muted"></span> <span id="cellMsg" class="muted"></span></span>
+        <span>
+          <button class="secondary small" id="lockBtn" title="Ctrl+L">🔒 固定を切り替え</button>
+          <button class="secondary small" id="copyBtn" title="Ctrl+C">コピー</button>
+          <button class="secondary small" id="pasteBtn" title="Ctrl+V">貼り付け</button>
+          <button class="secondary small" id="clearBtn" title="Delete">空にする</button>
+        </span>
+      </div>
+      <div id="matrixBox" tabindex="0" style="margin-top:10px;" class="muted">大会を選択してください</div>
+      <div class="saving-bar" id="savingBar">
+        <span id="dirtyCount" class="muted"></span>
+        <span>
+          <button class="secondary" id="discardBtn">変更を捨てる</button>
+          <button id="saveCellsBtn">変更を保存</button>
+        </span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const show = (el, cls, text) => { el.innerHTML = '<div class="msg ' + cls + '">' + esc(text) + '</div>'; };
+
+// ===== プルダウン（候補から選ぶ／無ければ「その他」で手入力） =====
+const OTHER = '__other__';
+
+/**
+ * 候補のプルダウンと、その他を選んだときだけ出る入力欄を組にして返す。
+ * 保存済みの値が候補に無いときは、自動で「その他」側に入れて表示する。
+ * （候補を後から減らしても、前に入力した大会名や競技名が消えないようにするため）
+ */
+function pickHtml(cls, choices, value, placeholder, style) {
+  const v = value === null || value === undefined ? '' : String(value);
+  const list = choices || [];
+  const isOther = v !== '' && list.indexOf(v) < 0;
+  const opts = '<option value="">' + esc(placeholder) + '</option>' +
+    list.map((c) => '<option value="' + esc(c) + '"' + (!isOther && c === v ? ' selected' : '') + '>' + esc(c) + '</option>').join('') +
+    '<option value="' + OTHER + '"' + (isOther ? ' selected' : '') + '>その他（自由入力）</option>';
+  return '<span class="pick ' + cls + '" style="' + (style || '') + '">' +
+    '<select class="pick-select">' + opts + '</select>' +
+    '<input type="text" class="pick-other" placeholder="手で入力" value="' + (isOther ? esc(v) : '') + '"' +
+    (isOther ? '' : ' style="display:none;"') + '></span>';
+}
+
+// .pick の中身から実際の値を取り出す
+function pickValue(el) {
+  if (!el) return '';
+  const sel = el.querySelector('.pick-select');
+  if (sel.value === OTHER) return el.querySelector('.pick-other').value.trim();
+  return sel.value.trim();
+}
+
+// ===== 日付 =====
+const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
+const pad2 = (n) => ('0' + n).slice(-2);
+const fmtDate = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+
+function toDate(s) {
+  const m = String(s == null ? '' : s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+// '2026-10-20' → 「10月20日(火)」。日付なしの大会は「全日」
+function prettyDate(s) {
+  const d = toDate(s);
+  return d ? (d.getMonth() + 1) + '月' + d.getDate() + '日(' + 曜日名[d.getDay()] + ')' : '全日';
+}
+
+function datesBetween(a, b) {
+  const s = toDate(a);
+  if (!s) return [];
+  const e = toDate(b);
+  const last = e && e >= s ? e : s;
+  const out = [];
+  for (const d = new Date(s); d <= last && out.length < 31; d.setDate(d.getDate() + 1)) out.push(fmtDate(d));
+  return out;
+}
+
+// ===== 出欠（日付が空の回答は全日に効く。コード.gs 側と同じ扱い） =====
+function attMap(responses) {
+  const map = {};
+  (responses || []).forEach((r) => {
+    if (!map[r.memberId]) map[r.memberId] = {};
+    map[r.memberId][r.date || ''] = r.attending;
+  });
+  return map;
+}
+
+function attendsOn(map, memberId, date) {
+  const m = map[memberId];
+  if (!m) return false;
+  const key = date || '';
+  if (m[key] !== undefined) return m[key];
+  if (m[''] !== undefined) return m[''];
+  return false;
+}
+
+const attendsAny = (map, memberId) => !!map[memberId] && Object.keys(map[memberId]).some((k) => map[memberId][k]);
+
+let TOKEN = localStorage.getItem('adminToken') || '';
+let ALL = { posts: [], maxGrade: 6, defaultJobs: [], choices: {}, jobColors: {}, academicYear: 0, members: [], horses: [], events: [], competitions: [], jobs: [] };
+const CH = (key) => (ALL.choices && ALL.choices[key]) || [];
+const 学年一覧 = () => { const a = []; for (let i = 1; i <= (ALL.maxGrade || 6); i++) a.push(i); return a; };
+const 使える馬 = () => ALL.horses.filter((h) => h.active).map((h) => h.name);
+let EV = null;          // 選択中の大会の付随データ
+let CELLS = {};         // 画面上の人員表（未保存を含む）
+let DIRTY = {};         // 変更したマスのキー
+let ASSUME = {};        // 「部員ID|日付」→ 仮に置いた出欠（仮組み用。保存しない）
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+
+const API = 'https://script.google.com/macros/s/AKfycbxUWCdZAA0-JIhl2Pr10KbAIZSKY4hcn7MfFwRWODjd0WQBWmmA25A-GdtVb5mcK38MTQ/exec';
+
+/**
+ * サーバ（Apps Script）を呼ぶ。
+ *
+ * この画面は script.google.com の外に置いてあるので、GASの画面用の呼び出し口は使えない。
+ * かわりに fetch で叩く。**別オリジンなのでCookieが飛ばない**ぶん、
+ * 複数のGoogleアカウントに同時ログインしていても「ファイルを開くことができません」にならない。
+ * 画面を外に出したのはそのため。
+ *
+ * Content-Type を text/plain にしているのは、application/json にすると
+ * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ */
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({ fn: fn, args: args }),
+  }).then((res) => {
+    if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
+    return res.json();
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
+    return r.value;
+  }).finally(() => { busy(false); });
+}
+
+// 期限切れならログイン画面に戻す
+function handleError(el, e) {
+  const m = (e && e.message) || String(e);
+  if (/ログインの有効期限/.test(m)) { logout(); return; }
+  show(el, 'error', m);
+}
+
+// ===== ログイン =====
+$('loginBtn').addEventListener('click', doLogin);
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+async function doLogin() {
+  const pw = $('pw').value;
+  if (!pw) return show($('loginMsg'), 'error', 'パスワードを入力してください。');
+  $('loginBtn').disabled = true;
+  try {
+    TOKEN = await call('login', pw);
+    localStorage.setItem('adminToken', TOKEN);
+    await start();
+  } catch (e) {
+    show($('loginMsg'), 'error', (e && e.message) || String(e));
+  } finally {
+    $('loginBtn').disabled = false;
+  }
+}
+
+function logout() {
+  TOKEN = '';
+  localStorage.removeItem('adminToken');
+  $('appView').style.display = 'none';
+  $('loginView').style.display = 'block';
+  $('logoutLink').style.display = 'none';
+  $('pw').value = '';
+  show($('loginMsg'), 'warning', 'ログインし直してください。');
+}
+$('logoutLink').addEventListener('click', logout);
+
+// ===== タブ =====
+const TABS = { members: 'tab-members', events: 'tab-events', entries: 'tab-entries', board: 'tab-board' };
+document.querySelectorAll('.tabs button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tabs button').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    Object.keys(TABS).forEach((k) => { $(TABS[k]).style.display = k === btn.dataset.tab ? 'block' : 'none'; });
+  });
+});
+
+// ===== 部員 =====
+const gradeOf = (y) => (y ? ALL.academicYear - Number(y) + 1 : null);
+
+function updateGradePreview() {
+  const y = Number($('memberJoinYear').value);
+  const g = gradeOf(y);
+  $('gradePreview').textContent = !y ? '' : (g < 1 ? 'まだ入部していない年です' : '今は ' + g + '年生（' + ALL.academicYear + '年度）');
+}
+$('memberJoinYear').addEventListener('input', updateGradePreview);
+
+function resetMemberForm() {
+  ['memberId', 'memberName', 'memberJoinYear', 'memberNote'].forEach((id) => { $(id).value = ''; });
+  $('memberPost').value = '';
+  $('memberFormTitle').textContent = '部員を1人ずつ追加';
+  $('cancelMemberBtn').style.display = 'none';
+  $('memberMsg').innerHTML = '';
+  updateGradePreview();
+}
+$('cancelMemberBtn').addEventListener('click', resetMemberForm);
+
+$('saveMemberBtn').addEventListener('click', async () => {
+  const name = $('memberName').value.trim();
+  if (!name) return show($('memberMsg'), 'error', '名前を入力してください。');
+  try {
+    ALL.members = await call('adminSaveMember', TOKEN, {
+      id: $('memberId').value, name: name, joinYear: $('memberJoinYear').value,
+      post: $('memberPost').value, note: $('memberNote').value,
+    });
+    resetMemberForm();
+    renderMembers();
+  } catch (e) { handleError($('memberMsg'), e); }
+});
+
+$('bulkBtn').addEventListener('click', async () => {
+  const text = $('bulkText').value;
+  if (!text.trim()) return show($('bulkMsg'), 'error', '貼り付ける内容が空です。');
+  $('bulkBtn').disabled = true;
+  try {
+    const r = await call('adminBulkMembers', TOKEN, text);
+    ALL.members = r.members;
+    const skip = r.skipped.length ? '（すでに登録済みのため飛ばした人：' + r.skipped.join('、') + '）' : '';
+    show($('bulkMsg'), 'success', r.added + '人を登録しました。' + skip);
+    $('bulkText').value = '';
+    renderMembers();
+  } catch (e) { handleError($('bulkMsg'), e); } finally { $('bulkBtn').disabled = false; }
+});
+
+window.editMember = (id) => {
+  const m = ALL.members.filter((x) => x.id === id)[0];
+  if (!m) return;
+  $('memberId').value = m.id;
+  $('memberName').value = m.name;
+  $('memberJoinYear').value = m.joinYear || '';
+  $('memberPost').value = m.post || '';
+  $('memberNote').value = m.note || '';
+  updateGradePreview();
+  $('memberFormTitle').textContent = '部員を編集';
+  $('cancelMemberBtn').style.display = 'inline-block';
+  $('memberFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+window.deleteMember = async (id) => {
+  const m = ALL.members.filter((x) => x.id === id)[0];
+  if (!confirm((m ? m.name : 'この部員') + 'を削除しますか？')) return;
+  try {
+    ALL.members = await call('adminDeleteMember', TOKEN, id);
+    renderMembers();
+  } catch (e) { handleError($('memberMsg'), e); }
+};
+
+function renderMembers() {
+  $('memberCount').textContent = ALL.members.length ? ALL.members.length + '人' : '';
+  if (!ALL.members.length) { $('memberList').innerHTML = 'まだ登録されていません。上の欄に名簿を貼り付けてください。'; return; }
+
+  const byPost = {};
+  ALL.members.forEach((m) => { (byPost[m.post || '役職なし'] = byPost[m.post || '役職なし'] || []).push(m); });
+  const order = ALL.posts.concat(['役職なし']);
+
+  $('memberList').innerHTML = order.filter((p) => byPost[p]).map((post) =>
+    '<h3 style="margin-top:14px;">' + esc(post) + ' <span class="muted">' + byPost[post].length + '人</span></h3>' +
+    byPost[post].map((m) =>
+      '<div class="list-item"><div><strong>' + esc(m.name) + '</strong> <span class="muted">' +
+      (m.grade ? m.grade + '年（' + m.joinYear + '年入部）' : '入部年 未設定') + '</span>' +
+      (m.grade > 6 ? ' <span class="pill no">卒業済み？</span>' : '') +
+      (m.note ? ' <span class="muted">／ ' + esc(m.note) + '</span>' : '') +
+      '</div><div style="flex:0 0 auto;">' +
+      '<button class="secondary small" onclick="editMember(\'' + m.id + '\')">編集</button> ' +
+      '<button class="danger small" onclick="deleteMember(\'' + m.id + '\')">削除</button></div></div>'
+    ).join('')
+  ).join('');
+}
+
+// ===== 馬 =====
+function resetHorseForm() {
+  $('horseId').value = '';
+  $('horseName').value = '';
+  $('horseNote').value = '';
+  $('horseActive').checked = true;
+  $('horseChief').innerHTML = '<option value="">決めていない</option>' +
+    ALL.members.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + '</option>').join('');
+  $('cancelHorseBtn').style.display = 'none';
+  $('horseMsg').innerHTML = '';
+}
+$('cancelHorseBtn').addEventListener('click', resetHorseForm);
+
+$('saveHorseBtn').addEventListener('click', async () => {
+  const name = $('horseName').value.trim();
+  if (!name) return show($('horseMsg'), 'error', '馬名を入力してください。');
+  try {
+    ALL.horses = await call('adminSaveHorse', TOKEN, {
+      id: $('horseId').value, name: name, note: $('horseNote').value,
+      active: $('horseActive').checked, chief: $('horseChief').value,
+    });
+    resetHorseForm();
+    renderHorses();
+  } catch (e) { handleError($('horseMsg'), e); }
+});
+
+window.editHorse = (id) => {
+  const h = ALL.horses.filter((x) => x.id === id)[0];
+  if (!h) return;
+  resetHorseForm();
+  $('horseId').value = h.id;
+  $('horseName').value = h.name;
+  $('horseNote').value = h.note || '';
+  $('horseActive').checked = h.active;
+  $('horseChief').value = h.chief || '';
+  $('cancelHorseBtn').style.display = 'inline-block';
+  $('horseName').focus();
+};
+
+window.deleteHorse = async (id) => {
+  const h = ALL.horses.filter((x) => x.id === id)[0];
+  if (!confirm((h ? h.name : 'この馬') + 'を一覧から消しますか？\n（もう乗らないだけなら、編集して「使用中」を外すほうが安全です）')) return;
+  try {
+    ALL.horses = await call('adminDeleteHorse', TOKEN, id);
+    renderHorses();
+  } catch (e) { handleError($('horseMsg'), e); }
+};
+
+function renderHorses() {
+  if (!ALL.horses.length) { $('horseList').innerHTML = '<span class="muted">まだ登録されていません。</span>'; return; }
+  $('horseList').innerHTML = ALL.horses.map((h) =>
+    '<span class="pill' + (h.active ? ' yes' : '') + '" style="' + (h.active ? '' : 'opacity:.55;') + '">' +
+    esc(h.name) + (h.active ? '' : '<span class="muted">／使っていない</span>') +
+    (h.chief ? '<span class="muted">／チーフ ' + esc(h.chief) + '</span>' : '') +
+    (h.note ? '<span class="muted">／' + esc(h.note) + '</span>' : '') +
+    ' <a style="cursor:pointer;text-decoration:underline;" onclick="editHorse(\'' + h.id + '\')">編集</a>' +
+    ' <a style="cursor:pointer;text-decoration:underline;color:var(--danger);" onclick="deleteHorse(\'' + h.id + '\')">削除</a>' +
+    '</span>').join('');
+}
+
+// ===== 大会・競技 =====
+function compRow(c) {
+  c = c || {};
+  return '<div class="row tight comp-row" style="margin-bottom:6px;">' +
+    pickHtml('comp-name', CH('競技名'), c.name || '', '競技名を選択', 'flex:1 1 200px;') +
+    '<input type="hidden" class="comp-id" value="' + esc(c.id || '') + '">' +
+    '<button class="danger small remove-comp">削除</button></div>';
+}
+
+// 1日ぶんのまとまり。この日の競技と、この日の仕事の必要人数を一緒に持つ。
+function dayBlock(date, comps, jobs) {
+  const cs = (comps && comps.length ? comps : [{}]).map(compRow).join('');
+  const js = (jobs && jobs.length ? jobs : ALL.defaultJobs).map(jobRow).join('');
+  return '<div class="card day-block" data-date="' + esc(date || '') + '" style="background:#fafbfc;">' +
+    '<h3 class="day-heading">' + esc(prettyDate(date)) + '</h3>' +
+    '<label>この日の競技</label>' +
+    '<p class="hint">競技を<b>開催順</b>に並べてください。この順番がそのまま人員表の列の並びになります。競技順は道馬連のHPで確認してください。</p>' +
+    '<div class="comp-list">' + cs + '</div>' +
+    '<button class="secondary small add-comp">＋ 競技を追加</button>' +
+    '<label style="margin-top:18px;">この日の仕事と必要人数</label>' +
+    '<p class="hint">「就ける役職」「就ける学年」「就ける人」は<b>締め出す</b>条件です。空欄なら誰でも入れます。' +
+    '真駒内や早来のように行ける人が決まっている仕事は、就ける人に名前を入れてください。' +
+    '「優先する学年」は<b>その学年から先に入れる</b>だけで、足りなければ他の学年からも入れます（使役を1・2年中心にする、など）。最高人数は空欄で上限なし。</p>' +
+    '<div class="job-list">' + js + '</div>' +
+    '<button class="secondary small add-job">＋ 仕事を追加</button> ' +
+    '<button class="secondary small copy-prev">前の日の仕事をコピー</button>' +
+    '</div>';
+}
+
+// 保存済みの仕事（name/min/max）と初期値の仕事（仕事名/最低人数/最高人数）の両方を受け取る
+function jobRow(j) {
+  j = j || {};
+  const name = j.name || j['仕事名'] || '';
+  const min = j.min !== undefined ? j.min : (j['最低人数'] !== undefined ? j['最低人数'] : '');
+  const max = j.max !== undefined && j.max !== null ? j.max : (j['最高人数'] !== undefined ? j['最高人数'] : '');
+  const allowed = j.allowedPosts || (j['就ける役職'] ? String(j['就ける役職']).split(/[,、\s]+/) : []);
+  const grades = (j.allowedGrades || (j['就ける学年'] ? String(j['就ける学年']).split(/[,、\s年]+/) : []))
+    .map(Number).filter((n) => n >= 1);
+  const posts2 = ALL.posts.map((p) =>
+    '<label class="inline"><input type="checkbox" class="job-post" value="' + esc(p) + '"' +
+    (allowed.indexOf(p) >= 0 ? ' checked' : '') + '> ' + esc(p) + '</label>').join('');
+  const grades2 = 学年一覧().map((g) =>
+    '<label class="inline"><input type="checkbox" class="job-grade" value="' + g + '"' +
+    (grades.indexOf(g) >= 0 ? ' checked' : '') + '> ' + g + '年</label>').join('');
+  const pref = (j.preferredGrades || (j['優先する学年'] ? String(j['優先する学年']).split(/[,、\s年]+/) : []))
+    .map(Number).filter((n) => n >= 1);
+  const grades3 = 学年一覧().map((g) =>
+    '<label class="inline"><input type="checkbox" class="job-pref" value="' + g + '"' +
+    (pref.indexOf(g) >= 0 ? ' checked' : '') + '> ' + g + '年</label>').join('');
+  // 真駒内や早来のように、行ける人が決まっている仕事のため
+  const 就ける人 = (j.allowedMembers || (j['就ける人'] ? String(j['就ける人']).split(/[,、]+/) : []))
+    .map((s) => String(s).trim()).filter(Boolean);
+  const 人の欄 =
+    '<input type="text" class="job-members" style="flex:1 1 200px;" placeholder="全員可（空欄）" value="' + esc(就ける人.join('、')) + '">' +
+    '<select class="job-member-add" style="flex:0 0 140px;">' +
+    '<option value="">＋ 人を足す</option>' +
+    ALL.members.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + '</option>').join('') +
+    '</select>';
+  return '<div class="role-card job-row">' +
+    '<div class="row tight" style="margin-bottom:6px;">' +
+    pickHtml('job-name', CH('仕事名'), name, '仕事名を選択', 'flex:1 1 180px;') +
+    '<input type="number" class="job-min" style="flex:0 0 110px;" min="0" placeholder="最低人数" value="' + esc(min) + '">' +
+    '<input type="number" class="job-max" style="flex:0 0 110px;" min="0" placeholder="最高人数" value="' + esc(max) + '">' +
+    '<input type="hidden" class="job-id" value="' + esc(j.id || '') + '">' +
+    '<button class="danger small remove-job">削除</button></div>' +
+    '<div class="muted">就ける役職：' + posts2 + '</div>' +
+    '<div class="muted" style="margin-top:4px;">就ける学年：' + grades2 + '</div>' +
+    '<div class="muted" style="margin-top:4px;">優先する学年：' + grades3 + '</div>' +
+    '<div class="muted" style="margin-top:4px;">就ける人：</div>' +
+    '<div class="row tight" style="margin-top:2px;">' + 人の欄 + '</div></div>';
+}
+
+function appendHtml(container, html) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  container.appendChild(wrap.firstElementChild);
+}
+
+$('tab-events').addEventListener('click', (e) => {
+  const t = e.target;
+  if (t.classList.contains('remove-comp')) t.closest('.comp-row').remove();
+  else if (t.classList.contains('remove-job')) t.closest('.job-row').remove();
+  else if (t.classList.contains('add-comp')) appendHtml(t.closest('.day-block').querySelector('.comp-list'), compRow());
+  else if (t.classList.contains('add-job')) appendHtml(t.closest('.day-block').querySelector('.job-list'), jobRow());
+  else if (t.classList.contains('copy-prev')) copyPrevJobs(t.closest('.day-block'));
+});
+
+// 前の日と同じ仕事構成にする。日ごとに入れ直すのは手間なので。
+function copyPrevJobs(block) {
+  const blocks = Array.prototype.slice.call($('dayList').querySelectorAll('.day-block'));
+  const i = blocks.indexOf(block);
+  if (i <= 0) { alert('前の日がありません。'); return; }
+  const list = block.querySelector('.job-list');
+  list.innerHTML = '';
+  // IDは引き継がない（別の日の別の行として保存させる）
+  collectJobs(blocks[i - 1]).forEach((j) => appendHtml(list, jobRow({
+    name: j.name, min: j.min, max: j.max, allowedPosts: j.allowedPosts,
+    allowedGrades: j.allowedGrades, preferredGrades: j.preferredGrades, allowedMembers: j.allowedMembers,
+  })));
+}
+
+// 期間を変えたら日のブロックを作り直す。すでに入力した日は中身をそのまま残す。
+function rebuildDays() {
+  const dates = datesBetween($('eventStart').value, $('eventEnd').value);
+  const 既存 = {};
+  $('dayList').querySelectorAll('.day-block').forEach((d) => { 既存[d.dataset.date || ''] = d; });
+  const 全日 = 既存[''];
+
+  $('dayCount').textContent = dates.length ? dates.length + '日ぶんの出欠と仕事を作ります' : '';
+
+  const list = dates.length ? dates : (Object.keys(既存).length ? Object.keys(既存) : ['']);
+  const wrap = document.createElement('div');
+  list.forEach((date, i) => {
+    let block = 既存[date];
+    // 期間を後から入れた場合、日付なしで書きかけた内容を初日に引き継ぐ
+    if (!block && i === 0 && 全日 && dates.length) {
+      block = 全日;
+      block.dataset.date = date;
+      block.querySelector('.day-heading').textContent = prettyDate(date);
+    }
+    if (block) wrap.appendChild(block);
+    else appendHtml(wrap, dayBlock(date, null, null));
+  });
+
+  $('dayList').innerHTML = '';
+  while (wrap.firstChild) $('dayList').appendChild(wrap.firstChild);
+}
+
+$('eventStart').addEventListener('change', () => {
+  if ($('eventStart').value && !$('eventEnd').value) $('eventEnd').value = $('eventStart').value;
+  rebuildDays();
+});
+$('eventEnd').addEventListener('change', rebuildDays);
+// 「就ける人」に、選んだ人を足す
+$('tab-events').addEventListener('change', (e) => {
+  const sel = e.target;
+  if (!sel.classList || !sel.classList.contains('job-member-add') || !sel.value) return;
+  const 欄 = sel.closest('.job-row').querySelector('.job-members');
+  const 今 = String(欄.value || '').split(/[,、]+/).map((s) => s.trim()).filter(Boolean);
+  if (今.indexOf(sel.value) < 0) 今.push(sel.value);
+  欄.value = 今.join('、');
+  sel.value = '';
+});
+
+// 「その他（自由入力）」を選んだときだけ入力欄を出す
+$('tab-events').addEventListener('change', (e) => {
+  const sel = e.target;
+  if (!sel.classList || !sel.classList.contains('pick-select')) return;
+  const other = sel.parentNode.querySelector('.pick-other');
+  if (sel.value === OTHER) { other.style.display = ''; other.focus(); }
+  else { other.style.display = 'none'; other.value = ''; }
+});
+
+// 1日ぶんのブロックから仕事を取り出す
+function collectJobs(dayEl) {
+  const out = [];
+  dayEl.querySelectorAll('.job-row').forEach((j) => {
+    const name = pickValue(j.querySelector('.job-name'));
+    if (!name) return;
+    out.push({
+      id: j.querySelector('.job-id').value || '',
+      name: name,
+      min: j.querySelector('.job-min').value,
+      max: j.querySelector('.job-max').value,
+      allowedPosts: Array.prototype.slice.call(j.querySelectorAll('.job-post:checked')).map((c) => c.value),
+      allowedGrades: Array.prototype.slice.call(j.querySelectorAll('.job-grade:checked')).map((c) => Number(c.value)),
+      preferredGrades: Array.prototype.slice.call(j.querySelectorAll('.job-pref:checked')).map((c) => Number(c.value)),
+      allowedMembers: String(j.querySelector('.job-members').value || '')
+        .split(/[,、]+/).map((s) => s.trim()).filter(Boolean),
+    });
+  });
+  return out;
+}
+
+// 画面の入れ子構造を、シートに入る平らな並びに変換する
+function collectEvent() {
+  const competitions = [];
+  const jobs = [];
+
+  $('dayList').querySelectorAll('.day-block').forEach((d) => {
+    const date = d.dataset.date || '';
+    d.querySelectorAll('.comp-row').forEach((c) => {
+      const name = pickValue(c.querySelector('.comp-name'));
+      if (!name) return;
+      competitions.push({ id: c.querySelector('.comp-id').value || '', date: date, name: name });
+    });
+    collectJobs(d).forEach((j) => { j.date = date; jobs.push(j); });
+  });
+
+  return {
+    id: $('eventId').value,
+    name: $('eventName').value.trim(),
+    startDate: $('eventStart').value,
+    endDate: $('eventEnd').value,
+    competitions: competitions,
+    jobs: jobs,
+  };
+}
+
+function resetEventForm() {
+  $('eventId').value = '';
+  $('eventName').value = '';
+  $('eventStart').value = '';
+  $('eventEnd').value = '';
+  $('dayList').innerHTML = '';
+  rebuildDays();
+  $('eventFormTitle').textContent = '大会を追加';
+  $('cancelEventBtn').style.display = 'none';
+  $('eventMsg').innerHTML = '';
+}
+$('cancelEventBtn').addEventListener('click', resetEventForm);
+
+$('saveEventBtn').addEventListener('click', async () => {
+  const body = collectEvent();
+  if (!body.name) return show($('eventMsg'), 'error', '大会名を入力してください。');
+  if (!body.startDate && !body.competitions.length) {
+    return show($('eventMsg'), 'error', '期間を入れるか、競技を1つ以上入力してください。');
+  }
+  if (body.competitions.length && !body.jobs.length) {
+    return show($('eventMsg'), 'error', '競技を入れた日には、仕事の必要人数も入れてください。');
+  }
+  $('saveEventBtn').disabled = true;
+  try {
+    const r = await call('adminSaveEvent', TOKEN, body);
+    ALL.events = r.events; ALL.competitions = r.competitions; ALL.jobs = r.jobs;
+    resetEventForm();
+    renderEvents();
+    fillEventSelects();
+    show($('eventMsg'), 'success', '保存しました。');
+  } catch (e) { handleError($('eventMsg'), e); } finally { $('saveEventBtn').disabled = false; }
+});
+
+window.editEvent = (id) => {
+  const ev = ALL.events.filter((e) => e.id === id)[0];
+  if (!ev) return;
+  $('eventId').value = ev.id;
+  $('eventName').value = ev.name;
+  $('eventStart').value = ev.startDate || '';
+  $('eventEnd').value = ev.endDate || '';
+
+  const comps = ALL.competitions.filter((c) => c.eventId === id);
+  const jobs = ALL.jobs.filter((j) => j.eventId === id);
+
+  // 期間が入っていない古い大会は、競技に入っている日付から日を組み立てる
+  let dates = datesBetween(ev.startDate, ev.endDate);
+  if (!dates.length) {
+    const 済 = {};
+    comps.forEach((c) => { if (c.date && !済[c.date]) { 済[c.date] = true; dates.push(c.date); } });
+    dates.sort();
+  }
+  if (!dates.length) dates = [''];
+
+  // 日付を持たない仕事は、どの日にも効く共通の設定として全日に出す。
+  // このときIDは外す。同じIDのまま各日に配ると、保存したときに同じIDの行が日数ぶんできてしまう。
+  const 共通の仕事 = jobs.filter((j) => !j.date).map((j) => ({
+    name: j.name, min: j.min, max: j.max, allowedPosts: j.allowedPosts, allowedGrades: j.allowedGrades,
+  }));
+
+  $('dayList').innerHTML = '';
+  dates.forEach((date) => {
+    const dayJobs = jobs.filter((j) => (j.date || '') === date);
+    appendHtml($('dayList'), dayBlock(
+      date,
+      comps.filter((c) => (c.date || '') === date),
+      dayJobs.length ? dayJobs : 共通の仕事
+    ));
+  });
+  $('dayCount').textContent = dates.length && dates[0] ? dates.length + '日ぶんの出欠と仕事を作ります' : '';
+
+  $('eventFormTitle').textContent = '大会を編集';
+  $('cancelEventBtn').style.display = 'inline-block';
+  $('eventFormTitle').scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+window.deleteEvent = async (id) => {
+  if (!confirm('この大会を削除しますか？（競技・出欠・出場・人員表も消えます）')) return;
+  try {
+    const r = await call('adminDeleteEvent', TOKEN, id);
+    ALL.events = r.events; ALL.competitions = r.competitions; ALL.jobs = r.jobs;
+    renderEvents(); fillEventSelects();
+  } catch (e) { handleError($('eventMsg'), e); }
+};
+
+function renderEvents() {
+  if (!ALL.events.length) { $('eventList').innerHTML = 'まだ登録されていません。'; return; }
+  $('eventList').innerHTML = ALL.events.map((ev) => {
+    const comps = ALL.competitions.filter((c) => c.eventId === ev.id);
+    const jobs = ALL.jobs.filter((j) => j.eventId === ev.id);
+    const dates = datesBetween(ev.startDate, ev.endDate);
+    const 期間 = dates.length
+      ? prettyDate(dates[0]) + (dates.length > 1 ? '〜' + prettyDate(dates[dates.length - 1]) : '') + '（' + dates.length + '日）'
+      : '期間なし';
+    return '<div class="list-item"><div><strong>' + esc(ev.name) + '</strong><br><span class="muted">' +
+      esc(期間) + '／全' + comps.length + '競技／仕事' + jobs.length + '件</span></div>' +
+      '<div style="flex:0 0 auto;">' +
+      '<button class="secondary small" onclick="editEvent(\'' + ev.id + '\')">編集</button> ' +
+      '<button class="danger small" onclick="deleteEvent(\'' + ev.id + '\')">削除</button></div></div>';
+  }).join('');
+}
+
+function fillEventSelects() {
+  [$('entryEventSelect'), $('boardEventSelect')].forEach((sel) => {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">選択してください</option>' +
+      ALL.events.map((e) => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
+    if (cur && ALL.events.some((e) => e.id === cur)) sel.value = cur;
+  });
+}
+
+// ===== 部員に配るURL =====
+async function loadShareUrl() {
+  try {
+    const r = await call('adminShareUrl', TOKEN);
+    $('shareUrl').value = r.memberUrl || '';
+    if (!r.memberUrl) show($('shareMsg'), 'warning', 'まだデプロイされていないため、URLが取れません。');
+  } catch (e) { handleError($('shareMsg'), e); }
+}
+
+$('copyUrlBtn').addEventListener('click', () => {
+  const url = $('shareUrl').value;
+  if (!url) return;
+  // Apps Scriptの画面はiframeの中なので、クリップボードAPIが使えないことがある
+  $('shareUrl').select();
+  $('shareUrl').setSelectionRange(0, 99999);
+  let 成功 = false;
+  try { 成功 = document.execCommand('copy'); } catch (e) { 成功 = false; }
+  show($('shareMsg'), 成功 ? 'success' : 'warning',
+    成功 ? 'コピーしました。' : '自動でコピーできませんでした。選択されているので、Ctrl+C でコピーしてください。');
+});
+
+// ===== 出欠・出場 =====
+$('entryEventSelect').addEventListener('change', () => loadEventData($('entryEventSelect').value, renderEntriesTab));
+
+async function loadEventData(eventId, then) {
+  if (!eventId) { EV = null; then(); return; }
+  try {
+    EV = await call('adminLoadEvent', TOKEN, eventId);
+    EV.eventId = eventId;
+    then();
+  } catch (e) { handleError($('entryMsg'), e); }
+}
+
+function renderEntriesTab() {
+  if (!EV) {
+    $('responseStats').innerHTML = '';
+    $('unansweredList').innerHTML = '<span class="muted">大会を選択してください</span>';
+    $('absentList').innerHTML = ''; $('commentList').innerHTML = 'なし';
+    $('entryList').innerHTML = '大会を選択してください';
+    return;
+  }
+  const att = attMap(EV.responses);
+  const answered = ALL.members.filter((m) => att[m.id]);
+  const unanswered = ALL.members.filter((m) => !att[m.id]);
+  const days = EV.days || [];
+
+  // 日ごとの出席人数。どの日が手薄かをここで見る。
+  $('responseStats').innerHTML = days.map((d) => {
+    const yes = answered.filter((m) => attendsOn(att, m.id, d.date)).length;
+    const no = answered.length - yes;
+    return '<div class="stat"><b style="color:' + (yes ? '#16a34a' : '#dc2626') + '">' + yes + '</b>' +
+      '<span>' + esc(d.label) + (no ? '／欠' + no : '') + '</span></div>';
+  }).join('') +
+    '<div class="stat"><b style="color:' + (unanswered.length ? '#dc2626' : '#6b7280') + '">' + unanswered.length + '</b><span>未回答</span></div>' +
+    '<div class="stat"><b>' + ALL.members.length + '</b><span>部員数</span></div>';
+
+  const pills = (list, cls) => list.length
+    ? list.map((m) => '<span class="pill ' + cls + '">' + esc(m.name) + (m.post ? '<span class="muted">／' + esc(m.post) + '</span>' : '') + '</span>').join('')
+    : '<span class="muted">なし</span>';
+  $('unansweredList').innerHTML = pills(unanswered, 'no');
+
+  // 1日でも行けない日がある人は、どの日が駄目なのかまで出す
+  const 部分欠 = answered.filter((m) => days.some((d) => !attendsOn(att, m.id, d.date)));
+  $('absentList').innerHTML = 部分欠.length ? 部分欠.map((m) => {
+    const ng = days.filter((d) => !attendsOn(att, m.id, d.date)).map((d) => d.label).join('、');
+    const 全欠 = !attendsAny(att, m.id);
+    return '<span class="pill no">' + esc(m.name) + '<span class="muted">／' + (全欠 ? '全日欠席' : esc(ng)) + '</span></span>';
+  }).join('') : '<span class="muted">なし</span>';
+
+  // 連絡事項は日ごとの行に同じものが入るので、部員ごとに1つにまとめる
+  const 連絡 = {};
+  EV.responses.forEach((r) => {
+    if (r.comment && String(r.comment).trim() && !連絡[r.memberId]) 連絡[r.memberId] = String(r.comment).trim();
+  });
+  const 連絡のある人 = Object.keys(連絡);
+  $('commentList').innerHTML = 連絡のある人.length ? 連絡のある人.map((id) => {
+    const m = ALL.members.filter((x) => x.id === id)[0];
+    const ng = days.filter((d) => !attendsOn(att, id, d.date)).map((d) => d.label).join('、');
+    return '<div class="list-item"><div><strong>' + esc(m ? m.name : '不明') + '</strong>' +
+      (ng ? ' <span class="pill no">' + esc(ng) + ' 不可</span>' : '') +
+      '<br><span class="muted">' + esc(連絡[id]) + '</span></div></div>';
+  }).join('') : '<span class="muted">なし</span>';
+
+  $('entryMember').innerHTML = ALL.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + '</option>').join('');
+  // 「終日」の枠は競技ではないので、出場先には出さない
+  $('entryComp').innerHTML = EV.competitions.filter((c) => !c.allDay).map((c) =>
+    '<option value="' + c.id + '">' + esc(prettyDate(c.date)) + '：' + esc(c.name) + '</option>').join('');
+  $('entryHorse').innerHTML = '<option value="">馬を選択</option>' +
+    使える馬().map((h) => '<option value="' + esc(h) + '">' + esc(h) + '</option>').join('');
+
+  const compById = {};
+  EV.competitions.forEach((c) => { compById[c.id] = c; });
+  $('entryList').innerHTML = EV.entries.length ? EV.entries.map((x) => {
+    const m = ALL.members.filter((mm) => mm.id === x.memberId)[0];
+    const c = compById[x.competitionId];
+    return '<div class="list-item"><div><strong>' + esc(m ? m.name : '不明') + '</strong> <span class="muted">' +
+      (c ? esc(prettyDate(c.date)) + '：' + esc(c.name) : '（削除された競技）') + '</span> ' +
+      '<span class="rider-tag">' + esc(x.horse || '出場') + '</span>' +
+      '</div><div style="flex:0 0 auto;">馬付き ' +
+      '<input type="number" min="0" max="9" value="' + x.helpers + '" data-helpers="' + x.id + '" style="width:64px;display:inline-block;padding:4px;"> 人 ' +
+      '<button class="danger small" onclick="deleteEntry(\'' + x.id + '\')">削除</button></div></div>';
+  }).join('') : '<span class="muted">まだ登録されていません。部員が出欠と一緒に出すと、ここに並びます。</span>';
+
+  $('entryList').querySelectorAll('input[data-helpers]').forEach((el) => {
+    el.addEventListener('change', async () => {
+      const x = EV.entries.filter((e) => e.id === el.dataset.helpers)[0];
+      if (!x) return;
+      try {
+        EV.entries = await call('adminSaveEntry', TOKEN, EV.eventId, x.memberId, x.competitionId, x.horse, el.value);
+        renderEntriesTab();
+      } catch (e) { handleError($('entryMsg'), e); }
+    });
+  });
+}
+
+$('addEntryBtn').addEventListener('click', async () => {
+  if (!EV) return show($('entryMsg'), 'error', '大会を選択してください。');
+  if (!$('entryHorse').value) return show($('entryMsg'), 'error', '乗る馬を選んでください。');
+  try {
+    EV.entries = await call('adminSaveEntry', TOKEN, EV.eventId,
+      $('entryMember').value, $('entryComp').value, $('entryHorse').value, $('entryHelpers').value);
+    $('entryMsg').innerHTML = '';
+    renderEntriesTab();
+  } catch (e) { handleError($('entryMsg'), e); }
+});
+
+window.deleteEntry = async (id) => {
+  try {
+    EV.entries = await call('adminDeleteEntry', TOKEN, EV.eventId, id);
+    renderEntriesTab();
+  } catch (e) { handleError($('entryMsg'), e); }
+};
+
+// ===== 人員表 =====
+$('boardEventSelect').addEventListener('change', () => {
+  if (Object.keys(DIRTY).length && !confirm('保存していない変更があります。捨てて切り替えますか？')) {
+    $('boardEventSelect').value = EV ? EV.eventId : '';
+    return;
+  }
+  DIRTY = {};
+  ASSUME = {};
+  loadEventData($('boardEventSelect').value, () => {
+    CELLS = EV ? JSON.parse(JSON.stringify(EV.cells)) : {};
+    renderMatrix();
+    renderWarnings(null);
+    renderAssume();
+  });
+});
+
+// ===== 未提出の人の出欠を仮に置く（出欠シートには書かない） =====
+function renderAssume() {
+  if (!EV) { $('assumeCard').style.display = 'none'; return; }
+  const att = attMap(EV.responses);
+  const 未提出 = ALL.members.filter((m) => !att[m.id]);
+  const days = EV.days || [];
+
+  if (!未提出.length || !days.length) {
+    $('assumeCard').style.display = 'none';
+    return;
+  }
+  $('assumeCard').style.display = 'block';
+  $('assumeCount').textContent = 未提出.length + '人';
+
+  $('assumeList').innerHTML = 未提出.map((m) =>
+    '<div class="list-item"><div><strong>' + esc(m.name) + '</strong>' +
+    '<span class="post-tag post-' + esc(m.post || '') + '" style="margin-left:6px;">' + esc(m.post || '未設定') + '</span></div>' +
+    '<div style="flex:0 0 auto;">' + days.map((d) => {
+      const v = ASSUME[m.id + '|' + d.date];
+      return '<label class="inline">' + esc(d.label) +
+        '<select data-assume="' + esc(m.id + '|' + d.date) + '" style="width:auto;display:inline-block;padding:4px 6px;margin-left:4px;">' +
+        '<option value="">未定</option>' +
+        '<option value="1"' + (v === true ? ' selected' : '') + '>来る</option>' +
+        '<option value="0"' + (v === false ? ' selected' : '') + '>来ない</option>' +
+        '</select></label>';
+    }).join('') + '</div></div>').join('');
+
+  $('assumeList').querySelectorAll('select[data-assume]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const k = sel.dataset.assume;
+      if (sel.value === '') delete ASSUME[k];
+      else ASSUME[k] = sel.value === '1';
+    });
+  });
+}
+
+$('assumeAllYes').addEventListener('click', () => {
+  if (!EV) return;
+  const att = attMap(EV.responses);
+  ALL.members.filter((m) => !att[m.id]).forEach((m) => {
+    (EV.days || []).forEach((d) => { ASSUME[m.id + '|' + d.date] = true; });
+  });
+  renderAssume();
+});
+
+$('assumeClear').addEventListener('click', () => { ASSUME = {}; renderAssume(); });
+
+/**
+ * 人員表を描くときの出欠。仮に置いたぶんも混ぜる。
+ * これをしないと、仮組みで組んだ結果が画面に出てこない（本人の回答が無い人が除外されるため）。
+ * 本人が出している回答は上書きしない。コード.gs の 出欠に仮定を重ねる と同じ決まり。
+ */
+function 出欠マップ() {
+  const att = attMap(EV ? EV.responses : []);
+  Object.keys(ASSUME).forEach((k) => {
+    const p = k.split('|');
+    const mid = p[0];
+    const date = p[1] || '';
+    if (!att[mid]) att[mid] = {};
+    if (att[mid][date] === undefined) att[mid][date] = ASSUME[k];
+  });
+  return att;
+}
+
+// サーバに渡す形にする
+function 仮定の一覧() {
+  return Object.keys(ASSUME).map((k) => {
+    const p = k.split('|');
+    return { memberId: p[0], date: p[1] || '', attending: ASSUME[k] };
+  });
+}
+
+function renderWarnings(warnings) {
+  if (!EV) { $('warnBox').innerHTML = 'まだ生成されていません。'; return; }
+  if (!warnings) {
+    $('warnBox').innerHTML = Object.keys(CELLS).length
+      ? '<span class="muted">「自動生成」を押すか、変更を保存すると過不足を計算します。</span>'
+      : 'まだ生成されていません。「自動生成」を押してください。';
+    return;
+  }
+  if (!warnings.length) { $('warnBox').innerHTML = '<div class="msg success">過不足はありません。</div>'; return; }
+  const errors = warnings.filter((w) => w.level === 'error');
+  $('warnBox').innerHTML =
+    '<div class="msg ' + (errors.length ? 'error' : 'warning') + '">' +
+    (errors.length ? errors.length + '件の人数不足があります。' : '確認したい点があります。') + '</div>' +
+    '<div class="warn-list">' + warnings.map((w) =>
+      '<div class="' + (w.level === 'error' ? 'e' : 'w') + '">' + (w.level === 'error' ? '✕' : '△') + ' ' + esc(w.text) + '</div>').join('') + '</div>';
+}
+
+function updateDirtyBar() {
+  const n = Object.keys(DIRTY).length;
+  $('savingBar').className = 'saving-bar' + (n ? ' on' : '');
+  $('dirtyCount').textContent = n ? n + '個のマスを変更しました（未保存）' : '';
+}
+
+// ===== 人員表のマス操作（選択・コピペ・鍵） =====
+// 表計算ソフトと同じ感覚で触れるようにする。マスは普段はただの文字で、
+// ダブルクリックかEnterで初めてプルダウンになる。そうしないと「選ぶ」操作ができない。
+let GRID = null;          // { rows, comps, jobsFor, horseAt, att }
+let ANCHOR = null;        // 選択の起点 {r,c}
+let SEL = null;           // 選択範囲 {r1,c1,r2,c2}
+let CLIP = null;          // コピーした中身（名前で持つ。日をまたいで貼れるように）
+let 編集中 = null;         // 編集用プルダウンを出しているマスのキー
+
+const 選択に入っているか = (r, c) =>
+  !!SEL && r >= SEL.r1 && r <= SEL.r2 && c >= SEL.c1 && c <= SEL.c2;
+
+const マスのキー = (r, c) => GRID.rows[r].id + '|' + GRID.comps[c].id;
+
+/**
+ * マスの配色。書き出したシートと同じ色を使う。
+ * CSSの変数として渡し、選択中や未保存の色のほうが勝つようにしてある。
+ */
+function マスの配色(key) {
+  const cell = CELLS[key];
+  if (!cell || !cell.jobId) return '';
+  const j = EV.jobs.filter((x) => x.id === cell.jobId)[0];
+  const 色 = j && ALL.jobColors ? ALL.jobColors[j.name] : null;
+  if (!色 || (!色.背景 && !色.文字)) return '';
+  return ' style="' + (色.背景 ? '--jb:' + esc(色.背景) + ';' : '') + (色.文字 ? '--jf:' + esc(色.文字) + ';' : '') + '"';
+}
+
+// 表示する文字。仕事名か馬名か、空。
+function マスの表示(key, c) {
+  const cell = CELLS[key];
+  if (!cell) return '';
+  if (cell.horse) return cell.horse;
+  if (!cell.jobId) return '';
+  const j = EV.jobs.filter((x) => x.id === cell.jobId)[0];
+  return j ? j.name : '';
+}
+
+// コピーするときは名前で持つ。貼るときに、その日の同じ名前の仕事へ読み替える。
+function マスの中身(r, c) {
+  const key = マスのキー(r, c);
+  if (GRID.horseAt[key]) return { rider: GRID.horseAt[key] }; // 出場のマスはコピー元として扱わない
+  const cell = CELLS[key];
+  if (!cell) return { empty: true };
+  if (cell.horse) return { horse: cell.horse };
+  const j = EV.jobs.filter((x) => x.id === cell.jobId)[0];
+  return j ? { job: j.name } : { empty: true };
+}
+
+function 選ぶ(r, c, 広げる) {
+  const 最終行 = GRID.rows.length - 1;
+  const 最終列 = GRID.comps.length - 1;
+  r = Math.max(0, Math.min(最終行, r));
+  c = Math.max(0, Math.min(最終列, c));
+  if (!広げる || !ANCHOR) ANCHOR = { r: r, c: c };
+  SEL = {
+    r1: Math.min(ANCHOR.r, r), r2: Math.max(ANCHOR.r, r),
+    c1: Math.min(ANCHOR.c, c), c2: Math.max(ANCHOR.c, c),
+  };
+}
+
+// 選択の見た目だけを塗り替える（作り直すと重いため）
+function 選択を塗り直す(寄せる) {
+  $('matrixBox').querySelectorAll('td[data-r]').forEach((td) => {
+    const r = Number(td.dataset.r);
+    const c = Number(td.dataset.c);
+    td.classList.toggle('sel', 選択に入っているか(r, c));
+    td.classList.toggle('anchor', !!ANCHOR && ANCHOR.r === r && ANCHOR.c === c);
+  });
+  // 選んでいる行と列の見出しを目立たせる（表計算ソフトと同じ）
+  $('matrixBox').querySelectorAll('tr.comps th').forEach((th, i) => {
+    th.classList.toggle('active', !!SEL && i >= SEL.c1 && i <= SEL.c2);
+  });
+  $('matrixBox').querySelectorAll('tbody td.rowhead').forEach((td, i) => {
+    td.classList.toggle('active', !!SEL && i >= SEL.r1 && i <= SEL.r2);
+  });
+  // キーで動かしたときだけ、はみ出した先へ寄せる。ボタン操作で表が飛ばないように。
+  if (寄せる) 見えるところまで寄せる();
+  updateToolbar();
+}
+
+// 表の枠の中だけをずらす。ページ全体はスクロールさせない。
+function 見えるところまで寄せる() {
+  const td = $('matrixBox').querySelector('td.anchor');
+  const 枠 = $('matrixBox').querySelector('.matrix-wrap');
+  if (!td || !枠) return;
+  const t = td.getBoundingClientRect();
+  const w = 枠.getBoundingClientRect();
+  if (t.top < w.top + 48) 枠.scrollTop -= (w.top + 48 - t.top);
+  else if (t.bottom > w.bottom) 枠.scrollTop += (t.bottom - w.bottom);
+  if (t.left < w.left + 100) 枠.scrollLeft -= (w.left + 100 - t.left);
+  else if (t.right > w.right) 枠.scrollLeft += (t.right - w.right);
+}
+
+/**
+ * マス操作の知らせ。表の上の帯の中に出す。
+ * 上の boardMsg に出すと、その分だけ表が下にずれて「飛んだ」ように見えるため。
+ */
+function マスの知らせ(text, 目立たせる) {
+  const el = $('cellMsg');
+  if (!el) return;
+  el.textContent = text ? '／ ' + text : '';
+  el.style.color = 目立たせる ? 'var(--warning)' : '';
+}
+
+function updateToolbar() {
+  const bar = $('cellTools');
+  if (!bar) return;
+  const 数 = SEL ? (SEL.r2 - SEL.r1 + 1) * (SEL.c2 - SEL.c1 + 1) : 0;
+  bar.style.display = 数 ? 'flex' : 'none';
+  if (!数) return;
+  $('cellCount').textContent = 数 === 1
+    ? GRID.rows[SEL.r1].name + '／' + GRID.comps[SEL.c1].name
+    : 数 + 'マスを選択中';
+  $('pasteBtn').disabled = !CLIP;
+}
+
+// ===== マスを書き換える =====
+
+// 1マスだけ描き直す。表ごと作り直すとスクロール位置が飛ぶので、こちらを使う。
+function マスを描き直す(r, c) {
+  const td = $('matrixBox').querySelector('td[data-r="' + r + '"][data-c="' + c + '"]');
+  if (!td || !td.classList.contains('cell')) return;
+  const key = マスのキー(r, c);
+  const cell = CELLS[key] || {};
+  td.className = ['cell', td.dataset.absent === '1' ? 'absent' : '',
+    cell.horse ? 'helper' : '', cell.locked ? 'locked' : '',
+    td.dataset.short === '1' ? 'short' : '', DIRTY[key] ? 'dirty' : '',
+    選択に入っているか(r, c) ? 'sel' : '',
+    (ANCHOR && ANCHOR.r === r && ANCHOR.c === c) ? 'anchor' : ''].filter(Boolean).join(' ');
+  const 色 = マスの配色(key).replace(/^ style="|"$/g, '');
+  td.setAttribute('style', 色);
+  td.innerHTML = '<span class="v">' + esc(マスの表示(key, GRID.comps[c])) + '</span>';
+}
+
+// ===== 元に戻す（Ctrl+Z） =====
+let 履歴 = [];
+let やり直し = [];
+const 控える = () => {
+  履歴.push({ cells: JSON.parse(JSON.stringify(CELLS)), dirty: JSON.parse(JSON.stringify(DIRTY)) });
+  if (履歴.length > 50) 履歴.shift();
+  やり直し = [];
+};
+function 戻す(積む, 出す, 文言) {
+  if (!出す.length) return;
+  積む.push({ cells: JSON.parse(JSON.stringify(CELLS)), dirty: JSON.parse(JSON.stringify(DIRTY)) });
+  const s = 出す.pop();
+  CELLS = s.cells;
+  DIRTY = s.dirty;
+  renderMatrix();
+  マスの知らせ(文言);
+}
+
+function マスに入れる(key, 中身, 固定) {
+  if (中身 && 中身.job !== undefined) CELLS[key] = { jobId: 中身.job, horse: null, locked: 固定 !== false };
+  else if (中身 && 中身.horse !== undefined) CELLS[key] = { jobId: null, horse: 中身.horse, locked: 固定 !== false };
+  else delete CELLS[key];
+  DIRTY[key] = true;
+}
+
+// 選択したマスに、名前で持っている中身を入れる。その日に無い仕事なら入れない。
+function 貼れるか(r, c, 中身) {
+  const key = マスのキー(r, c);
+  if (GRID.horseAt[key]) return null;                 // 出場のマスは触らない
+  if (中身.rider) return null;                        // 出場のマスはコピー元にしない
+  if (中身.empty) return { clear: true };
+  const comp = GRID.comps[c];
+  if (中身.job !== undefined) {
+    const j = GRID.jobsFor(comp.date).filter((x) => x.name === 中身.job)[0];
+    return j ? { job: j.id } : null;                  // その日に無い仕事
+  }
+  const ある = EV.entries.some((e) => e.competitionId === comp.id && (e.horse || '出場') === 中身.horse);
+  return ある ? { horse: 中身.horse } : null;          // その競技に出ていない馬
+}
+
+function 選択に対して(処理) {
+  if (!SEL || !GRID) return { 件数: 0, 飛ばした: 0 };
+  let 件数 = 0;
+  let 飛ばした = 0;
+  for (let r = SEL.r1; r <= SEL.r2; r++) {
+    for (let c = SEL.c1; c <= SEL.c2; c++) {
+      const 結果 = 処理(r, c);
+      if (結果 === false) 飛ばした++;
+      else if (結果 !== null) 件数++;
+    }
+  }
+  return { 件数: 件数, 飛ばした: 飛ばした };
+}
+
+function コピーする() {
+  if (!SEL) return;
+  const cells = [];
+  const 文字 = [];
+  for (let r = SEL.r1; r <= SEL.r2; r++) {
+    const 行 = [];
+    const 行の文字 = [];
+    for (let c = SEL.c1; c <= SEL.c2; c++) {
+      const v = マスの中身(r, c);
+      行.push(v);
+      行の文字.push(v.rider ? '★' + v.rider : (v.horse || v.job || ''));
+    }
+    cells.push(行);
+    文字.push(行の文字.join('\t'));
+  }
+  CLIP = { h: cells.length, w: cells[0].length, cells: cells };
+  // スプレッドシートにも貼れるように、文字としても控えておく
+  try { if (navigator.clipboard) navigator.clipboard.writeText(文字.join('\n')); } catch (e) { /* 使えなくても構わない */ }
+  マスの知らせ(CLIP.h * CLIP.w + 'マスをコピーしました。貼り付け先を選んで Ctrl+V');
+  updateToolbar();
+}
+
+function 貼り付ける() {
+  if (!CLIP || !SEL) return;
+  控える();
+  // 1マスだけコピーしたときは、選択した範囲すべてに広げる（表計算と同じ）
+  const 高さ = Math.max(SEL.r2 - SEL.r1 + 1, CLIP.h);
+  const 幅 = Math.max(SEL.c2 - SEL.c1 + 1, CLIP.w);
+  let 件数 = 0;
+  let 飛ばした = 0;
+  for (let i = 0; i < 高さ; i++) {
+    for (let j = 0; j < 幅; j++) {
+      const r = SEL.r1 + i;
+      const c = SEL.c1 + j;
+      if (r >= GRID.rows.length || c >= GRID.comps.length) continue;
+      const 中身 = CLIP.cells[i % CLIP.h][j % CLIP.w];
+      const 変換 = 貼れるか(r, c, 中身);
+      if (変換 === null) { 飛ばした++; continue; }
+      マスに入れる(マスのキー(r, c), 変換.clear ? null : 変換, true);
+      マスを描き直す(r, c);
+      件数++;
+    }
+  }
+  updateDirtyBar();
+  マスの知らせ(件数 + 'マスに貼り付けました' + (飛ばした ? '（' + 飛ばした + 'マスは貼れず：その日に無い仕事、出場のマスなど）' : ''), !!飛ばした);
+}
+
+function 選択を消す() {
+  控える();
+  const r = 選択に対して((r, c) => {
+    const key = マスのキー(r, c);
+    if (GRID.horseAt[key]) return null;
+    マスに入れる(key, null, true);
+    マスを描き直す(r, c);
+    return true;
+  });
+  updateDirtyBar();
+  マスの知らせ(r.件数 + 'マスを空にしました');
+}
+
+// 選んだマスの鍵をまとめて切り替える。ひとつでも開いていれば全部閉める。
+function 鍵を切り替える() {
+  if (!SEL) return;
+  控える();
+  let 開いている = false;
+  選択に対して((r, c) => {
+    const key = マスのキー(r, c);
+    if (GRID.horseAt[key]) return null;
+    if (CELLS[key] && !CELLS[key].locked) 開いている = true;
+    return null;
+  });
+  const 新しい状態 = 開いている;
+  const r = 選択に対して((r, c) => {
+    const key = マスのキー(r, c);
+    if (GRID.horseAt[key] || !CELLS[key]) return null;
+    CELLS[key].locked = 新しい状態;
+    DIRTY[key] = true;
+    マスを描き直す(r, c);
+    return true;
+  });
+  updateDirtyBar();
+  マスの知らせ(r.件数 + 'マスを' + (新しい状態 ? '固定しました（自動生成で動きません）' : '固定解除しました'));
+}
+
+// 選択の一番上の行を、下へコピーする（表計算のCtrl+D）
+function 下へ埋める() {
+  if (!SEL || SEL.r1 === SEL.r2) return;
+  控える();
+  let 件数 = 0;
+  let 飛ばした = 0;
+  for (let c = SEL.c1; c <= SEL.c2; c++) {
+    const 元 = マスの中身(SEL.r1, c);
+    for (let r = SEL.r1 + 1; r <= SEL.r2; r++) {
+      const 変換 = 貼れるか(r, c, 元);
+      if (変換 === null) { 飛ばした++; continue; }
+      マスに入れる(マスのキー(r, c), 変換.clear ? null : 変換, true);
+      マスを描き直す(r, c);
+      件数++;
+    }
+  }
+  updateDirtyBar();
+  マスの知らせ('一番上の行を' + 件数 + 'マスに写しました' + (飛ばした ? '（' + 飛ばした + 'マスは写せず）' : ''), !!飛ばした);
+}
+
+// ===== 編集（ダブルクリック / Enter でプルダウンを出す） =====
+function 編集を始める(r, c) {
+  if (!GRID) return;
+  const td = $('matrixBox').querySelector('td[data-r="' + r + '"][data-c="' + c + '"]');
+  if (!td || !td.classList.contains('cell')) return;
+  const key = マスのキー(r, c);
+  const comp = GRID.comps[c];
+  const cell = CELLS[key] || {};
+
+  const 馬たち = [];
+  EV.entries.forEach((x) => {
+    if (x.competitionId !== comp.id) return;
+    const h = x.horse || '出場';
+    if (馬たち.indexOf(h) < 0) 馬たち.push(h);
+  });
+  const opts = '<option value="">—</option>' +
+    GRID.jobsFor(comp.date).map((j) =>
+      '<option value="j:' + j.id + '"' + (cell.jobId === j.id ? ' selected' : '') + '>' + esc(j.name) + '</option>').join('') +
+    (馬たち.length
+      ? '<optgroup label="馬付き">' + 馬たち.map((h) =>
+          '<option value="h:' + esc(h) + '"' + (cell.horse === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('') + '</optgroup>'
+      : '');
+
+  編集中 = key;
+  td.innerHTML = '<select>' + opts + '</select>';
+  const sel = td.querySelector('select');
+  sel.focus();
+  if (sel.showPicker) { try { sel.showPicker(); } catch (e) { /* 対応していない環境では無視 */ } }
+
+  const 終わる = () => { 編集中 = null; マスを描き直す(r, c); updateDirtyBar(); };
+  sel.addEventListener('change', () => {
+    控える();
+    const v = sel.value;
+    if (!v) マスに入れる(key, null, true);
+    else if (v.indexOf('h:') === 0) マスに入れる(key, { horse: v.slice(2) }, true);
+    else マスに入れる(key, { job: v.slice(2) }, true);
+    終わる();
+  });
+  sel.addEventListener('blur', 終わる);
+  sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); 終わる(); } });
+}
+
+// ===== マウスとキーボード =====
+let 引きずり中 = false;
+
+$('matrixBox').addEventListener('mousedown', (e) => {
+  const td = e.target.closest ? e.target.closest('td[data-r]') : null;
+  if (!td || 編集中) return;
+  選ぶ(Number(td.dataset.r), Number(td.dataset.c), e.shiftKey);
+  引きずり中 = true;
+  選択を塗り直す();
+  try { $('matrixBox').focus({ preventScroll: true }); } catch (err) { $('matrixBox').focus(); }
+  e.preventDefault();
+});
+
+$('matrixBox').addEventListener('mouseover', (e) => {
+  if (!引きずり中) return;
+  const td = e.target.closest ? e.target.closest('td[data-r]') : null;
+  if (!td) return;
+  選ぶ(Number(td.dataset.r), Number(td.dataset.c), true);
+  選択を塗り直す();
+});
+
+document.addEventListener('mouseup', () => { 引きずり中 = false; });
+
+$('matrixBox').addEventListener('dblclick', (e) => {
+  const td = e.target.closest ? e.target.closest('td.cell[data-r]') : null;
+  if (!td) return;
+  編集を始める(Number(td.dataset.r), Number(td.dataset.c));
+});
+
+$('matrixBox').addEventListener('keydown', (e) => {
+  if (編集中 || !SEL || !GRID) return;
+  const 最終行 = GRID.rows.length - 1;
+  const 最終列 = GRID.comps.length - 1;
+  const 押した = (k) => e.key === k;
+  const 制御 = e.ctrlKey || e.metaKey;
+
+  // 矢印で移動。Ctrlを押していれば端まで、Shiftを押していれば選択を伸ばす。
+  const 移動 = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[e.key];
+  if (移動) {
+    const 元 = e.shiftKey ? { r: SEL.r1 === ANCHOR.r ? SEL.r2 : SEL.r1, c: SEL.c1 === ANCHOR.c ? SEL.c2 : SEL.c1 } : ANCHOR;
+    const 先 = 制御
+      ? { r: 移動[0] < 0 ? 0 : (移動[0] > 0 ? 最終行 : 元.r), c: 移動[1] < 0 ? 0 : (移動[1] > 0 ? 最終列 : 元.c) }
+      : { r: 元.r + 移動[0], c: 元.c + 移動[1] };
+    選ぶ(先.r, 先.c, e.shiftKey);
+    選択を塗り直す(true);
+    e.preventDefault();
+    return;
+  }
+  // Tabで右へ、Shift+Tabで左へ。行の端では折り返す。
+  if (押した('Tab')) {
+    let r = ANCHOR.r;
+    let c = ANCHOR.c + (e.shiftKey ? -1 : 1);
+    if (c > 最終列) { c = 0; r = Math.min(最終行, r + 1); }
+    if (c < 0) { c = 最終列; r = Math.max(0, r - 1); }
+    選ぶ(r, c, false);
+    選択を塗り直す(true);
+    e.preventDefault();
+    return;
+  }
+  if (押した('Home')) { 選ぶ(制御 ? 0 : ANCHOR.r, 0, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
+  if (押した('End')) { 選ぶ(制御 ? 最終行 : ANCHOR.r, 最終列, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
+  if (押した('PageUp')) { 選ぶ(ANCHOR.r - 15, ANCHOR.c, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
+  if (押した('PageDown')) { 選ぶ(ANCHOR.r + 15, ANCHOR.c, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
+  if (押した('Escape')) { SEL = null; ANCHOR = null; 選択を塗り直す(); e.preventDefault(); return; }
+
+  if (押した('Enter') || 押した('F2')) { 編集を始める(ANCHOR.r, ANCHOR.c); e.preventDefault(); return; }
+  if (押した('Delete') || 押した('Backspace')) { 選択を消す(); e.preventDefault(); return; }
+
+  if (制御 && (押した('c') || 押した('C'))) { コピーする(); e.preventDefault(); return; }
+  if (制御 && (押した('v') || 押した('V'))) { 貼り付ける(); e.preventDefault(); return; }
+  if (制御 && (押した('l') || 押した('L'))) { 鍵を切り替える(); e.preventDefault(); return; }
+  if (制御 && (押した('d') || 押した('D'))) { 下へ埋める(); e.preventDefault(); return; }
+  if (制御 && !e.shiftKey && (押した('z') || 押した('Z'))) { 戻す(やり直し, 履歴, '元に戻しました。'); e.preventDefault(); return; }
+  if (制御 && ((e.shiftKey && (押した('z') || 押した('Z'))) || 押した('y') || 押した('Y'))) {
+    戻す(履歴, やり直し, 'やり直しました。'); e.preventDefault(); return;
+  }
+  if (制御 && (押した('a') || 押した('A'))) {
+    ANCHOR = { r: 0, c: 0 };
+    SEL = { r1: 0, c1: 0, r2: 最終行, c2: 最終列 };
+    選択を塗り直す();
+    e.preventDefault();
+  }
+});
+
+function renderMatrix() {
+  if (!EV) { $('matrixBox').innerHTML = '大会を選択してください'; return; }
+  const comps = EV.competitions;
+  const jobs = EV.jobs;
+  if (!comps.length) { $('matrixBox').innerHTML = 'この大会に競技が登録されていません。'; return; }
+
+  const att = 出欠マップ();
+  // 仮組みを保存したあとなど、出欠が無くてもマスが入っている人は表に出す
+  const 入っている = {};
+  Object.keys(CELLS).forEach((k) => { if (CELLS[k] && (CELLS[k].jobId || CELLS[k].horse)) 入っている[k.split('|')[0]] = true; });
+  // 普段は「来る」と答えた人だけを出す。チェックを入れると、全日行けない人や未回答の人も出して手で入れられる。
+  const 全員出す = $('showAllRows') && $('showAllRows').checked;
+  const rows = ALL.members.filter((m) => 全員出す || attendsAny(att, m.id) || 入っている[m.id]);
+  if (!rows.length) {
+    $('matrixBox').innerHTML = '出席と回答した部員がいません。「出欠・選手出場」タブで確認するか、'
+      + '上の「行けない人・未回答の人も表に出す」にチェックを入れて手で入れてください。'
+      + '「まだ出欠を出していない人」で仮に「来る」にしてから「自動生成」を押す手もあります。';
+    return;
+  }
+
+  // その日の仕事。日付を持たない仕事はどの日にも効く共通の設定として扱う。
+  const 共通の仕事 = jobs.filter((j) => !j.date);
+  const jobsFor = (date) => {
+    const 当日 = jobs.filter((j) => (j.date || '') === (date || ''));
+    return 当日.length ? 当日 : 共通の仕事;
+  };
+
+  // 同じ競技に2頭で出ることがあるので、まとめて出す
+  const horseAt = {};
+  EV.entries.forEach((e) => {
+    const k = e.memberId + '|' + e.competitionId;
+    horseAt[k] = (horseAt[k] ? horseAt[k] + '・' : '') + (e.horse || '出場');
+  });
+
+  // 人数が足りない競技の列に色をつける（その日の必要人数で見る）
+  const shortCols = {};
+  comps.forEach((c) => {
+    jobsFor(c.date).forEach((job) => {
+      if (!job.min) return;
+      let n = 0;
+      rows.forEach((m) => { const cell = CELLS[m.id + '|' + c.id]; if (cell && cell.jobId === job.id) n++; });
+      if (n < job.min) shortCols[c.id] = true;
+    });
+  });
+
+  const groups = [];
+  comps.forEach((c) => {
+    const key = c.date || '';
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.span++;
+    else groups.push({ key: key, span: 1, label: prettyDate(c.date) });
+  });
+
+  const head = '<thead><tr class="days"><th class="rowhead" rowspan="2">名前</th>' +
+    groups.map((g) => '<th colspan="' + g.span + '">' + esc(g.label) + '</th>').join('') + '</tr>' +
+    '<tr class="comps">' + comps.map((c) =>
+      '<th class="' + (shortCols[c.id] ? 'short' : '') + '">' +
+      (c.allDay ? '<span class="muted">終日</span>' : esc(c.name)) + '</th>').join('') + '</tr></thead>';
+
+  // 表の中身を、行×列で引けるようにしておく（選択やコピペのため）
+  GRID = { rows: rows, comps: comps, jobsFor: jobsFor, horseAt: horseAt, att: att };
+
+  const body = rows.map((m, ri) => {
+    const locked = comps.some((c) => { const x = CELLS[m.id + '|' + c.id]; return x && x.locked; });
+    const tds = comps.map((c, ci) => {
+      const key = m.id + '|' + c.id;
+      const 場所 = ' data-r="' + ri + '" data-c="' + ci + '" data-key="' + key + '"';
+      if (horseAt[key]) {
+        return '<td class="rider"' + 場所 + ' title="' + esc(m.name) + 'は' + esc(c.name) + 'に出場">★' + esc(horseAt[key]) + '</td>';
+      }
+      const cell = CELLS[key] || {};
+      // その日に来られないと答えている人のマス。触らせない作りだったのを開放したので、
+      // 右上の小さな角印だけで示す（色で潰すと表が読みにくくなるため）。
+      const 来られない = !attendsOn(att, m.id, c.date);
+      const cls = ['cell', 来られない ? 'absent' : '', cell.horse ? 'helper' : '', cell.locked ? 'locked' : '',
+        shortCols[c.id] ? 'short' : '', DIRTY[key] ? 'dirty' : '',
+        選択に入っているか(ri, ci) ? 'sel' : '', (ANCHOR && ANCHOR.r === ri && ANCHOR.c === ci) ? 'anchor' : ''].filter(Boolean).join(' ');
+      const 但し書き = 来られない
+        ? ' data-absent="1" title="' + esc(m.name) + 'は' + esc(prettyDate(c.date)) +
+          (att[m.id] ? 'は来られないと答えています' : 'の出欠をまだ出していません') +
+          '（手で入れることはできます）"'
+        : '';
+      return '<td class="' + cls + '"' + 場所 + 但し書き + (shortCols[c.id] ? ' data-short="1"' : '') +
+        マスの配色(key) + '><span class="v">' + esc(マスの表示(key, c)) + '</span></td>';
+    }).join('');
+    // 名前の下に、来ない人だと分かる短い印だけ添える（色は付けず控えめに）
+    const 状態 = !att[m.id] ? '未回答' : (!attendsAny(att, m.id) ? '全日欠' : '');
+    return '<tr><td class="rowhead">' +
+      '<button class="small ' + (locked ? '' : 'secondary') + '" style="padding:1px 5px;font-size:11px;" data-lock="' + m.id + '" title="この人を丸ごと固定する（自動生成で動かさない）">' +
+      (locked ? '🔒' : '🔓') + '</button> ' + esc(m.name) +
+      '<br><span class="post-tag post-' + esc(m.post || '') + '">' + esc(m.post || '未設定') + '</span>' +
+      (状態 ? ' <span class="off-tag">' + 状態 + '</span>' : '') +
+      '</td>' + tds + '</tr>';
+  }).join('');
+
+  // 作り直すとスクロール位置が戻ってしまうので、覚えておいて元に戻す
+  const 前の枠 = $('matrixBox').querySelector('.matrix-wrap');
+  const 前の位置 = 前の枠 ? { y: 前の枠.scrollTop, x: 前の枠.scrollLeft } : null;
+
+  $('matrixBox').innerHTML = '<div class="matrix-wrap"><table class="matrix">' + head + '<tbody>' + body + '</tbody></table></div>';
+
+  if (前の位置) {
+    const 枠 = $('matrixBox').querySelector('.matrix-wrap');
+    枠.scrollTop = 前の位置.y;
+    枠.scrollLeft = 前の位置.x;
+  }
+
+  $('matrixBox').querySelectorAll('button[data-lock]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      控える();
+      const memberId = btn.dataset.lock;
+      const ri = rows.map((m) => m.id).indexOf(memberId);
+      const isLocked = comps.some((c) => { const x = CELLS[memberId + '|' + c.id]; return x && x.locked; });
+      comps.forEach((c, ci) => {
+        const key = memberId + '|' + c.id;
+        if (horseAt[key]) return;
+        if (CELLS[key]) { CELLS[key].locked = !isLocked; DIRTY[key] = true; マスを描き直す(ri, ci); }
+      });
+      btn.textContent = isLocked ? '🔓' : '🔒';
+      btn.className = 'small' + (isLocked ? ' secondary' : '');
+      updateDirtyBar();
+    });
+  });
+
+  選択を塗り直す();
+  updateDirtyBar();
+}
+
+// focus() は既定でその要素まで画面をスクロールさせる。表が上に飛ぶのでそれを止める。
+const 表に戻す = () => {
+  try { $('matrixBox').focus({ preventScroll: true }); } catch (e) { $('matrixBox').focus(); }
+};
+$('lockBtn').addEventListener('click', () => { 鍵を切り替える(); 表に戻す(); });
+$('copyBtn').addEventListener('click', () => { コピーする(); 表に戻す(); });
+$('pasteBtn').addEventListener('click', () => { 貼り付ける(); 表に戻す(); });
+$('clearBtn').addEventListener('click', () => { 選択を消す(); 表に戻す(); });
+
+$('saveCellsBtn').addEventListener('click', async () => {
+  if (!EV) return;
+  $('saveCellsBtn').disabled = true;
+  try {
+    const r = await call('adminSaveCells', TOKEN, EV.eventId, CELLS);
+    EV.cells = JSON.parse(JSON.stringify(CELLS));
+    DIRTY = {};
+    renderMatrix();
+    renderWarnings(r.warnings);
+    show($('boardMsg'), 'success', '保存しました。');
+  } catch (e) { handleError($('boardMsg'), e); } finally { $('saveCellsBtn').disabled = false; }
+});
+
+$('discardBtn').addEventListener('click', () => {
+  if (!confirm('保存していない変更を捨てますか？')) return;
+  CELLS = JSON.parse(JSON.stringify(EV.cells));
+  DIRTY = {};
+  renderMatrix();
+});
+
+async function 組む() {
+  if (!EV) return show($('boardMsg'), 'error', '大会を選択してください。');
+  if (Object.keys(DIRTY).length && !confirm('保存していない変更があります。捨てて組み直しますか？')) return;
+  if (Object.keys(EV.cells).length &&
+      !confirm('人員表を組み直して保存します。🔒で固定したマスはそのまま残ります。よろしいですか？')) return;
+
+  const 仮定 = 仮定の一覧();
+  const btn = $('generateBtn');
+  btn.disabled = true;
+  try {
+    const r = await call('adminGenerate', TOKEN, EV.eventId, 仮定, true);
+    CELLS = JSON.parse(JSON.stringify(r.cells));
+    EV.cells = r.cells;
+    DIRTY = {};
+    履歴 = [];
+    やり直し = [];
+    renderMatrix();
+    renderWarnings(r.warnings);
+    show($('boardMsg'), 'success', '生成して保存しました。'
+      + (仮定.length ? '仮に置いた出欠 ' + 仮定.length + '件を含みます（出欠シートには書いていません）。' : '')
+      + '過不足を確認してください。');
+  } catch (e) { handleError($('boardMsg'), e); } finally { btn.disabled = false; }
+}
+
+$('generateBtn').addEventListener('click', 組む);
+
+// 行を増やしたり減らしたりすると選択の位置がずれるので、選択は外してから描き直す
+$('showAllRows').addEventListener('change', () => {
+  SEL = null;
+  ANCHOR = null;
+  renderMatrix();
+});
+
+// 人員表を見ている流れのまま、その大会の競技や仕事を直しに行けるように
+$('editEventBtn').addEventListener('click', () => {
+  if (!EV) return show($('boardMsg'), 'error', '大会を選択してください。');
+  if (Object.keys(DIRTY).length && !confirm('保存していない変更があります。捨てて大会の編集に移りますか？')) return;
+  document.querySelector('.tabs button[data-tab="events"]').click();
+  window.editEvent(EV.eventId);
+});
+
+$('exportBtn').addEventListener('click', async () => {
+  if (!EV) return show($('boardMsg'), 'error', '大会を選択してください。');
+  if (Object.keys(DIRTY).length) return show($('boardMsg'), 'error', '先に変更を保存してください。');
+  $('exportBtn').disabled = true;
+  try {
+    const r = await call('adminExportSheet', TOKEN, EV.eventId);
+    show($('boardMsg'), 'success', 'スプレッドシートに「' + r.sheetName + '」シートを作りました。');
+  } catch (e) { handleError($('boardMsg'), e); } finally { $('exportBtn').disabled = false; }
+});
+
+// ===== 起動 =====
+async function start() {
+  ALL = await call('adminLoadAll', TOKEN);
+  $('loginView').style.display = 'none';
+  $('appView').style.display = 'block';
+  $('logoutLink').style.display = 'inline';
+  $('memberPost').innerHTML = '<option value="">役職を選択</option>' + ALL.posts.map((p) => '<option value="' + p + '">' + p + '</option>').join('');
+  renderMembers();
+  resetHorseForm();
+  renderHorses();
+  renderEvents();
+  fillEventSelects();
+  resetEventForm();
+  loadShareUrl();
+}
+
+(async () => {
+  if (!TOKEN) return;
+  try { await start(); } catch (e) { logout(); }
+})();
+</script>
+</body>
+</html>

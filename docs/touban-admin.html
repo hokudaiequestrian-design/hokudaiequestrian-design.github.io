@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<!--
+  Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
+  pre-emit critique: P5 H5 E5 S5 R4 V4
+
+  見た目の決まりは design.md（このフォルダの中）に書いてある。ここはその実装。
+  design.md より上に立つのは デジタル庁デザインシステム（DADS）だけ。
+  https://design.digital.go.jp/dads/
+
+  守っていること
+    ・本文は16px以上。14px未満は使わない（DADSの下限）
+    ・文字と背景は4.5:1以上、罫線・押せるものの枠と背景は3:1以上
+      （scratchpad の contrast.js で実測ずみ。色を触ったら必ず測り直すこと）
+    ・行間は本文150%以上、見出し140%
+    ・フォーカスは「黄色＋黒」の二重リング。どの部品でも消さない
+    ・押せるものの当たり判定は44px以上
+    ・色だけで意味を伝えない（記号・文字・枠の太さを必ず添える）
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!--
+  日本語は Noto Sans JP だけ（400/700）。重みを増やすと日本語フォントは一気に重くなるので、
+  見出しの強さは太さではなく 大きさ・字間・色 で作る。
+  Geist Mono はラテンだけで軽い。数字の桁をそろえる役だけに使う（1ウェイト）。
+-->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Geist+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* ===== 色 =====
+     色相はすべて 262（当番の青）に寄せてある。色被りの無い灰色は使わない。
+     値はすべて sRGB に収まることを確認ずみ。 */
+  --paper:        oklch(97.2% 0.006 262);
+  --paper-2:      oklch(99.2% 0.003 262);
+  --paper-3:      oklch(94.5% 0.010 262);
+  --paper-sunken: oklch(92.5% 0.008 262);
+
+  --ink:          oklch(21%   0.014 262);
+  --muted:        oklch(46%   0.022 262);
+
+  --rule:         oklch(88%   0.012 262);   /* 飾り。意味を持たない区切り */
+  --rule-strong:  oklch(62%   0.030 262);   /* 入力欄・押せるものの枠。3:1以上 */
+
+  --accent:       oklch(48%   0.150 262);   /* 当番 */
+  --accent-dark:  oklch(40%   0.150 262);
+  --accent-soft:  oklch(95.5% 0.021 262);
+  --care:         oklch(45%   0.095 165);   /* 手入れ */
+  --care-dark:    oklch(37%   0.079 165);
+  --care-soft:    oklch(95.5% 0.026 165);
+
+  --danger:       oklch(50%   0.190 27);
+  --danger-dark:  oklch(42%   0.173 27);
+  --danger-soft:  oklch(96%   0.019 27);
+  --warning:      oklch(48%   0.105 70);
+  --warning-soft: oklch(96%   0.030 80);
+  --success:      var(--care);
+  --success-soft: var(--care-soft);
+
+  /* 手入れの記号。色だけに頼らず、枠の太さと記号そのものでも分かるようにしてある */
+  --maru2: var(--care);
+  --maru1: var(--accent);
+  --batsu: var(--muted);
+
+  /* フォーカスリング（DADS の指定どおり黄＋黒の二重。色は変えない） */
+  --focus-inner: oklch(87% 0.170 100);
+  --focus-outer: #000000;
+
+  /* ===== 余白 ===== 4pt の名前つきスケール。生の px は書かない */
+  --space-3xs: 0.125rem;  --space-2xs: 0.25rem;  --space-xs: 0.5rem;
+  --space-sm:  0.75rem;   --space-md:  1rem;     --space-lg: 1.5rem;
+  --space-xl:  2.5rem;    --space-2xl: 4rem;     --space-3xl: 6rem;
+
+  /* ===== 文字の大きさ ===== 比率1.25。ただし最小は14px（DADSの下限） */
+  --text-xs:   0.875rem;    /* 14px */
+  --text-sm:   0.9375rem;   /* 15px */
+  --text-base: 1rem;        /* 16px */
+  --text-md:   1.25rem;     /* 20px */
+  --text-lg:   1.5625rem;   /* 25px */
+  --text-xl:   1.953rem;    /* 31px */
+  --text-display: clamp(1.75rem, 3vw + 1rem, 2.4414rem);
+
+  --font-body: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  --font-num:  "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* ===== 動き ===== 2つだけ（press と nudge）。transform と opacity 以外は動かさない */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:  cubic-bezier(0.7, 0, 0.84, 0);
+  --dur-micro: 120ms;  --dur-short: 220ms;  --dur-long: 420ms;
+
+  /* ===== 形 ===== playful の上限は12px。影は1段だけ、重ねない */
+  --radius-card:  12px;
+  --radius-input: 8px;
+  --radius-pill:  999px;
+  --shadow-card: 0 1px 2px oklch(21% 0.014 262 / 0.05);
+  --shadow-lift: 0 8px 24px -10px oklch(48% 0.150 262 / 0.28);
+
+  --z-base: 1; --z-raised: 10; --z-sticky: 200; --z-modal: 400; --z-toast: 500;
+
+  --tap: 44px;
+
+  /* ===== 前の名前 =====
+     ページ側の style="" から直接呼ばれているので、消さずに新しい値へ向ける。 */
+  --bg: var(--paper);          --card: var(--paper-2);
+  --text: var(--ink);
+  --primary: var(--accent);    --primary-dark: var(--accent-dark);
+  --primary-soft: var(--accent-soft);
+  --border: var(--rule);       --border-strong: var(--rule-strong);
+  --danger-bg: var(--danger-soft);
+  --success-bg: var(--care-soft);
+  --warning-bg: var(--warning-soft);
+}
+
+* { box-sizing: border-box; }
+/* はみ出しても横スクロールは起こさない。hidden ではなく clip（sticky を壊さない） */
+html, body { overflow-x: clip; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--text-base);   /* DADSの本文の下限 */
+  line-height: 1.7;              /* 本文は150%以上 */
+}
+
+/* ===== フォーカス =====
+   黄色の内側と黒の外側の二重リング。背景が明るくても暗くてもどちらかが必ず見える。
+   どの部品でも outline を消さないこと。出方は決してアニメーションさせない。 */
+:focus-visible {
+  outline: 3px solid var(--focus-inner);
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px var(--focus-outer);
+  border-radius: 2px;
+  position: relative;
+  z-index: var(--z-raised);
+  transition: none;
+}
+/* :focus-visible を知らない古いブラウザ向け。新しいブラウザではこちらを打ち消す */
+:focus { outline: 3px solid var(--focus-inner); box-shadow: 0 0 0 6px var(--focus-outer); }
+:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+
+header.appbar {
+  background: var(--accent);
+  color: #fff;
+  padding: var(--space-md);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+header.appbar.chief { background: var(--care); }
+header.appbar a {
+  color: #fff; font-size: var(--text-sm); font-weight: 400; cursor: pointer;
+  min-height: var(--tap); display: inline-flex; align-items: center;
+  white-space: nowrap; text-decoration: underline; text-underline-offset: 3px;
+}
+
+main { max-width: 760px; margin: 0 auto; padding: var(--space-md); }
+main.wide { max-width: 1240px; }
+/* 余白はわざと不揃いにする。まとまりの間はカードの内側より広い */
+main > section + section { margin-top: var(--space-xl); }
+
+.card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-card);
+}
+/* 枠の中に枠は作らない。カードの中のカードは地の色だけで分ける */
+.card .card { box-shadow: none; border-color: transparent; background: var(--paper); }
+
+h1, h2, h3, h4 { overflow-wrap: anywhere; min-width: 0; }
+h1 { font-size: var(--text-lg); line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 var(--space-sm); }
+h2 { font-size: var(--text-md); line-height: 1.35; letter-spacing: -0.015em; margin: 0 0 var(--space-xs); }
+h3 { font-size: 1.0625rem; line-height: 1.4; margin: 0 0 var(--space-xs); }
+
+/* 数字は Geist Mono で桁をそろえる。役は「表と数の欄」「丸バッジ」の2つだけ */
+.num, .cell-count, .statline b, .summary-grid .stat b,
+.pickcell .rank, .steps .s .no, .name-chip .r, .picked-list .item .n, .calday .d {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+label { display: block; font-weight: 700; margin: var(--space-md) 0 var(--space-2xs); font-size: var(--text-base); }
+label .req { color: var(--danger); font-size: var(--text-sm); margin-left: var(--space-2xs); }
+
+/* 選ぶだけの小さなラベル。DADSの下限14pxは下回らない */
+label.inline {
+  display: inline-flex; align-items: center; gap: var(--space-xs); font-weight: 400;
+  margin: 0 var(--space-sm) 0 0; font-size: var(--text-base); min-height: var(--tap); cursor: pointer;
+}
+
+select, input[type=text], input[type=number], input[type=password], input[type=date], textarea {
+  width: 100%; padding: 11px var(--space-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  font-size: var(--text-base); background: var(--paper-2); color: var(--ink);
+  font-family: inherit; min-height: var(--tap);
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+input[type=number] { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+select:hover, input:hover, textarea:hover { border-color: var(--accent); }
+textarea { min-height: 88px; resize: vertical; line-height: 1.7; }
+input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+
+.row { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: flex-end; }
+.row > * { flex: 1; min-width: 140px; }
+.row.tight > * { flex: 0 0 auto; min-width: 0; }
+
+.checkbox-list, .radio-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+
+.chip {
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: 10px var(--space-lg); font-size: var(--text-base); cursor: pointer; user-select: none;
+  background: var(--paper-2); min-height: var(--tap); display: inline-flex; align-items: center;
+  white-space: nowrap;
+  transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chip.small { padding: var(--space-xs) 14px; font-size: var(--text-sm); }
+.chip:active { transform: translateY(1px); }
+
+/* ===== ボタン =====
+   DADSの目安 中サイズ 96×48 / 小 80×36。当たり判定は44px以上。
+   文言は動詞で終える（「保存」ではなく「人数と学年を保存」）。 */
+button {
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  border-radius: var(--radius-input);
+  padding: var(--space-sm) var(--space-lg); font-size: var(--text-base); font-weight: 700;
+  cursor: pointer; min-height: 48px; min-width: 96px; font-family: inherit; line-height: 1.4;
+  white-space: nowrap;   /* 押せる文字は2行にしない */
+  transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+button:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+button:active { transform: translateY(1px); }
+button.secondary { background: var(--paper-2); color: var(--accent); border-color: var(--accent); }
+button.secondary:hover { background: var(--accent-soft); }
+button.danger { background: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: var(--danger-dark); border-color: var(--danger-dark); }
+button.small { padding: var(--space-xs) 14px; font-size: var(--text-sm); min-height: 36px; min-width: 80px; margin: var(--space-2xs) 0; }
+/*
+  DADSは disabled を勧めていない（なぜ押せないかが伝わらないため）。
+  この画面では押せる状態のままにして、押したときに足りないものを文章で知らせている。
+  やむを得ず使う場所だけ、理由を必ず近くに書くこと。
+*/
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.msg {
+  padding: var(--space-sm) 14px; border-radius: var(--radius-input);
+  margin: var(--space-sm) 0; font-size: var(--text-base); line-height: 1.7;
+}
+.msg.success { background: var(--care-soft); color: var(--care); border: 1px solid var(--care); border-left-width: 4px; }
+.msg.error   { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); border-left-width: 4px; }
+.msg.warning { background: var(--warning-soft); color: var(--warning); border: 1px solid var(--warning); border-left-width: 4px; }
+
+table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+th, td { border: 1px solid var(--rule); padding: 10px var(--space-sm); text-align: left; line-height: 1.5; }
+th { background: var(--paper-3); font-weight: 700; }
+
+.muted { color: var(--muted); font-size: var(--text-sm); }
+.hint { color: var(--muted); font-size: var(--text-sm); margin: var(--space-2xs) 0 0; line-height: 1.7; max-width: 65ch; }
+
+.list-item {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+}
+.list-item:last-child { border-bottom: none; }
+
+.tabs { display: flex; gap: var(--space-xs); margin-bottom: var(--space-md); flex-wrap: wrap; }
+.tabs button { background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); }
+.tabs button:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ===== 表のまわりの枠（Workbench） =====
+   まとめる側の画面は表が主役。表を枠で囲って「道具の一画面」として立たせ、
+   節と節はこの枠と余白だけで分ける（節ごとに罫線を引き足さない）。 */
+.grid-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-input);
+  background: var(--paper-2);
+}
+/* 枠の内側で表の外周がもう一度出ると二重に見えるので、外周だけ消す */
+.grid-wrap > table.duty-grid > * > tr > *:first-child,
+.grid-wrap > table.assign-grid > * > tr > *:first-child { border-left: 0; }
+.grid-wrap > table.duty-grid > * > tr > *:last-child,
+.grid-wrap > table.assign-grid > * > tr > *:last-child { border-right: 0; }
+.grid-wrap > table.duty-grid > thead > tr > *,
+.grid-wrap > table.assign-grid > thead > tr > * { border-top: 0; }
+.grid-wrap > table.duty-grid > tbody > tr:last-child > *,
+.grid-wrap > table.assign-grid > tbody > tr:last-child > * { border-bottom: 0; }
+table.duty-grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 640px; font-size: var(--text-sm); }
+table.duty-grid th, table.duty-grid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; }
+table.duty-grid thead th { background: var(--paper-3); padding: var(--space-xs) var(--space-2xs); font-size: var(--text-base); font-weight: 700; }
+table.duty-grid th.rowhead {
+  background: var(--paper-3); text-align: left; padding: var(--space-xs) 10px; white-space: nowrap;
+  min-width: 96px; position: sticky; left: 0; z-index: var(--z-raised); font-size: var(--text-base);
+}
+/* 土日は色だけでなく文字（土・日）でも分かる */
+table.duty-grid thead th.sat { background: var(--accent-soft); color: var(--accent-dark); }
+table.duty-grid thead th.sun { background: var(--danger-soft); color: var(--danger); }
+
+/* 部員が押す1マス。押した順に第1〜第4希望の番号が付く。 */
+.pickcell {
+  display: block; width: 100%; min-height: 64px; padding: var(--space-xs) var(--space-2xs);
+  background: var(--paper-2); border: 0; cursor: pointer; user-select: none;
+  font-size: var(--text-sm); color: var(--muted); line-height: 1.4; font-family: inherit;
+  min-width: 0; border-radius: 0;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.pickcell:hover { background: var(--accent-soft); }
+.pickcell.picked { background: var(--accent-soft); }
+.pickcell.disabled { background: var(--paper-sunken); color: var(--muted); cursor: not-allowed; }
+.pickcell .rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--radius-pill);
+  background: var(--accent); color: #fff; font-weight: 700; font-size: var(--text-base);
+}
+/* 希望の順は濃さで表すが、数字そのものが読めるので色だけに頼っていない */
+.pickcell .rank.r1 { background: oklch(33% 0.150 262); }
+.pickcell .rank.r2 { background: oklch(40% 0.150 262); }
+.pickcell .rank.r3 { background: oklch(48% 0.150 262); }
+.pickcell .rank.r4 { background: oklch(56% 0.140 262); }
+.pickcell .cap { display: block; font-size: var(--text-xs); }
+
+/* 選んだ順の確認欄 */
+.picked-list { display: flex; flex-direction: column; gap: var(--space-xs); margin-top: 10px; }
+.picked-list .item {
+  display: flex; align-items: center; gap: var(--space-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  padding: 10px var(--space-sm); background: var(--paper-2); flex-wrap: wrap;
+}
+.picked-list .item .n { flex: 0 0 auto; font-weight: 700; color: var(--accent); }
+.picked-list .item .what { flex: 1 1 auto; font-weight: 700; }
+.picked-list .item.empty { border-style: dashed; border-color: var(--rule-strong); color: var(--muted); background: var(--paper); }
+.picked-list .item.empty .what { font-weight: 400; }
+
+/* ===== 当番表・手入れ表（手で直す） ===== */
+table.assign-grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 760px; font-size: var(--text-sm); }
+table.assign-grid th, table.assign-grid td { border: 1px solid var(--rule-strong); padding: var(--space-xs); vertical-align: top; }
+table.assign-grid thead th { background: var(--paper-3); text-align: center; font-size: var(--text-base); }
+table.assign-grid th.rowhead { background: var(--paper-3); text-align: left; white-space: nowrap; min-width: 100px; position: sticky; left: 0; z-index: var(--z-raised); font-size: var(--text-base); }
+/* 過不足は色だけでなく、下の「〇人 / 下限〜上限」の文字でも分かる */
+table.assign-grid td.short { background: var(--danger-soft); }
+table.assign-grid td.over { background: var(--warning-soft); }
+
+.name-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2xs); margin: var(--space-3xs);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) 10px;
+  font-size: var(--text-sm); background: var(--paper-2); white-space: nowrap; min-height: 36px;
+}
+.name-chip .r { font-size: var(--text-xs); color: var(--muted); }
+.name-chip .r.off { color: var(--warning); font-weight: 700; }
+.name-chip.locked { border-color: var(--warning); border-width: 2px; }
+/* チップの中の小さなボタン。見た目は小さいが当たり判定は32px確保する */
+.name-chip .lock, .name-chip .x {
+  background: none; border: 0; cursor: pointer; font-size: var(--text-sm); font-family: inherit;
+  min-width: 32px; min-height: 32px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: var(--radius-input); color: var(--ink);
+}
+.name-chip .x { color: var(--danger); font-weight: 700; }
+.name-chip .lock:hover, .name-chip .x:hover { background: var(--paper-sunken); }
+.cell-count { display: block; font-size: var(--text-xs); color: var(--muted); text-align: right; margin-top: var(--space-2xs); }
+.cell-count.short { color: var(--danger); font-weight: 700; }
+/* マスの中の「人を足す」。selectの既定の高さを保ちつつ小さめに */
+.add-select { margin-top: var(--space-2xs); font-size: var(--text-sm); padding: var(--space-xs); min-height: 40px; }
+
+/* ===== 手入れ：曜日／カレンダーの◎○× ===== */
+.mark-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.mark-row:last-child { border-bottom: none; }
+.mark-row .k { flex: 0 0 104px; font-weight: 700; font-size: var(--text-base); }
+.mark-row .k.sat { color: var(--accent-dark); }
+.mark-row .k.sun { color: var(--danger); }
+.marks { display: flex; gap: var(--space-xs); }
+.mk {
+  width: 56px; height: var(--tap); border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  background: var(--paper-2); font-size: 22px; line-height: 1; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--muted);
+  font-weight: 700; font-family: inherit; min-width: 0; padding: 0;
+  transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.mk:hover { background: var(--accent-soft); }
+.mk:active { transform: translateY(1px); }
+/* 選ばれている状態は、色に加えて枠の太さでも分かるようにしてある */
+.mk.on { border-width: 3px; }
+.mk.on.m2 { background: var(--care-soft); border-color: var(--maru2); color: var(--maru2); }
+.mk.on.m1 { background: var(--accent-soft); border-color: var(--maru1); color: var(--maru1); }
+.mk.on.m0 { background: var(--paper-sunken); border-color: var(--batsu); color: var(--batsu); }
+
+/* カレンダー（月曜始まり） */
+.cal { margin-bottom: var(--space-md); }
+.cal h4 { margin: 0 0 var(--space-xs); font-size: 1.0625rem; line-height: 1.4; }
+table.cal-grid { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: var(--text-sm); }
+table.cal-grid th, table.cal-grid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; height: 68px; vertical-align: top; }
+table.cal-grid th { background: var(--paper-3); height: auto; padding: var(--space-2xs) 0; font-size: var(--text-sm); }
+table.cal-grid th.sat { background: var(--accent-soft); color: var(--accent-dark); }
+table.cal-grid th.sun { background: var(--danger-soft); color: var(--danger); }
+table.cal-grid td.off { background: var(--paper); }
+.calday { display: block; width: 100%; height: 100%; min-height: var(--tap); border: 0; background: transparent; cursor: pointer; padding: var(--space-2xs) var(--space-3xs); font-family: inherit; }
+.calday .d { display: block; font-size: var(--text-xs); color: var(--muted); }
+.calday .m { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; color: oklch(70% 0.015 262); }
+.calday.m2 { background: var(--care-soft); } .calday.m2 .m { color: var(--maru2); }
+.calday.m1 { background: var(--accent-soft); } .calday.m1 .m { color: var(--maru1); }
+.calday.m0 { background: var(--paper-sunken); } .calday.m0 .m { color: var(--batsu); }
+.calday .who { display: block; font-size: var(--text-xs); font-weight: 700; color: var(--ink); }
+
+/* チェックシート（サブを選ぶ） */
+.checksheet { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.checksheet label {
+  display: inline-flex; align-items: center; gap: var(--space-xs); margin: 0;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input); padding: 10px 14px;
+  background: var(--paper-2); font-weight: 400; font-size: var(--text-base); cursor: pointer; min-height: var(--tap);
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.checksheet label:hover { background: var(--accent-soft); }
+/* チェック済みは、色に加えて枠の太さでも分かる */
+.checksheet label.on { border-color: var(--accent); border-width: 2px; background: var(--accent-soft); }
+.checksheet label .g { color: var(--muted); font-size: var(--text-sm); }
+
+/* ===== 見出しだけ出しておいて、押したら開く =====
+   使う頻度が低いわりに場所を取っていたところを畳んである。 */
+details.fold { border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); margin-top: var(--space-sm); }
+details.fold > summary {
+  cursor: pointer; padding: var(--space-sm) var(--space-md); font-weight: 700; font-size: var(--text-base);
+  min-height: var(--tap); display: flex; align-items: center; gap: var(--space-xs); list-style: none;
+  border-radius: var(--radius-input);
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "\25B6"; font-size: 13px; color: var(--accent); }
+details.fold[open] > summary::before { content: "\25BC"; }
+details.fold > summary:hover { background: var(--accent-soft); }
+details.fold[open] > summary { border-bottom: 1px solid var(--rule); border-radius: var(--radius-input) var(--radius-input) 0 0; }
+.fold-body { padding: var(--space-2xs) var(--space-md) var(--space-md); }
+
+/* ===== 決まりのまとまり =====
+   当番と手入れは別の表なのに、決まりが1枚に続けて並んでいて境目が見えなかった。
+   fieldset/legend で囲うと、目で見て分かれるだけでなく、読み上げでも
+   「当番の決まりの中の欄」と伝わる（DADS：関係のある入力欄はひとまとまりにする）。 */
+fieldset.rule {
+  border: 1px solid var(--rule-strong); border-left-width: 6px;
+  border-radius: var(--radius-card); padding: var(--space-xs) var(--space-md) var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+fieldset.rule > legend {
+  font-weight: 700; font-size: 1.0625rem; line-height: 1.4;
+  padding: var(--space-3xs) 10px; margin-left: -4px;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); background: var(--paper-2);
+}
+/* 何の表に効くのかを、まとまりの頭に必ず書く */
+fieldset.rule .rule-what { margin: var(--space-2xs) 0 var(--space-sm); font-size: var(--text-sm); line-height: 1.6; color: var(--ink); }
+/* 枠は灰色ではなく、そのまとまりの色にする。
+   薄い青地の上では灰色の枠が 2.98:1 しか出ず、3:1 に届かなかった。 */
+fieldset.rule-duty { border-color: var(--accent); background: var(--accent-soft); }
+fieldset.rule-duty > legend { border-color: var(--accent); color: var(--accent-dark); }
+fieldset.rule-care { border-color: var(--care); background: var(--care-soft); }
+fieldset.rule-care > legend { border-color: var(--care); color: var(--care); }
+/* 色が付いた地の上でも、入力欄は白のままにして境目を残す */
+fieldset.rule input[type="number"], fieldset.rule input[type="text"] { background: var(--paper-2); }
+
+/* 数字だけの1行。以前は大きな箱を並べていて、場所のわりに情報が少なかった。 */
+.statline { font-size: var(--text-base); line-height: 1.9; }
+.statline b { font-size: var(--text-md); margin: 0 var(--space-3xs) 0 var(--space-2xs); }
+.statline b:first-child { margin-left: 0; }
+.statline .ng { color: var(--danger); }
+.statline .sep { color: var(--muted); margin: 0 var(--space-xs); }
+
+/* 一覧の要約（サブは誰か、など）。畳んだ中身の代わりに見せる。 */
+.summary-line { font-size: var(--text-base); line-height: 1.8; }
+.summary-line .none { color: var(--danger); font-weight: 700; }
+
+/* ===== 段（Narrative Workflow） =====
+   希望を出す画面は「1 だれの 2 押す 3 出す」という順番が本当にある。
+   段の番号を見出しの頭に大きく置き、カードの上を太い罫線で切って前の段と分ける。 */
+.card.stage-card { border-top: 4px solid var(--accent); border-top-left-radius: var(--radius-card); border-top-right-radius: var(--radius-card); }
+.card.stage-card.care { border-top-color: var(--care); }
+.stage { display: flex; align-items: baseline; gap: var(--space-sm); margin: 0 0 var(--space-sm); }
+.stage .n {
+  flex: 0 0 auto; font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg); font-weight: 500; line-height: 1; color: var(--accent);
+}
+.card.stage-card.care .stage .n { color: var(--care); }
+.stage .h { font-size: var(--text-md); font-weight: 700; line-height: 1.35; letter-spacing: -0.015em; overflow-wrap: anywhere; min-width: 0; }
+
+/* 進み方の帯（Narrative Workflow・Workbench） */
+.steps { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0 0 var(--space-md); font-size: var(--text-sm); list-style: none; padding: 0; }
+.steps .s {
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: var(--space-2xs) 14px; background: var(--paper-2); color: var(--muted);
+  display: inline-flex; align-items: center; gap: var(--space-2xs); white-space: nowrap;
+}
+.steps .s .no { font-weight: 500; margin-right: var(--space-3xs); }
+.steps .s.on { background: var(--care); border-color: var(--care); color: #fff; font-weight: 700; }
+.steps .s.done { border-color: var(--care); color: var(--care); }
+/* 当番の段は青、手入れの段は緑。どちらの話かが段だけで分かる */
+.steps.duty .s.on { background: var(--accent); border-color: var(--accent); }
+.steps.duty .s.done { border-color: var(--accent); color: var(--accent-dark); }
+
+.pill-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.pill { border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); padding: var(--space-2xs) var(--space-sm); font-size: var(--text-sm); background: var(--paper-2); }
+.pill.no { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.pill.yes { background: var(--care-soft); border-color: var(--care); color: var(--care); }
+
+.summary-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.summary-grid .stat { border: 1px solid var(--rule); border-radius: var(--radius-input); padding: 10px 14px; background: var(--paper-2); min-width: 116px; }
+.summary-grid .stat b { display: block; font-size: var(--text-lg); line-height: 1.3; }
+.summary-grid .stat span { font-size: var(--text-sm); color: var(--muted); }
+
+.warn-list { max-height: 280px; overflow-y: auto; margin-top: 10px; }
+.warn-list div { font-size: var(--text-base); padding: var(--space-2xs) 0; border-bottom: 1px solid var(--rule); line-height: 1.7; }
+.warn-list div:last-child { border-bottom: none; }
+.warn-list .e { color: var(--danger); }
+.warn-list .w { color: var(--warning); }
+
+/* 画面に出さないが、読み上げには渡したい文言 */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 通信中の表示。Apps Scriptは1往復に数秒かかるので、待ちを必ず見せる */
+#busy {
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-toast);
+  background: var(--warning); color: #fff; text-align: center;
+  padding: 10px; font-size: var(--text-base); font-weight: 700; display: none;
+}
+#busy.on { display: block; }
+
+.saving-bar {
+  position: sticky; bottom: 0; background: var(--paper-2); border-top: 3px solid var(--accent);
+  padding: var(--space-sm); display: none; align-items: center; gap: var(--space-sm);
+  justify-content: space-between; margin: 0 calc(var(--space-lg) * -1) calc(var(--space-lg) * -1);
+  flex-wrap: wrap; z-index: var(--z-sticky);
+}
+.saving-bar.on { display: flex; }
+
+/* ===== 動き =====
+   2つだけ。press（押している間 1px 沈む）と nudge（入口の行で印が少し寄る）。
+   出てくる演出は置いていない。道具の画面で毎回待たされる動きは邪魔にしかならないため。
+   press は button・.chip・.mk に、nudge は入口ページの中に書いてある。 */
+a.hub-link {
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+@media (pointer: coarse) { button, .chip, .mk { min-height: 48px; } }
+
+/* 動きを減らす設定の人には、動きを出さない。フォーカスリングは元から動かしていない */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important; scroll-behavior: auto !important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar">
+  <span>当番システム（副将）</span>
+  <a id="urlLink" style="display:none;">配るURL</a>
+</header>
+
+<main class="wide">
+  <!-- ログイン -->
+  <div class="card" id="loginCard">
+    <h2>副将パスワード</h2>
+    <input type="password" id="pw" placeholder="パスワード">
+    <div style="margin-top:12px;"><button id="loginBtn">開く</button></div>
+    <div id="loginMsg" role="status" aria-live="polite"></div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <!-- どの期間を編集しているか。当番の設定・投票・当番表はすべてこの期間のもの。 -->
+    <div class="card" id="termBar" style="padding:12px 16px;">
+      <div class="row" style="align-items:center;">
+        <div style="flex:0 0 auto;"><b>編集中の期間</b></div>
+        <div><select id="termSelect" aria-label="編集する期間"></select></div>
+        <div style="flex:0 0 auto;">
+          <label class="inline"><input type="checkbox" id="termOpen"> 部員の投票を受け付ける</label>
+        </div>
+      </div>
+      <details class="fold">
+        <summary>期間を足す・名前を直す・消す</summary>
+        <div class="fold-body">
+          <p class="hint">
+            当番は曜日で回すので、期間は<b>名前だけ</b>です（日付は要りません）。<br>
+            新しい期間を作ると、<b>1つ前の期間の人数と学年をそのまま引き継ぎます</b>。毎回入れ直す必要はありません。
+          </p>
+          <div class="row">
+            <div><label for="newTermName">足す期間の名前</label><input type="text" id="newTermName" placeholder="例：後期"></div>
+            <div style="flex:0 0 auto;"><button id="addTermBtn">足す</button></div>
+          </div>
+          <hr style="border:0;border-top:1px solid var(--border);margin:20px 0;">
+
+          <h3 id="editTermHead">編集中の期間を直す</h3>
+          <p class="hint" id="editTermNote"></p>
+          <div class="row">
+            <div><label for="renameTerm">新しい名前に直す</label><input type="text" id="renameTerm"></div>
+            <div style="flex:0 0 auto;"><button id="renameTermBtn" class="secondary">名前を直す</button></div>
+          </div>
+          <div style="margin-top:16px;"><button id="delTermBtn" class="danger">この期間を消す</button></div>
+          <p class="hint">消すと、その期間の投票と当番表も消えます。ほかの期間には影響しません。</p>
+        </div>
+      </details>
+      <div id="termMsg" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="tabs">
+      <button data-tab="members" class="active">部員</button>
+      <button data-tab="duties">当番の設定</button>
+      <button data-tab="votes">投票状況</button>
+      <button data-tab="table">当番表</button>
+      <button data-tab="care">手入れ</button>
+    </div>
+
+    <!-- ===== 部員 ===== -->
+    <section data-pane="members">
+      <div class="card">
+        <h2>部員</h2>
+        <p class="hint">卒部などで当番に入らなくなった人は削除してください。その人の投票と、当番表・手入れ表に入っているぶんも一緒に消えます。</p>
+        <div id="memberList"></div>
+      </div>
+
+      <div class="card">
+        <h3>1人ずつ足す</h3>
+        <div class="row">
+          <div><label for="mName">名前</label><input type="text" id="mName" placeholder="山田太郎"></div>
+          <div><label for="mYear">入部年</label><input type="number" id="mYear" placeholder="2025"></div>
+          <div style="flex:0 0 auto;"><button id="addMemberBtn">足す</button></div>
+        </div>
+        <div id="memberMsg" role="status" aria-live="polite"></div>
+
+        <details class="fold">
+          <summary>まとめて足す・人員表システムから取り込む</summary>
+          <div class="fold-body">
+            <p class="hint">1行に1人。「名前 入部年」か「名前 学年」。名前だけでも足せます（学年はあとで直せます）。</p>
+            <textarea id="bulkText" placeholder="山田太郎 2025&#10;鈴木花子 2&#10;佐藤次郎"></textarea>
+            <div style="margin-top:12px;"><button id="bulkBtn" class="secondary">まとめて足す</button></div>
+            <p class="hint" style="margin-top:12px;">
+              人員表システムから1〜3年生を読み込むときは、スプレッドシートのメニュー
+              <b>「当番・手入れ」→「人員表システムから部員を取り込む」</b>を使ってください。
+            </p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ===== 当番の設定 ===== -->
+    <section data-pane="duties" style="display:none;">
+      <div class="card">
+        <h2>当番の種類</h2>
+        <div id="dutyList"></div>
+        <div class="row" style="margin-top:12px;">
+          <div><label for="dName">足す当番の名前</label><input type="text" id="dName" placeholder="例：朝当"></div>
+          <div style="flex:0 0 auto;"><button id="addDutyBtn">足す</button></div>
+        </div>
+        <p class="hint">当番を足すと、曜日7つぶんのマスができます。消すと、その当番の投票と当番表も消えます。</p>
+      </div>
+
+      <div class="card">
+        <h2>曜日ごとの人数と学年 <span class="muted" id="slotTermName"></span></h2>
+
+        <details class="fold">
+          <summary>書き方</summary>
+          <div class="fold-body">
+            <p class="hint">
+              マスの上段が<b>下限</b>（最低これだけ入れる）と<b>上限</b>（これ以上は入れない。空欄なら上限なし）、
+              下段が<b>就ける学年</b>です。ここで外した学年の人は、部員の投票画面でもそのマスを押せません。
+            </p>
+            <table style="margin:8px 0 0;">
+              <thead><tr><th style="width:140px;">就ける学年に入れるもの</th><th>意味</th></tr></thead>
+              <tbody>
+                <tr><td>（空欄）</td><td>全学年が入れる</td></tr>
+                <tr><td><b>1</b></td><td>1年だけ</td></tr>
+                <tr><td><b>1、2</b></td><td>1年と2年。<b>複数のときは区切る</b></td></tr>
+                <tr><td><b>1、2、3</b></td><td>3つ以上も同じ</td></tr>
+              </tbody>
+            </table>
+            <p class="hint">
+              区切りは <b>、</b> <b>,</b> <b>・</b> 半角スペース のどれでも構いません。<br>
+              <b style="color:var(--danger);">「12」のように続けて書くと「12年」と読まれてしまいます。</b>必ず区切ってください。
+            </p>
+          </div>
+        </details>
+
+        <div class="row tight" style="margin:12px 0 8px;">
+          <button class="small secondary" id="fillRowBtn">月曜日の値を全曜日にコピー</button>
+        </div>
+        <div class="grid-wrap"><table class="duty-grid" id="slotGrid"></table></div>
+        <div style="margin-top:12px;"><button id="saveSlotsBtn">人数と学年を保存</button></div>
+        <div id="slotMsg" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2>割り当ての決まり</h2>
+        <p class="hint">
+          <b>当番</b>と<b>手入れ</b>はまったく別の表です。決まりも別なので、下の2つに分けています。
+          片方を変えても、もう片方の表には影響しません。
+        </p>
+
+        <fieldset class="rule rule-duty">
+          <legend><span aria-hidden="true">📋</span> 当番の決まり</legend>
+          <p class="rule-what">効く先：<b>当番表</b>（曜日ごと・昼当／夕当／投げ草）</p>
+
+          <div class="row">
+            <div><label for="setMin">1人あたりの当番数の下限</label><input type="number" id="setMin" min="0"></div>
+            <div><label for="setMax">1人あたりの当番数の上限</label><input type="number" id="setMax" min="1"></div>
+          </div>
+          <p class="hint">既定は下限1・上限1（<b>1人1枠</b>）。2枠まで持たせたいときは上限を2にします。</p>
+
+          <label class="inline" style="margin-top:12px;"><input type="checkbox" id="setSameDay"> 同じ人に、同じ曜日の当番を2つ入れない</label>
+          <p class="hint">例：月曜の昼当と月曜の夕当が同じ人にならないようにします。</p>
+        </fieldset>
+
+        <fieldset class="rule rule-care">
+          <legend><span aria-hidden="true">🐴</span> 手入れの決まり</legend>
+          <p class="rule-what">効く先：<b>手入れ表</b>（馬ごと・日ごと）</p>
+
+          <div class="row">
+            <div><label for="setChiefRatio">チーフに入れる割合（既定値）</label><input type="number" id="setChiefRatio" min="1" max="10" step="0.5"></div>
+            <div style="flex:2 1 300px;"><p class="hint" style="margin-top:30px;">
+              その馬のチーフを、ほかのサブの何倍の日数入れるか。<b>2なら「チーフ2：ほかのサブ1」</b>。1にすると全員おなじ。<br>
+              ここは<b>既定値</b>です。馬ごとの割合は<b>チーフ画面の「この期間の決まり」</b>で変えられ、そちらが優先されます。
+            </p></div>
+          </div>
+
+          <label class="inline" style="margin-top:8px;"><input type="checkbox" id="setNoRun"> 手入れの担当が、続けて同じ人にならないようにする</label>
+          <br>
+          <label class="inline" style="margin-top:8px;"><input type="checkbox" id="setMaruFirst"> ◎の人を、日数が偏ってでも先に入れる</label>
+          <p class="hint">
+            チェックを外していると（既定）、まず<b>日数の少ない人</b>から見て、同じ日数なら◎の人を先に入れます。<br>
+            チェックを入れると◎が絶対に優先されます。全部の日を◎にした人が1人いると、その人ばかりになるので注意してください。
+          </p>
+        </fieldset>
+
+        <div style="margin-top:4px;"><button id="saveSettingsBtn">当番・手入れの決まりをまとめて保存</button></div>
+        <div id="settingsMsg" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ===== 投票状況 ===== -->
+    <section data-pane="votes" style="display:none;">
+      <div class="card">
+        <h2>投票状況</h2>
+        <div id="voteStats" class="statline"></div>
+        <p class="hint" style="margin-top:12px;">未投票の人は、下の「代理で入れる」から副将が代わりに希望を入れられます。入れなくても当番には割り振られますが、本人の都合は見ていません。</p>
+        <div id="voteList"></div>
+      </div>
+      <div class="card" id="proxyCard" style="display:none;">
+        <h2><span id="proxyName"></span> の希望を代わりに入れる</h2>
+        <div id="proxyProgress" class="msg warning" role="status" aria-live="polite"></div>
+        <div class="grid-wrap"><table class="duty-grid" id="proxyGrid"></table></div>
+        <div id="proxyPicked" class="picked-list"></div>
+        <div style="margin-top:12px;">
+          <button id="proxySaveBtn">保存する</button>
+          <button id="proxyCancelBtn" class="secondary" style="margin-left:8px;">やめる</button>
+        </div>
+        <div id="proxyMsg" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ===== 当番表 ===== -->
+    <section data-pane="table" style="display:none;">
+      <div class="card">
+        <h2>当番表</h2>
+        <p class="hint">
+          「作成する」を押すと、決まりと投票から自動で組みます。<br>
+          そのあと、マスの人を消したり足したりして直せます。<b>鍵をかけた人は、作り直しても動きません。</b>
+        </p>
+        <div class="row tight">
+          <button id="genBtn">作成する</button>
+          <button id="genPreviewBtn" class="secondary">作って中身だけ見る（保存しない）</button>
+          <button id="reloadBtn" class="secondary">保存済みを読み直す</button>
+        </div>
+        <div id="genMsg" role="status" aria-live="polite"></div>
+        <div id="tableStats" class="statline"></div>
+        <div id="warnBox"></div>
+      </div>
+
+      <div class="card">
+        <div class="grid-wrap"><table class="assign-grid" id="assignGrid"></table></div>
+        <div class="saving-bar" id="savingBar">
+          <span id="dirtyText"></span>
+          <span>
+            <button id="saveTableBtn">保存する</button>
+            <button id="discardBtn" class="secondary" style="margin-left:8px;">直したのを取り消す</button>
+          </span>
+        </div>
+      </div>
+
+      <div class="card">
+        <details class="fold"><summary>1人あたりの当番数を見る</summary><div class="fold-body"><div id="perMember"></div></div></details>
+      </div>
+    </section>
+
+    <!-- ===== 手入れ（チーフ画面と同じことが副将からもできる） ===== -->
+    <section data-pane="care" style="display:none;">
+      <div class="card">
+        <h2>馬とチーフ</h2>
+        <p class="hint">
+          チーフは部員の一覧から選びます。チーフは手入れの日数が多めになるので、
+          <b>チーフ画面でその人をサブにも入れてください</b>。
+        </p>
+        <div id="horseList"></div>
+        <div id="horseMsg" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card">
+        <h2>手入れの期間</h2>
+        <p class="hint">
+          チーフ画面と同じものです。どちらから作っても同じところに入ります。<br>
+          サブ選び・◎○×の集計・手入れ表づくりは<b>チーフ画面</b>で行ってください。
+        </p>
+        <div id="planListAdmin"></div>
+      </div>
+
+      <div class="card">
+        <details class="fold" open><summary>期間を新しく作る</summary><div class="fold-body">
+        <div class="row">
+          <div><label for="cHorse">馬</label><select id="cHorse"></select></div>
+          <div>
+            <label for="cTerm">期間の名前</label>
+            <input type="text" id="cTerm" list="cTermList" placeholder="例：後期、夏休み、4月">
+            <datalist id="cTermList"></datalist>
+          </div>
+        </div>
+        <label>作り方</label>
+        <div class="radio-list">
+          <label class="inline"><input type="radio" name="cmode" value="曜日" checked> 曜日で作る</label>
+          <label class="inline"><input type="radio" name="cmode" value="カレンダー"> カレンダーで作る</label>
+        </div>
+        <p class="hint">曜日＝毎週おなじ担当。カレンダー＝日付ごとに決める（最長400日）。</p>
+        <div class="row" id="cDateRow" style="display:none;">
+          <div><label for="cFrom">開始日</label><input type="date" id="cFrom"></div>
+          <div><label for="cTo">終了日</label><input type="date" id="cTo"></div>
+        </div>
+        <div class="row">
+          <div><label for="cMin">1日の下限（人）</label><input type="number" id="cMin" value="1" min="0"></div>
+          <div><label for="cMax">1日の上限（空欄なら上限なし）</label><input type="number" id="cMax" value="1" min="0"></div>
+          <div>
+            <label for="cRatio">チーフの割合</label>
+            <input type="number" id="cRatio" min="1" max="10" step="0.5" placeholder="既定">
+          </div>
+        </div>
+        <p class="hint">チーフの割合を空欄にすると、上の「割り当ての決まり」の既定値を使います。</p>
+        <div style="margin-top:16px;"><button id="cNewBtn">この設定で作る</button></div>
+        <div id="careMsg" role="status" aria-live="polite"></div>
+        </div></details>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const msgIn = (id, cls, text) => { $(id).innerHTML = text ? '<div class="msg ' + cls + '">' + esc(text) + '</div>' : ''; };
+
+let TOKEN = '';
+let D = { members: [], duties: [], slots: [], votes: [], cells: [], settings: {}, days: [], 希望の数: 4, warnings: [] };
+let TABLE = [];        // 画面で直している当番表
+let DIRTY = false;
+let PROXY = null;      // 代理入力している部員
+let PROXY_PICKS = [];
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+
+const API = 'https://script.google.com/macros/s/AKfycbxRymAf5iGuZfmZE-CK2fwicbnj1tE6UZKywZ3cNDTkqxZp0aBAKIb67jYWfOzYorK2Yw/exec';
+
+/**
+ * サーバ（Apps Script）を呼ぶ。
+ *
+ * この画面は script.google.com の外に置いてあるので、GASの画面用の呼び出し口は使えない。
+ * かわりに fetch で叩く。**別オリジンなのでCookieが飛ばない**ぶん、
+ * 複数のGoogleアカウントに同時ログインしていても「ファイルを開くことができません」にならない。
+ * 画面を外に出したのはそのため。
+ *
+ * Content-Type を text/plain にしているのは、application/json にすると
+ * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ */
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({ fn: fn, args: args }),
+  }).then((res) => {
+    if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
+    return res.json();
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
+    return r.value;
+  }).finally(() => { busy(false); });
+}
+
+const memberById = (id) => D.members.filter((m) => m.id === id)[0];
+const dutyById = (id) => D.duties.filter((d) => d.id === id)[0];
+const 名 = (id) => { const m = memberById(id); return m ? m.name : '（消えた人）'; };
+const 使う当番 = () => D.duties.filter((d) => d.active);
+const 枠 = (dutyId, day) => D.slots.filter((s) => s.dutyId === dutyId && s.day === day)[0] || null;
+const 曜日クラス = (w) => (w === '土' ? ' sat' : (w === '日' ? ' sun' : ''));
+
+// ===================== ログイン =====================
+
+$('loginBtn').addEventListener('click', async () => {
+  try {
+    TOKEN = await call('login', $('pw').value);
+    $('loginCard').style.display = 'none';
+    $('app').style.display = 'block';
+    await loadAll(D.termId);
+    try {
+      const u = await call('adminShareUrl', TOKEN);
+      const a = $('urlLink');
+      a.style.display = 'inline';
+      a.addEventListener('click', () => {
+        alert('★ ふだん配るのはこの3本だけで足ります\n\n' +
+          '■ 部員に配る\n' + u.入口_部員 +
+          '\n\n■ チーフに配る\n' + u.入口_チーフ +
+          '\n\n■ 副将が持つ\n' + u.入口_副将 +
+          '\n\n- - - 直接ひらくURL - - -\n\n' +
+          '当番・部員用　' + u.当番_部員 +
+          '\n\n当番・副将用　' + u.当番_副将 +
+          '\n\n手入れ・部員用　' + u.手入れ_部員 +
+          '\n\n手入れ・チーフ用　' + u.手入れ_チーフ +
+          (u.大会_出欠
+            ? '\n\n大会の出欠　' + u.大会_出欠 + '\n\n人員表をまとめる　' + u.大会_人員表
+            : '\n\n※ 大会人員表システムのURLが未設定です。スプレッドシートのメニュー「当番・手入れ」→'
+              + '「人員表システムのURLを設定」で入れると、入口ページから大会の出欠と人員表へも飛べます。') +
+          '\n\n※ URLの中の a/gmail.com/ は消さないでください。' +
+          '大学のアカウントで開いていても、複数ログインでも、そのまま開けるようにする部分です。');
+      });
+    } catch (e) { /* URLが取れなくても本体は使える */ }
+  } catch (e) {
+    msgIn('loginMsg', 'error', (e && e.message) || e);
+  }
+});
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+let 手入れを読んだ = false;
+
+document.querySelector('.tabs').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('[data-pane]').forEach((p) => {
+    p.style.display = p.dataset.pane === b.dataset.tab ? 'block' : 'none';
+  });
+  // 手入れのぶんは、そのタブを開いたときだけ読む（開くたびに毎回読むと当番の画面まで遅くなる）
+  if (b.dataset.tab === 'care' && !手入れを読んだ) {
+    手入れを読んだ = true;
+    try { await loadCare(); }
+    catch (err) { 手入れを読んだ = false; msgIn('careMsg', 'error', (err && err.message) || err); }
+  }
+});
+
+async function loadAll(termId) {
+  D = await call('adminLoadAll', TOKEN, termId || null);
+  TABLE = (D.cells || []).slice();
+  DIRTY = false;
+  renderTerms();
+  renderMembers();
+  renderDuties();
+  renderSlots();
+  renderSettings();
+  renderVotes();
+  renderTable();
+}
+
+// ===================== 期間 =====================
+// 当番の設定・投票・当番表はすべて「編集中の期間」のもの。手入れの期間とは別物。
+
+const いまの期間 = () => (D.terms || []).filter((t) => t.id === D.termId)[0] || null;
+
+function renderTerms() {
+  const t = いまの期間();
+  $('termSelect').innerHTML = (D.terms || []).map((x) =>
+    '<option value="' + x.id + '"' + (x.id === D.termId ? ' selected' : '') + '>' +
+    esc(x.name) + (x.open ? '（受付中）' : '') + '</option>').join('');
+  $('termOpen').checked = !!(t && t.open);
+  $('renameTerm').value = t ? t.name : '';
+  $('slotTermName').textContent = t ? '（' + t.name + '）' : '';
+  // 「いまの期間」だけでは何を指すか分かりにくいので、名前をそのまま書く
+  $('editTermHead').textContent = t ? '「' + t.name + '」を直す' : '期間を直す';
+  $('editTermNote').textContent = t
+    ? 'いま上のプルダウンで選んでいる期間（' + t.name + '）が対象です。ほかの期間を直すときは、先に上で切り替えてください。'
+    : '期間がありません。上の「足す期間の名前」から作ってください。';
+}
+
+$('termSelect').addEventListener('change', async () => {
+  if (DIRTY && !confirm('保存していない直しがあります。期間を切り替えると消えます。よろしいですか？')) {
+    renderTerms();
+    return;
+  }
+  await loadAll($('termSelect').value);
+  msgIn('termMsg', 'success', '「' + (いまの期間() || {}).name + '」に切り替えました。');
+});
+
+$('termOpen').addEventListener('change', async () => {
+  const t = いまの期間();
+  if (!t) return;
+  try {
+    await call('adminSaveTerm', TOKEN, { id: t.id, name: t.name, open: $('termOpen').checked });
+    await loadAll(t.id);
+    msgIn('termMsg', 'success', $('termOpen').checked
+      ? '「' + t.name + '」の投票を受け付けます。部員の画面に出ます。'
+      : '「' + t.name + '」の受付を止めました。部員の画面に出なくなります。');
+  } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); renderTerms(); }
+});
+
+$('addTermBtn').addEventListener('click', async () => {
+  try {
+    await call('adminSaveTerm', TOKEN, { name: $('newTermName').value, open: false });
+    const 名 = $('newTermName').value;
+    $('newTermName').value = '';
+    await loadAll(D.termId);
+    const 新 = (D.terms || []).filter((x) => x.name === 名)[0];
+    if (新) await loadAll(新.id);
+    msgIn('termMsg', 'success', '「' + 名 + '」を作りました。人数と学年は前の期間から引き継いでいます。' +
+      '準備ができたら「部員の投票を受け付ける」にチェックを入れてください。');
+  } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
+});
+
+$('renameTermBtn').addEventListener('click', async () => {
+  const t = いまの期間();
+  if (!t) return;
+  try {
+    await call('adminSaveTerm', TOKEN, { id: t.id, name: $('renameTerm').value, open: t.open });
+    await loadAll(t.id);
+    msgIn('termMsg', 'success', '名前を直しました。');
+  } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
+});
+
+$('delTermBtn').addEventListener('click', async () => {
+  const t = いまの期間();
+  if (!t) return;
+  if (!confirm('「' + t.name + '」を消します。\nこの期間の投票と当番表も消えます。よろしいですか？')) return;
+  try {
+    await call('adminDeleteTerm', TOKEN, t.id);
+    await loadAll(D.termId);
+    msgIn('termMsg', 'success', '消しました。');
+  } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
+});
+
+// ===================== 部員 =====================
+
+function renderMembers() {
+  if (!D.members.length) {
+    $('memberList').innerHTML = '<div class="muted">まだ誰も登録されていません。</div>';
+    return;
+  }
+  $('memberList').innerHTML = D.members.map((m) =>
+    '<div class="list-item">' +
+    '<span><b>' + esc(m.name) + '</b>' +
+    (m.grade ? ' <span class="muted">' + m.grade + '年（入部 ' + m.joinYear + '）</span>' : ' <span class="muted">学年ふめい</span>') +
+    '</span>' +
+    '<span class="row tight">' +
+    '<button class="small secondary" data-editm="' + esc(m.id) + '">入部年を直す</button>' +
+    '<button class="small danger" data-delm="' + esc(m.id) + '">削除</button>' +
+    '</span></div>').join('');
+}
+
+$('memberList').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-delm]');
+  if (del) {
+    const m = memberById(del.dataset.delm);
+    if (!confirm(m.name + ' を削除します。\nこの人の投票と、当番表・手入れ表に入っているぶんも消えます。よろしいですか？')) return;
+    try {
+      const r = await call('adminDeleteMember', TOKEN, m.id);
+      await loadAll(D.termId);
+      msgIn('memberMsg', 'success', m.name + ' を削除しました（投票 ' + r.消した.当番投票 + '件、当番表 ' + r.消した.当番表 + '件、手入れ ' + (r.消した.サブ + r.消した.手入れ投票 + r.消した.手入れ表) + '件も消しました）。');
+    } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
+    return;
+  }
+  const ed = e.target.closest('[data-editm]');
+  if (ed) {
+    const m = memberById(ed.dataset.editm);
+    const v = prompt(m.name + ' の入部年（西暦4桁）', m.joinYear || '');
+    if (v === null) return;
+    try {
+      await call('adminSaveMember', TOKEN, { id: m.id, name: m.name, joinYear: Number(v) || '' });
+      await loadAll(D.termId);
+      msgIn('memberMsg', 'success', '直しました。');
+    } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
+  }
+});
+
+$('addMemberBtn').addEventListener('click', async () => {
+  try {
+    await call('adminSaveMember', TOKEN, { name: $('mName').value, joinYear: $('mYear').value });
+    $('mName').value = ''; $('mYear').value = '';
+    await loadAll(D.termId);
+    msgIn('memberMsg', 'success', '足しました。');
+  } catch (e) { msgIn('memberMsg', 'error', (e && e.message) || e); }
+});
+
+$('bulkBtn').addEventListener('click', async () => {
+  try {
+    const r = await call('adminBulkMembers', TOKEN, $('bulkText').value);
+    $('bulkText').value = '';
+    await loadAll(D.termId);
+    msgIn('memberMsg', 'success', r.足した + '人を足しました' + (r.飛ばした ? '（すでにいた ' + r.飛ばした + '人は飛ばしました）' : '') + '。');
+  } catch (e) { msgIn('memberMsg', 'error', (e && e.message) || e); }
+});
+
+// ===================== 当番の設定 =====================
+
+function renderDuties() {
+  $('dutyList').innerHTML = D.duties.map((d) =>
+    '<div class="list-item">' +
+    '<span><b>' + esc(d.name) + '</b>' + (d.active ? '' : ' <span class="pill no">使わない</span>') + '</span>' +
+    '<span class="row tight">' +
+    '<button class="small secondary" data-toggled="' + esc(d.id) + '">' + (d.active ? '使わない' : '使う') + '</button>' +
+    '<button class="small danger" data-deld="' + esc(d.id) + '">削除</button>' +
+    '</span></div>').join('') || '<div class="muted">当番がありません。</div>';
+}
+
+$('dutyList').addEventListener('click', async (e) => {
+  const t = e.target.closest('[data-toggled]');
+  if (t) {
+    const d = dutyById(t.dataset.toggled);
+    try { await call('adminSaveDuty', TOKEN, { id: d.id, name: d.name, order: d.order, active: !d.active }); await loadAll(D.termId); }
+    catch (err) { alert((err && err.message) || err); }
+    return;
+  }
+  const del = e.target.closest('[data-deld]');
+  if (del) {
+    const d = dutyById(del.dataset.deld);
+    if (!confirm(d.name + ' を削除します。この当番への投票と当番表も消えます。よろしいですか？')) return;
+    try { await call('adminDeleteDuty', TOKEN, d.id); await loadAll(D.termId); }
+    catch (err) { alert((err && err.message) || err); }
+  }
+});
+
+$('addDutyBtn').addEventListener('click', async () => {
+  try { await call('adminSaveDuty', TOKEN, { name: $('dName').value }); $('dName').value = ''; await loadAll(D.termId); }
+  catch (e) { alert((e && e.message) || e); }
+});
+
+// 21マスの下限・上限・学年
+function renderSlots() {
+  const days = D.days;
+  let html = '<thead><tr><th class="rowhead">当番</th>' +
+    days.map((w) => '<th class="' + 曜日クラス(w).trim() + '">' + esc(w) + '</th>').join('') + '</tr></thead><tbody>';
+  使う当番().forEach((d) => {
+    html += '<tr><th class="rowhead">' + esc(d.name) + '</th>';
+    days.forEach((w) => {
+      const s = 枠(d.id, w) || { min: 0, max: null, grades: [] };
+      // title だけだと読み上げに届かないので aria-label で何の欄か言う
+      const 場所 = w + '曜の' + d.name;
+      html += '<td style="padding:6px;">' +
+        '<div style="display:flex;gap:4px;justify-content:center;">' +
+        '<input type="number" min="0" style="width:62px;padding:8px 4px;text-align:center;" value="' + s.min + '"' +
+        ' data-slot="min" data-d="' + esc(d.id) + '" data-w="' + esc(w) + '" aria-label="' + esc(場所) + 'の下限（人）">' +
+        '<input type="number" min="0" style="width:62px;padding:8px 4px;text-align:center;" value="' + (s.max === null ? '' : s.max) + '" placeholder="∞"' +
+        ' data-slot="max" data-d="' + esc(d.id) + '" data-w="' + esc(w) + '" aria-label="' + esc(場所) + 'の上限（人）。空欄なら上限なし">' +
+        '</div>' +
+        '<input type="text" style="margin-top:4px;padding:8px 4px;text-align:center;" value="' + esc((s.grades || []).join('、')) + '" placeholder="全学年"' +
+        ' data-slot="grades" data-d="' + esc(d.id) + '" data-w="' + esc(w) + '"' +
+        ' aria-label="' + esc(場所) + 'に就ける学年。空欄なら全学年。複数なら 1、2 のように区切る">' +
+        '</td>';
+    });
+    html += '</tr>';
+  });
+  $('slotGrid').innerHTML = html + '</tbody>';
+}
+
+// 月曜の値を火〜日にも写す（同じ人数のことが多いので）
+$('fillRowBtn').addEventListener('click', () => {
+  使う当番().forEach((d) => {
+    const 元 = {};
+    ['min', 'max', 'grades'].forEach((k) => {
+      const el = $('slotGrid').querySelector('[data-slot="' + k + '"][data-d="' + d.id + '"][data-w="' + D.days[0] + '"]');
+      元[k] = el ? el.value : '';
+    });
+    D.days.slice(1).forEach((w) => {
+      ['min', 'max', 'grades'].forEach((k) => {
+        const el = $('slotGrid').querySelector('[data-slot="' + k + '"][data-d="' + d.id + '"][data-w="' + w + '"]');
+        if (el) el.value = 元[k];
+      });
+    });
+  });
+  msgIn('slotMsg', 'warning', D.days[0] + '曜日の値を全曜日にコピーしました。まだ保存していません。');
+});
+
+$('saveSlotsBtn').addEventListener('click', async () => {
+  const slots = [];
+  使う当番().forEach((d) => {
+    D.days.forEach((w) => {
+      const g = (k) => {
+        const el = $('slotGrid').querySelector('[data-slot="' + k + '"][data-d="' + d.id + '"][data-w="' + w + '"]');
+        return el ? el.value : '';
+      };
+      slots.push({ dutyId: d.id, day: w, min: g('min'), max: g('max'), grades: g('grades') });
+    });
+  });
+  try {
+    const 結果 = await call('adminSaveSlots', TOKEN, D.termId, slots);
+    const 期間 = D.termId;
+    await loadAll(期間);
+    // 保存したのに元の数字に戻っていたら、書けていない。黙って通さずここで言う。
+    const 違う = slots.filter((s) => {
+      const now = 枠(s.dutyId, s.day);
+      if (!now) return true;
+      return String(now.min) !== String(Number(s.min) || 0) ||
+             String(now.max === null ? '' : now.max) !== String(s.max === '' ? '' : (Number(s.max) || 0));
+    }).length;
+    if (違う) {
+      msgIn('slotMsg', 'error', '保存しましたが、' + 違う + 'マスが入れた値と違っています。'
+        + 'スプレッドシートの「当番枠」シートに直接入れた値が残っている可能性があります。'
+        + 'メニュー「当番・手入れ」→「初期設定（シートを作る）」を実行してから、もう一度お試しください。');
+    } else if (結果 && 結果.足した) {
+      msgIn('slotMsg', 'success', '保存しました。（この期間のマスが' + 結果.足した + 'こ足りなかったので作り直しました）');
+    } else {
+      msgIn('slotMsg', 'success', '保存しました。');
+    }
+  } catch (e) { msgIn('slotMsg', 'error', (e && e.message) || e); }
+});
+
+function renderSettings() {
+  $('setMin').value = D.settings.個人下限;
+  $('setMax').value = D.settings.個人上限;
+  $('setSameDay').checked = !!D.settings.同曜日禁止;
+  $('setNoRun').checked = !!D.settings.連日回避;
+  $('setChiefRatio').value = D.settings.チーフ倍率;
+  $('setMaruFirst').checked = !!D.settings.マル絶対;
+}
+
+$('saveSettingsBtn').addEventListener('click', async () => {
+  try {
+    await call('adminSaveSettings', TOKEN, {
+      個人下限: $('setMin').value, 個人上限: $('setMax').value,
+      同曜日禁止: $('setSameDay').checked,
+      連日回避: $('setNoRun').checked,
+      チーフ倍率: $('setChiefRatio').value,
+      マル絶対: $('setMaruFirst').checked,
+    });
+    await loadAll(D.termId);
+    msgIn('settingsMsg', 'success', '保存しました。');
+  } catch (e) { msgIn('settingsMsg', 'error', (e && e.message) || e); }
+});
+
+// ===================== 投票状況 =====================
+
+const 私の票 = (memberId) => D.votes.filter((v) => v.memberId === memberId).sort((a, b) => a.rank - b.rank);
+
+function renderVotes() {
+  const 済 = D.members.filter((m) => 私の票(m.id).length === D.希望の数);
+  const 未 = D.members.filter((m) => 私の票(m.id).length !== D.希望の数);
+  $('voteStats').innerHTML =
+    '<div class="stat"><b>' + 済.length + '</b><span>投票ずみ</span></div>' +
+    '<div class="stat"><b>' + 未.length + '</b><span>まだの人</span></div>' +
+    '<div class="stat"><b>' + D.members.length + '</b><span>部員</span></div>';
+
+  $('voteList').innerHTML = D.members.map((m) => {
+    const v = 私の票(m.id);
+    const ある = v.length === D.希望の数;
+    const 中身 = ある
+      ? v.map((x, i) => '<span class="pill">第' + (i + 1) + '　' + esc(x.day) + '曜 ' + esc((dutyById(x.dutyId) || {}).name || '?') + '</span>').join('')
+      : '<span class="pill no">まだ出していません</span>';
+    const 代理 = ある && v.some((x) => x.byAdmin) ? '<span class="pill">代理入力</span>' : '';
+    return '<div class="list-item" style="align-items:flex-start;">' +
+      '<span style="flex:1 1 auto;"><b>' + esc(m.name) + '</b>' +
+      (m.grade ? ' <span class="muted">' + m.grade + '年</span>' : '') +
+      '<div class="pill-list">' + 中身 + 代理 + '</div></span>' +
+      '<span class="row tight">' +
+      '<button class="small secondary" data-proxy="' + esc(m.id) + '">' + (ある ? '直す' : '代理で入れる') + '</button>' +
+      (ある ? '<button class="small danger" data-clearv="' + esc(m.id) + '">消す</button>' : '') +
+      '</span></div>';
+  }).join('');
+}
+
+$('voteList').addEventListener('click', async (e) => {
+  const p = e.target.closest('[data-proxy]');
+  if (p) {
+    PROXY = memberById(p.dataset.proxy);
+    PROXY_PICKS = 私の票(PROXY.id).map((v) => ({ dutyId: v.dutyId, day: v.day }));
+    $('proxyCard').style.display = 'block';
+    $('proxyName').textContent = PROXY.name;
+    msgIn('proxyMsg', '', '');
+    renderProxy();
+    $('proxyCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const c = e.target.closest('[data-clearv]');
+  if (c) {
+    const m = memberById(c.dataset.clearv);
+    if (!confirm(m.name + ' の投票を消します。よろしいですか？')) return;
+    try { await call('adminClearVote', TOKEN, D.termId, m.id); await loadAll(D.termId); }
+    catch (err) { alert((err && err.message) || err); }
+  }
+});
+
+// 部員の画面と同じ21マス。押した順が第1〜第4希望。
+function renderProxy() {
+  const 順位 = (dutyId, day) => {
+    for (let i = 0; i < PROXY_PICKS.length; i++) {
+      if (PROXY_PICKS[i].dutyId === dutyId && PROXY_PICKS[i].day === day) return i + 1;
+    }
+    return 0;
+  };
+  let html = '<thead><tr><th class="rowhead">当番</th>' +
+    D.days.map((w) => '<th class="' + 曜日クラス(w).trim() + '">' + esc(w) + '</th>').join('') + '</tr></thead><tbody>';
+  使う当番().forEach((d) => {
+    html += '<tr><th class="rowhead">' + esc(d.name) + '</th>';
+    D.days.forEach((w) => {
+      const r = 順位(d.id, w);
+      const s = 枠(d.id, w);
+      const 入れる = !s || !s.grades.length || !PROXY.grade || s.grades.indexOf(Number(PROXY.grade)) >= 0;
+      const 中身 = r ? '<span class="rank r' + r + '">' + r + '</span>'
+        : '<span class="cap">' + (s ? s.min + (s.max === null ? '〜' : (s.max > s.min ? '〜' + s.max : '')) + '人' : '') + '</span>';
+      html += '<td><button type="button" class="pickcell' + (r ? ' picked' : '') + (入れる ? '' : ' disabled') + '"' +
+        ' data-pd="' + esc(d.id) + '" data-pw="' + esc(w) + '"' + (入れる ? '' : ' aria-disabled="true"') + ' aria-pressed="' + (r ? 'true' : 'false') + '">' + 中身 + '</button></td>';
+    });
+    html += '</tr>';
+  });
+  $('proxyGrid').innerHTML = html + '</tbody>';
+
+  const items = [];
+  for (let i = 0; i < 希望数(); i++) {
+    const x = PROXY_PICKS[i];
+    items.push(x
+      ? '<div class="item"><span class="n">第' + (i + 1) + '希望</span><span class="what">' + esc(x.day) + '曜　' + esc((dutyById(x.dutyId) || {}).name || '?') + '</span></div>'
+      : '<div class="item empty"><span class="n">第' + (i + 1) + '希望</span><span class="what">まだ</span></div>');
+  }
+  $('proxyPicked').innerHTML = items.join('');
+
+  const 残り = 希望数() - PROXY_PICKS.length;
+  $('proxyProgress').className = 'msg ' + (残り ? 'warning' : 'success');
+  $('proxyProgress').textContent = 残り
+    ? 'あと' + 残り + 'つ選んでください。' + 希望数() + 'つそろうと保存できます。'
+    : 希望数() + 'つそろいました。保存できます。';
+  // 保存ボタンは押せるままにしておく。足りなければ押したときに知らせる。
+}
+
+// サーバから来なかったときも動くようにしておく。
+// ここが undefined だと「PICKS.length < undefined」が常に false になり、
+// マスを押しても黙って何も起きない（取り消しだけが効く）状態になってしまう。
+const 希望数 = () => Number(D.希望の数) || 4;
+
+$('proxyGrid').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pd]');
+  if (!b) return;
+  if (b.disabled || b.getAttribute('aria-disabled') === 'true') {
+    const s = 枠(b.dataset.pd, b.dataset.pw);
+    const 学年 = s && s.grades.length ? s.grades.join('・') + '年' : '';
+    return void msgIn('proxyMsg', 'error',
+      b.dataset.pw + '曜の' + ((dutyById(b.dataset.pd) || {}).name || '') +
+      'は' + (学年 ? 学年 + 'だけが入れる当番です' : '選べません') + '。' + PROXY.name + 'さんは入れません。');
+  }
+  const i = PROXY_PICKS.findIndex((x) => x.dutyId === b.dataset.pd && x.day === b.dataset.pw);
+  if (i >= 0) {
+    PROXY_PICKS.splice(i, 1);
+    msgIn('proxyMsg', '', '');
+  } else if (PROXY_PICKS.length < 希望数()) {
+    PROXY_PICKS.push({ dutyId: b.dataset.pd, day: b.dataset.pw });
+    msgIn('proxyMsg', '', '');
+  } else {
+    // 黙って無視すると「押しても反応しない」と見えるので、必ず理由を出す
+    msgIn('proxyMsg', 'warning', 'すでに' + 希望数() + 'つ選んでいます。' +
+      '入れ替えるときは、いらないマスをもう一度押して取り消してから選んでください。');
+  }
+  renderProxy();
+});
+
+$('proxySaveBtn').addEventListener('click', async () => {
+  if (PROXY_PICKS.length !== 希望数()) {
+    const 残り = 希望数() - PROXY_PICKS.length;
+    return void msgIn('proxyMsg', 'error', 残り > 0
+      ? 'まだ保存できません。あと' + 残り + 'つ、上の表のマスを押して選んでください。'
+      : 希望数() + 'つを超えています。選んだマスをもう一度押すと外せます。');
+  }
+  try {
+    await call('adminSaveVoteFor', TOKEN, D.termId, PROXY.id, PROXY_PICKS);
+    const name = PROXY.name;
+    $('proxyCard').style.display = 'none';
+    PROXY = null;
+    await loadAll(D.termId);
+    msgIn('proxyMsg', '', '');
+    alert(name + ' の希望を保存しました。');
+  } catch (e) { msgIn('proxyMsg', 'error', (e && e.message) || e); }
+});
+$('proxyCancelBtn').addEventListener('click', () => { $('proxyCard').style.display = 'none'; PROXY = null; });
+
+// ===================== 当番表 =====================
+
+const マスの人 = (dutyId, day) => TABLE.filter((c) => c.dutyId === dutyId && c.day === day);
+
+function renderTable() {
+  const days = D.days;
+  let html = '<thead><tr><th class="rowhead">当番</th>' +
+    days.map((w) => '<th class="' + 曜日クラス(w).trim() + '">' + esc(w) + '</th>').join('') + '</tr></thead><tbody>';
+
+  使う当番().forEach((d) => {
+    html += '<tr><th class="rowhead">' + esc(d.name) + '</th>';
+    days.forEach((w) => {
+      const s = 枠(d.id, w) || { min: 0, max: null, grades: [] };
+      const 人 = マスの人(d.id, w);
+      const 足りない = s.min && 人.length < s.min;
+      const 多い = s.max !== null && 人.length > s.max;
+
+      const chips = 人.map((c) => {
+        const 順 = c.rank ? '第' + c.rank : '希望外';
+        const 場所 = w + '曜の' + d.name + 'の' + 名(c.memberId);
+        // 鍵と×は span ではなく button にする。span だとキーボードで押せないため。
+        return '<span class="name-chip' + (c.locked ? ' locked' : '') + '">' +
+          '<button type="button" class="lock" data-lock="' + esc(d.id + '|' + w + '|' + c.memberId) + '"' +
+          ' aria-pressed="' + (c.locked ? 'true' : 'false') + '"' +
+          ' aria-label="' + esc(場所) + 'に鍵をかける（かけると作り直しても動きません）">' + (c.locked ? '🔒' : '🔓') + '</button>' +
+          esc(名(c.memberId)) +
+          '<span class="r' + (c.rank ? '' : ' off') + '">' + 順 + '</span>' +
+          '<button type="button" class="x" data-del="' + esc(d.id + '|' + w + '|' + c.memberId) + '"' +
+          ' aria-label="' + esc(場所) + 'を外す">×</button></span>';
+      }).join('');
+
+      const 入っている = {};
+      人.forEach((c) => { 入っている[c.memberId] = true; });
+      const 候補 = D.members.filter((m) => !入っている[m.id] &&
+        (!s.grades.length || !m.grade || s.grades.indexOf(Number(m.grade)) >= 0));
+      const add = '<select data-add="' + esc(d.id + '|' + w) + '" class="add-select" aria-label="' + esc(w + '曜の' + d.name) + 'に人を足す">' +
+        '<option value="">＋ 人を足す</option>' +
+        候補.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '）' : '') + '</option>').join('') +
+        '</select>';
+
+      html += '<td class="' + (足りない ? 'short' : (多い ? 'over' : '')) + '">' + chips + add +
+        '<span class="cell-count' + (足りない ? ' short' : '') + '">' + 人.length + '人 / ' +
+        s.min + (s.max === null ? '〜' : '〜' + s.max) + '</span></td>';
+    });
+    html += '</tr>';
+  });
+  $('assignGrid').innerHTML = html + '</tbody>';
+
+  // 集計
+  const 数 = {};
+  TABLE.forEach((c) => { 数[c.memberId] = (数[c.memberId] || 0) + 1; });
+  const 希望どおり = TABLE.filter((c) => c.rank >= 1).length;
+  $('tableStats').innerHTML =
+    '<div class="stat"><b>' + TABLE.length + '</b><span>のべ人数</span></div>' +
+    '<div class="stat"><b>' + 希望どおり + '</b><span>希望どおり</span></div>' +
+    '<div class="stat"><b>' + (TABLE.length - 希望どおり) + '</b><span>希望外</span></div>' +
+    '<div class="stat"><b>' + D.members.filter((m) => !数[m.id]).length + '</b><span>当番なしの人</span></div>';
+
+  $('perMember').innerHTML = D.members.map((m) => {
+    const n = 数[m.id] || 0;
+    const 中身 = TABLE.filter((c) => c.memberId === m.id)
+      .map((c) => '<span class="pill' + (c.rank ? ' yes' : ' no') + '">' + esc(c.day) + '曜 ' + esc((dutyById(c.dutyId) || {}).name || '?') + (c.rank ? '（第' + c.rank + '）' : '（希望外）') + '</span>').join('');
+    return '<div class="list-item" style="align-items:flex-start;">' +
+      '<span style="flex:1 1 auto;"><b>' + esc(m.name) + '</b> <span class="muted">' + n + '個</span>' +
+      '<div class="pill-list">' + (中身 || '<span class="pill no">なし</span>') + '</div></span></div>';
+  }).join('');
+
+  renderWarnings(D.warnings);
+  $('savingBar').className = 'saving-bar' + (DIRTY ? ' on' : '');
+  $('dirtyText').textContent = DIRTY ? '直したところがまだ保存されていません。' : '';
+}
+
+function renderWarnings(list) {
+  const w = list || [];
+  if (!w.length) {
+    $('warnBox').innerHTML = '<div class="msg success">気になるところはありません。</div>';
+    return;
+  }
+  $('warnBox').innerHTML = '<div class="warn-list">' +
+    w.map((x) => '<div class="' + (x.level === 'error' ? 'e' : 'w') + '">' +
+      (x.level === 'error' ? '⚠ ' : '・') + esc(x.text) + '</div>').join('') + '</div>';
+}
+
+$('assignGrid').addEventListener('click', (e) => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    const p = del.dataset.del.split('|');
+    const i = TABLE.findIndex((c) => c.dutyId === p[0] && c.day === p[1] && c.memberId === p[2]);
+    if (i >= 0) { TABLE.splice(i, 1); DIRTY = true; renderTable(); }
+    return;
+  }
+  const lock = e.target.closest('[data-lock]');
+  if (lock) {
+    const p = lock.dataset.lock.split('|');
+    const c = TABLE.filter((x) => x.dutyId === p[0] && x.day === p[1] && x.memberId === p[2])[0];
+    if (c) { c.locked = !c.locked; DIRTY = true; renderTable(); }
+  }
+});
+
+$('assignGrid').addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-add]');
+  if (!sel || !sel.value) return;
+  const p = sel.dataset.add.split('|');
+  TABLE.push({ dutyId: p[0], day: p[1], memberId: sel.value, rank: 0, locked: true });
+  DIRTY = true;
+  renderTable();
+});
+
+$('genBtn').addEventListener('click', () => 作る(true));
+$('genPreviewBtn').addEventListener('click', () => 作る(false));
+
+async function 作る(保存する) {
+  if (DIRTY && !confirm('保存していない直しがあります。作り直すと消えます。よろしいですか？')) return;
+  try {
+    const r = await call('adminGenerateDuty', TOKEN, D.termId, !!保存する);
+    TABLE = r.cells;
+    D.warnings = r.warnings;
+    DIRTY = !保存する;
+    renderTable();
+    msgIn('genMsg', 保存する ? 'success' : 'warning',
+      保存する ? '作って保存しました。' : '作りました。まだ保存していません（下の「保存する」で確定します）。');
+  } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
+}
+
+$('reloadBtn').addEventListener('click', async () => {
+  if (DIRTY && !confirm('保存していない直しがあります。読み直すと消えます。よろしいですか？')) return;
+  await loadAll(D.termId);
+  msgIn('genMsg', 'success', '保存されているものを読み直しました。');
+});
+
+$('saveTableBtn').addEventListener('click', async () => {
+  try {
+    const r = await call('adminSaveTable', TOKEN, D.termId, TABLE);
+    D.warnings = r.warnings;
+    DIRTY = false;
+    renderTable();
+    msgIn('genMsg', 'success', '保存しました（' + r.count + '件）。');
+  } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
+});
+
+$('discardBtn').addEventListener('click', async () => {
+  if (!confirm('直したのを取り消して、保存されているものに戻します。よろしいですか？')) return;
+  await loadAll(D.termId);
+});
+
+// ===================== 手入れ（馬のチーフと期間） =====================
+// チーフ画面と同じサーバの関数を、副将のトークンで呼んでいる。
+// どちらから触っても同じシートに入るので、内容がずれることはない。
+
+let CARE = { horses: [], plans: [], members: [], 期間名: [], 既定のチーフ倍率: 2 };
+
+async function loadCare() {
+  CARE = await call('chiefLoadAll', TOKEN);
+  renderHorses();
+  renderPlansAdmin();
+  $('cHorse').innerHTML = '<option value="">選んでください</option>' +
+    CARE.horses.filter((h) => h.active).map((h) => '<option value="' + h.id + '">' + esc(h.name) + '</option>').join('');
+  $('cTermList').innerHTML = CARE.期間名.map((t) => '<option value="' + esc(t) + '">').join('');
+}
+
+// チーフを選ぶプルダウン。名簿に無い名前がシートに入っていたときだけ末尾に残す。
+function チーフの選択肢(今) {
+  const 名前 = String(今 || '').trim();
+  const ある = CARE.members.some((m) => m.name === 名前);
+  return '<option value="">（決まっていない）</option>' +
+    CARE.members.map((m) =>
+      '<option value="' + esc(m.name) + '"' + (m.name === 名前 ? ' selected' : '') + '>' +
+      esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('') +
+    (名前 && !ある ? '<option value="' + esc(名前) + '" selected>' + esc(名前) + '（名簿にありません）</option>' : '');
+}
+
+function renderHorses() {
+  const 使う = CARE.horses.filter((h) => h.active);
+  if (!使う.length) { $('horseList').innerHTML = '<div class="muted">馬が登録されていません。</div>'; return; }
+  $('horseList').innerHTML = 使う.map((h) =>
+    '<div class="list-item">' +
+    '<span style="flex:0 0 110px;"><b>' + esc(h.name) + '</b></span>' +
+    '<span style="flex:1 1 220px;">' +
+    '<select data-chief="' + esc(h.id) + '" aria-label="' + esc(h.name) + 'のチーフ">' + チーフの選択肢(h.chief) + '</select>' +
+    '</span></div>').join('');
+}
+
+$('horseList').addEventListener('change', async (e) => {
+  const sel = e.target.closest('[data-chief]');
+  if (!sel) return;
+  const h = CARE.horses.filter((x) => x.id === sel.dataset.chief)[0];
+  try {
+    await call('chiefSaveHorse', TOKEN, { id: h.id, chief: sel.value });
+    await loadCare();
+    msgIn('horseMsg', 'success', sel.value
+      ? esc(h.name) + ' のチーフを ' + sel.value + ' さんにしました。'
+      : esc(h.name) + ' のチーフを外しました。');
+  } catch (err) { msgIn('horseMsg', 'error', (err && err.message) || err); }
+});
+
+function renderPlansAdmin() {
+  if (!CARE.plans.length) {
+    $('planListAdmin').innerHTML = '<div class="muted">まだ期間がありません。下から作れます。</div>';
+    return;
+  }
+  const 馬名 = (id) => { const h = CARE.horses.filter((x) => x.id === id)[0]; return h ? h.name : '（消えた馬）'; };
+  $('planListAdmin').innerHTML = CARE.plans.map((p) =>
+    '<div class="list-item">' +
+    '<span style="flex:1 1 320px;"><b>' + esc(馬名(p.horseId)) + '</b>　' + esc(p.term) +
+    '<div class="muted">' +
+    (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと') +
+    '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人' +
+    '　チーフの割合 ' + (p.chiefRatio === null ? '既定（' + CARE.既定のチーフ倍率 + '）' : p.chiefRatio) +
+    '</div></span>' +
+    '<span><button class="small danger" data-delplan="' + esc(p.id) + '">削除</button></span>' +
+    '</div>').join('');
+}
+
+$('planListAdmin').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-delplan]');
+  if (!b) return;
+  const p = CARE.plans.filter((x) => x.id === b.dataset.delplan)[0];
+  const h = CARE.horses.filter((x) => x.id === p.horseId)[0];
+  if (!confirm((h ? h.name : '?') + ' の「' + p.term + '」を削除します。\nサブ・◎○×・手入れ表も消えます。よろしいですか？')) return;
+  try {
+    await call('chiefDeletePlan', TOKEN, p.id);
+    await loadCare();
+    msgIn('careMsg', 'success', '削除しました。');
+  } catch (err) { msgIn('careMsg', 'error', (err && err.message) || err); }
+});
+
+document.querySelector('input[name=cmode][value=カレンダー]').addEventListener('change', () => { $('cDateRow').style.display = 'flex'; });
+document.querySelector('input[name=cmode][value=曜日]').addEventListener('change', () => { $('cDateRow').style.display = 'none'; });
+
+$('cNewBtn').addEventListener('click', async () => {
+  const mode = document.querySelector('input[name=cmode]:checked').value;
+  try {
+    const r = await call('chiefSavePlan', TOKEN, {
+      horseId: $('cHorse').value, term: $('cTerm').value, mode: mode,
+      from: mode === 'カレンダー' ? $('cFrom').value : '',
+      to: mode === 'カレンダー' ? $('cTo').value : '',
+      min: $('cMin').value, max: $('cMax').value, chiefRatio: $('cRatio').value,
+    });
+    $('cTerm').value = '';
+    await loadCare();
+    msgIn('careMsg', 'success', '作りました。' +
+      (r.引き継いだ ? '同じ馬の前の期間からサブを引き継いでいます。' : '') +
+      'サブ選びと◎○×の集計はチーフ画面で行ってください。');
+  } catch (e) { msgIn('careMsg', 'error', (e && e.message) || e); }
+});
+
+window.addEventListener('beforeunload', (e) => {
+  if (!DIRTY) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+</script>
+</body>
+</html>

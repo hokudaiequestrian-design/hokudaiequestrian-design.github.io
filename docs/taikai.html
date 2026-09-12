@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<style>
+:root {
+  --bg: #f5f6f8;
+  --card: #ffffff;
+  --text: #1f2430;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --border: #e2e5ea;
+  --danger: #dc2626;
+  --success: #16a34a;
+  --warning: #b45309;
+  --rider: #c00000;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+header.appbar {
+  background: var(--primary);
+  color: #fff;
+  padding: 14px 16px;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+header.appbar a { color: #fff; text-decoration: underline; font-size: 13px; font-weight: 400; cursor: pointer; }
+
+main { max-width: 720px; margin: 0 auto; padding: 16px; }
+main.wide { max-width: 1400px; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+
+h1 { font-size: 20px; }
+h2 { font-size: 17px; margin-top: 0; }
+h3 { font-size: 15px; margin: 0 0 8px; }
+
+label { display: block; font-weight: 600; margin: 12px 0 4px; font-size: 14px; }
+label.inline { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; margin: 0 10px 0 0; font-size: 13px; }
+
+select, input[type=text], input[type=number], input[type=password], input[type=date], textarea {
+  width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 15px; background: #fff; color: var(--text); font-family: inherit;
+}
+textarea { min-height: 70px; resize: vertical; }
+input[type=checkbox] { width: auto; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.row > * { flex: 1; min-width: 120px; }
+.row.tight > * { flex: 0 0 auto; min-width: 0; }
+
+.checkbox-list, .radio-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px; font-size: 15px; cursor: pointer; user-select: none; background: #fff; }
+.chip.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+button {
+  background: var(--primary); color: #fff; border: none; border-radius: 8px;
+  padding: 12px 18px; font-size: 15px; font-weight: 700; cursor: pointer;
+}
+button:hover { background: var(--primary-dark); }
+button:disabled { opacity: .5; cursor: default; }
+button.secondary { background: #fff; color: var(--primary); border: 1px solid var(--primary); }
+button.secondary:hover { background: #eff6ff; }
+button.danger { background: var(--danger); }
+button.small { padding: 6px 10px; font-size: 13px; }
+
+.msg { padding: 10px 12px; border-radius: 8px; margin: 10px 0; font-size: 14px; }
+.msg.success { background: #ecfdf3; color: var(--success); border: 1px solid #b7f0ce; }
+.msg.error { background: #fef2f2; color: var(--danger); border: 1px solid #fecaca; }
+.msg.warning { background: #fffbeb; color: var(--warning); border: 1px solid #fde68a; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+th { background: #f0f2f5; }
+
+.muted { color: var(--muted); font-size: 13px; }
+.hint { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+
+.list-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.list-item:last-child { border-bottom: none; }
+
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.tabs button { background: #fff; color: var(--text); border: 1px solid var(--border); }
+.tabs button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.post-tag { display: inline-block; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; background: #eef2ff; color: var(--primary); }
+.post-運営 { background: #eff6ff; color: #1d4ed8; }
+.post-箱番長 { background: #f0fdf4; color: #15803d; }
+.post-馬匹 { background: #fef3c7; color: #a16207; }
+.post-会計 { background: #fae8ff; color: #a21caf; }
+
+.role-card { border: 1px dashed var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+
+/* 大会設定の「1日ぶん」のまとまり */
+.day-block { border-left: 4px solid var(--primary); }
+.day-heading { font-size: 16px; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 10px; }
+
+/* 候補から選ぶプルダウン。「その他（自由入力）」を選んだときだけ下に入力欄が出る */
+.pick { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pick > select, .pick > input { width: 100%; }
+.pick > input.pick-other { border-color: var(--primary); }
+
+/* 人員表のマトリクス */
+.matrix-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: #fff; max-height: 70vh; overflow-y: auto; }
+table.matrix { border-collapse: separate; border-spacing: 0; font-size: 12px; width: auto; min-width: 100%; }
+table.matrix th, table.matrix td { border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 2px 4px; white-space: nowrap; }
+table.matrix thead th { background: #f0f2f5; position: sticky; top: 0; z-index: 2; text-align: center; }
+table.matrix thead tr.days th { background: #e5e9f0; top: 0; }
+table.matrix thead tr.comps th { top: 27px; }
+table.matrix th.rowhead, table.matrix td.rowhead {
+  position: sticky; left: 0; z-index: 3; background: #fff; text-align: left;
+  border-right: 2px solid var(--border); min-width: 96px;
+}
+table.matrix thead th.rowhead { z-index: 4; background: #f0f2f5; }
+/* 行にカーソルを合わせても色は変えない（表計算ソフトと同じ）。
+   代わりに、選んでいるマスの行と列の見出しだけを目立たせる。 */
+/* 選んでいる行・列の見出し。選択中のマスより薄くして、マスの青が負けないようにする。 */
+table.matrix thead th.active, table.matrix td.rowhead.active { background: #e8eefb; }
+
+/* 仕事ごとの色は --jb（背景）と --jf（文字）で渡ってくる。
+   選択中や未保存のほうが目立つべきなので、そちらの指定が勝つ順番にしてある。 */
+td.cell {
+  text-align: center; padding: 4px 2px; min-width: 76px; cursor: cell; user-select: none;
+  background: var(--jb, #fff); color: var(--jf, var(--text));
+}
+td.cell .v { display: block; min-height: 1.2em; }
+td.cell select {
+  width: 100%; min-width: 76px; border: 0; background: #fff; padding: 2px;
+  font-size: 12px; border-radius: 0; text-align: center; cursor: pointer; color: var(--text);
+}
+/* 来られないと答えている日のマス。触れるので、右上の小さな角印だけで控えめに示す。
+   仕事を入れればその色が出て、他のマスと同じ見た目になる。 */
+td.cell.absent { position: relative; background: var(--jb, #fafbfc); }
+td.cell.absent::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  border-top: 6px solid #b9c0cc; border-left: 6px solid transparent;
+}
+td.cell.absent .v:empty::after { content: '－'; color: #c7ccd4; }
+td.cell.locked { box-shadow: inset 3px 0 0 var(--warning); }
+td.cell.dirty { background: #fffbeb; }
+/* 人数が足りない競技は、マスの色を潰さないよう下線で示す */
+td.cell.short { border-bottom: 3px solid #f08a8a; }
+
+/* 選択範囲。表計算ソフトと同じ感覚で見えるように */
+.matrix-wrap { user-select: none; }
+#matrixBox:focus { outline: none; }
+/* 選択の青は何よりも優先させたいので、詳細度を高くしてある */
+table.matrix tbody tr td.sel { background: #cfe2ff; }
+table.matrix tbody tr td.sel.dirty { background: #fde68a; }
+table.matrix tbody tr td.anchor { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+.cell-tools {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap; margin: 8px 0 0; padding: 8px 10px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+}
+/* 出場する人の馬名は赤字、手伝い（馬付き）は黒字。マニュアルと同じ見せ方。 */
+td.rider { text-align: center; color: var(--rider); font-weight: 700; background: #fff; }
+td.cell.helper { font-weight: 700; }
+.off-tag { font-size: 11px; color: #9aa1ac; }
+.row-filter { display: block; margin: 10px 0 0; font-size: 13px; cursor: pointer; }
+.row-filter input { margin-right: 6px; vertical-align: -1px; }
+.rider-tag { display: inline-block; border-radius: 6px; padding: 1px 8px; font-size: 12px; font-weight: 700; background: #fff5f5; color: var(--rider); border: 1px solid #fecaca; }
+th.short { background: #fef2f2; }
+
+/* 出欠を日ごとに聞く欄（部員の画面） */
+.day-vote { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
+.day-vote.no { border-color: #fecaca; background: #fef2f2; }
+.day-vote .day-name { font-weight: 700; font-size: 15px; }
+.day-vote .day-plan { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+/* 出る競技と馬を選ぶ欄（部員の画面） */
+.ride-box { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.ride-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ride-row .ride-name { flex: 0 0 110px; font-size: 14px; font-weight: 600; }
+.ride-row select { flex: 1 1 auto; padding: 8px; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; font-size: 12px; color: var(--muted); align-items: center; }
+.legend .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -2px; }
+.legend .swatch.abs { position: relative; background: #fafbfc; border: 1px solid #d1d5db; border-radius: 0; }
+.legend .swatch.abs::after {
+  content: ''; position: absolute; top: 0; right: 0;
+  border-top: 5px solid #b9c0cc; border-left: 5px solid transparent;
+}
+
+.summary-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.summary-grid .stat { border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: #fff; min-width: 108px; }
+.summary-grid .stat b { display: block; font-size: 19px; }
+.summary-grid .stat span { font-size: 12px; color: var(--muted); }
+
+.warn-list { max-height: 220px; overflow-y: auto; margin-top: 8px; }
+.warn-list div { font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+.warn-list div:last-child { border-bottom: none; }
+.warn-list .e { color: var(--danger); }
+.warn-list .w { color: var(--warning); }
+
+.pill-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pill { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; background: #fff; }
+.pill.no { background: #fef2f2; border-color: #fecaca; color: var(--danger); }
+.pill.yes { background: #ecfdf3; border-color: #b7f0ce; color: var(--success); }
+
+/* 通信中の表示。Apps Scriptは1往復に数秒かかるので、待ちを必ず見せる */
+#busy {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--warning); color: #fff; text-align: center;
+  padding: 6px; font-size: 13px; font-weight: 700; display: none;
+}
+#busy.on { display: block; }
+
+.saving-bar {
+  position: sticky; bottom: 0; background: #fff; border-top: 2px solid var(--primary);
+  padding: 10px; display: none; align-items: center; gap: 12px; justify-content: space-between;
+}
+.saving-bar.on { display: flex; }
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar"><span>大会の出欠入力</span></header>
+
+<main>
+  <div id="loading" class="card muted">読み込んでいます…</div>
+
+  <div class="card" id="pickCard" style="display:none;">
+    <label for="memberSelect">あなたの名前</label>
+    <select id="memberSelect"></select>
+    <label for="eventSelect">大会</label>
+    <select id="eventSelect"></select>
+  </div>
+
+  <div class="card" id="formCard" style="display:none;">
+    <h2 id="eventTitle"></h2>
+    <div id="eventPeriod" class="muted"></div>
+
+    <label>日ごとの出欠</label>
+    <p class="hint">大会は数日あります。<b>1日ずつ</b>、行ける・行けないを選んでください。行ける日は、その下に出る競技と馬を入れる欄が出ます。</p>
+    <div id="dayVotes"></div>
+
+    <label for="comment" id="commentLabel">希望・連絡事項（任意）</label>
+    <p class="hint" id="commentHint">仕事は基本的に役職にそって割り振られます。希望や都合があればここに書いてください。</p>
+    <textarea id="comment" placeholder="例：日曜の午後は用事があるので早めに帰りたいです"></textarea>
+
+    <div style="margin-top:16px;">
+      <button id="submitBtn">送信する</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const show = (cls, text) => { $('msg').innerHTML = '<div class="msg ' + cls + '">' + esc(text) + '</div>'; };
+
+let DATA = { members: [], events: [] };
+let DAYS = [];      // 選んでいる大会の日の一覧
+let ANSWERS = {};   // 日付 → true（行ける）／false（行けない）
+let RIDES = {};     // 競技ID → 乗る馬の名前の配列（同じ競技に2頭で出ることがある）
+let HORSES = [];    // 部の馬
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+
+const API = 'https://script.google.com/macros/s/AKfycbxUWCdZAA0-JIhl2Pr10KbAIZSKY4hcn7MfFwRWODjd0WQBWmmA25A-GdtVb5mcK38MTQ/exec';
+
+/**
+ * サーバ（Apps Script）を呼ぶ。
+ *
+ * この画面は script.google.com の外に置いてあるので、GASの画面用の呼び出し口は使えない。
+ * かわりに fetch で叩く。**別オリジンなのでCookieが飛ばない**ぶん、
+ * 複数のGoogleアカウントに同時ログインしていても「ファイルを開くことができません」にならない。
+ * 画面を外に出したのはそのため。
+ *
+ * Content-Type を text/plain にしているのは、application/json にすると
+ * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ */
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({ fn: fn, args: args }),
+  }).then((res) => {
+    if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
+    return res.json();
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
+    return r.value;
+  }).finally(() => { busy(false); });
+}
+
+const 行けない日 = () => DAYS.filter((d) => ANSWERS[d.date] === false);
+const 未入力の日 = () => DAYS.filter((d) => ANSWERS[d.date] === undefined);
+
+function renderDays() {
+  $('dayVotes').innerHTML = DAYS.map((d, i) => {
+    const v = ANSWERS[d.date];
+    const comps = d.competitions || [];
+    const plan = comps.length ? esc(comps.map((c) => c.name).join('・')) : '';
+
+    // 行ける日だけ、出る競技と馬を聞く。
+    // 同じ競技に2頭で出ることがあるので、馬を選ぶと下に空の枠が増えていく。
+    const 出場欄 = (v === true && comps.length)
+      ? '<div class="ride-box"><div class="muted" style="margin-bottom:6px;">この日に<b>選手として出る競技</b>があれば、乗る馬を選んでください。出ない競技はそのままで構いません。<br>同じ競技に2頭以上で出る場合は、馬を選ぶと下に欄が増えます。</div>' +
+        comps.map((c) => {
+          const 馬たち = (RIDES[c.id] || []).slice();
+          馬たち.push(''); // いつでも1つ空きを出しておく
+          return 馬たち.map((馬, i) =>
+            '<div class="ride-row">' +
+            '<span class="ride-name">' + (i === 0 ? esc(c.name) : '') + '</span>' +
+            '<select data-ride="' + esc(c.id) + '" data-slot="' + i + '">' +
+            '<option value="">' + (i === 0 ? '出ない' : '（追加しない）') + '</option>' +
+            HORSES.map((h) => '<option value="' + esc(h) + '"' + (馬 === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('') +
+            (馬 && HORSES.indexOf(馬) < 0 ? '<option value="' + esc(馬) + '" selected>' + esc(馬) + '</option>' : '') +
+            '</select></div>').join('');
+        }).join('') + '</div>'
+      : '';
+
+    return '<div class="day-vote' + (v === false ? ' no' : '') + '">' +
+      '<div class="day-name">' + esc(d.label) + '</div>' +
+      (plan ? '<div class="day-plan">' + plan + '</div>' : '') +
+      '<div class="radio-list" style="margin-top:8px;">' +
+      '<div class="chip' + (v === true ? ' selected' : '') + '" data-day="' + i + '" data-val="1">行ける</div>' +
+      '<div class="chip' + (v === false ? ' selected' : '') + '" data-day="' + i + '" data-val="0">行けない</div>' +
+      '</div>' + 出場欄 + '</div>';
+  }).join('');
+
+  $('dayVotes').querySelectorAll('select[data-ride]').forEach((sel) => {
+    sel.addEventListener('change', () => {
+      const cid = sel.dataset.ride;
+      const i = Number(sel.dataset.slot);
+      const 一覧 = (RIDES[cid] || []).slice();
+      if (sel.value) 一覧[i] = sel.value;   // 空きの枠なら、そこに足される
+      else 一覧.splice(i, 1);               // 「出ない」を選んだらその枠を消す
+      // 同じ馬を二重に選んでいたら1つにする
+      const 整理 = [];
+      一覧.forEach((h) => { if (h && 整理.indexOf(h) < 0) 整理.push(h); });
+      if (整理.length) RIDES[cid] = 整理;
+      else delete RIDES[cid];
+      renderDays(); // 枠の増減を出し直す
+    });
+  });
+
+  updateCommentLabel();
+}
+
+$('dayVotes').addEventListener('click', (e) => {
+  const chip = e.target.closest ? e.target.closest('[data-day]') : null;
+  if (!chip) return;
+  const day = DAYS[Number(chip.dataset.day)];
+  const 行ける = chip.dataset.val === '1';
+  ANSWERS[day.date] = 行ける;
+  // 行けなくした日の出場は取り下げる
+  if (!行ける) (day.competitions || []).forEach((c) => { delete RIDES[c.id]; });
+  renderDays();
+});
+
+// 行けない日があるときだけ連絡事項を必須にする
+function updateCommentLabel() {
+  const ng = 行けない日();
+  if (ng.length) {
+    $('commentLabel').innerHTML = '連絡事項 <span style="color:var(--danger);">※必須</span>';
+    $('commentHint').innerHTML = '<b>' + esc(ng.map((d) => d.label).join('、')) + '</b> に行けないので、理由を書いてください。';
+    $('comment').placeholder = '例：土曜は教習所の卒検があるため行けません';
+  } else {
+    $('commentLabel').textContent = '希望・連絡事項（任意）';
+    $('commentHint').textContent = '仕事は基本的に役職にそって割り振られます。希望や都合があればここに書いてください。';
+    $('comment').placeholder = '例：日曜の午後は用事があるので早めに帰りたいです';
+  }
+}
+
+async function onSelectionChange() {
+  const memberId = $('memberSelect').value;
+  const eventId = $('eventSelect').value;
+  if (!memberId || !eventId) { $('formCard').style.display = 'none'; return; }
+  localStorage.setItem('memberId', memberId);
+
+  const ev = DATA.events.filter((e) => e.id === eventId)[0];
+  $('eventTitle').textContent = ev.name;
+  DAYS = ev.days || [];
+  $('eventPeriod').textContent = DAYS.length && DAYS[0].date
+    ? DAYS[0].label + (DAYS.length > 1 ? ' 〜 ' + DAYS[DAYS.length - 1].label : '') + '（全' + DAYS.length + '日）'
+    : '';
+
+  ANSWERS = {};
+  RIDES = {};
+  $('comment').value = '';
+  $('msg').innerHTML = '';
+  $('formCard').style.display = 'block';
+  renderDays();
+
+  try {
+    const mine = await call('getMyResponse', eventId, memberId);
+    if (mine) {
+      (mine.answers || []).forEach((a) => { ANSWERS[a.date || ''] = a.attending; });
+      (mine.entries || []).forEach((x) => {
+        if (!RIDES[x.competitionId]) RIDES[x.competitionId] = [];
+        if (RIDES[x.competitionId].indexOf(x.horse) < 0) RIDES[x.competitionId].push(x.horse);
+      });
+      $('comment').value = mine.comment || '';
+      show('success', '前回の回答を読み込みました。書き換えて送信すると更新されます。');
+    }
+    renderDays();
+  } catch (e) {
+    show('error', (e && e.message) || e);
+  }
+}
+
+$('submitBtn').addEventListener('click', async () => {
+  const memberId = $('memberSelect').value;
+  const eventId = $('eventSelect').value;
+  if (!memberId || !eventId) return;
+
+  const 未入力 = 未入力の日();
+  if (未入力.length) {
+    return show('error', '出欠が入っていない日があります：' + 未入力.map((d) => d.label).join('、'));
+  }
+  const ng = 行けない日();
+  if (ng.length && !$('comment').value.trim()) {
+    show('error', '行けない日（' + ng.map((d) => d.label).join('、') + '）があるので、連絡事項に理由を書いてください。');
+    $('comment').focus();
+    return;
+  }
+
+  $('submitBtn').disabled = true;
+  try {
+    const answers = DAYS.map((d) => ({ date: d.date, attending: !!ANSWERS[d.date] }));
+    const rides = [];
+    Object.keys(RIDES).forEach((cid) => {
+      (RIDES[cid] || []).forEach((h) => rides.push({ competitionId: cid, horse: h }));
+    });
+    await call('submitResponse', eventId, memberId, answers, $('comment').value, rides);
+    show('success', '送信しました。ありがとうございます。' +
+      (rides.length ? '出場する競技を' + rides.length + '件登録しました。' : '') +
+      (ng.length ? '（' + ng.map((d) => d.label).join('、') + 'は欠席で登録しました）' : ''));
+  } catch (e) {
+    show('error', '送信に失敗しました：' + ((e && e.message) || e));
+  } finally {
+    $('submitBtn').disabled = false;
+  }
+});
+
+(async () => {
+  try {
+    DATA = await call('getMemberPageData');
+    HORSES = DATA.horses || [];
+    $('loading').style.display = 'none';
+    $('pickCard').style.display = 'block';
+
+    $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
+      DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
+    $('eventSelect').innerHTML = '<option value="">選択してください</option>' +
+      DATA.events.map((e) => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
+
+    $('memberSelect').addEventListener('change', onSelectionChange);
+    $('eventSelect').addEventListener('change', onSelectionChange);
+
+    const saved = localStorage.getItem('memberId');
+    if (saved && DATA.members.some((m) => m.id === saved)) $('memberSelect').value = saved;
+    if (DATA.events.length === 1) $('eventSelect').value = DATA.events[0].id;
+    onSelectionChange();
+  } catch (e) {
+    $('loading').innerHTML = '<div class="msg error">読み込みに失敗しました：' + esc((e && e.message) || e) + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<!--
+  Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
+  pre-emit critique: P5 H5 E5 S5 R4 V4
+
+  見た目の決まりは design.md（このフォルダの中）に書いてある。ここはその実装。
+  design.md より上に立つのは デジタル庁デザインシステム（DADS）だけ。
+  https://design.digital.go.jp/dads/
+
+  守っていること
+    ・本文は16px以上。14px未満は使わない（DADSの下限）
+    ・文字と背景は4.5:1以上、罫線・押せるものの枠と背景は3:1以上
+      （scratchpad の contrast.js で実測ずみ。色を触ったら必ず測り直すこと）
+    ・行間は本文150%以上、見出し140%
+    ・フォーカスは「黄色＋黒」の二重リング。どの部品でも消さない
+    ・押せるものの当たり判定は44px以上
+    ・色だけで意味を伝えない（記号・文字・枠の太さを必ず添える）
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!--
+  日本語は Noto Sans JP だけ（400/700）。重みを増やすと日本語フォントは一気に重くなるので、
+  見出しの強さは太さではなく 大きさ・字間・色 で作る。
+  Geist Mono はラテンだけで軽い。数字の桁をそろえる役だけに使う（1ウェイト）。
+-->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Geist+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* ===== 色 =====
+     色相はすべて 262（当番の青）に寄せてある。色被りの無い灰色は使わない。
+     値はすべて sRGB に収まることを確認ずみ。 */
+  --paper:        oklch(97.2% 0.006 262);
+  --paper-2:      oklch(99.2% 0.003 262);
+  --paper-3:      oklch(94.5% 0.010 262);
+  --paper-sunken: oklch(92.5% 0.008 262);
+
+  --ink:          oklch(21%   0.014 262);
+  --muted:        oklch(46%   0.022 262);
+
+  --rule:         oklch(88%   0.012 262);   /* 飾り。意味を持たない区切り */
+  --rule-strong:  oklch(62%   0.030 262);   /* 入力欄・押せるものの枠。3:1以上 */
+
+  --accent:       oklch(48%   0.150 262);   /* 当番 */
+  --accent-dark:  oklch(40%   0.150 262);
+  --accent-soft:  oklch(95.5% 0.021 262);
+  --care:         oklch(45%   0.095 165);   /* 手入れ */
+  --care-dark:    oklch(37%   0.079 165);
+  --care-soft:    oklch(95.5% 0.026 165);
+
+  --danger:       oklch(50%   0.190 27);
+  --danger-dark:  oklch(42%   0.173 27);
+  --danger-soft:  oklch(96%   0.019 27);
+  --warning:      oklch(48%   0.105 70);
+  --warning-soft: oklch(96%   0.030 80);
+  --success:      var(--care);
+  --success-soft: var(--care-soft);
+
+  /* 手入れの記号。色だけに頼らず、枠の太さと記号そのものでも分かるようにしてある */
+  --maru2: var(--care);
+  --maru1: var(--accent);
+  --batsu: var(--muted);
+
+  /* フォーカスリング（DADS の指定どおり黄＋黒の二重。色は変えない） */
+  --focus-inner: oklch(87% 0.170 100);
+  --focus-outer: #000000;
+
+  /* ===== 余白 ===== 4pt の名前つきスケール。生の px は書かない */
+  --space-3xs: 0.125rem;  --space-2xs: 0.25rem;  --space-xs: 0.5rem;
+  --space-sm:  0.75rem;   --space-md:  1rem;     --space-lg: 1.5rem;
+  --space-xl:  2.5rem;    --space-2xl: 4rem;     --space-3xl: 6rem;
+
+  /* ===== 文字の大きさ ===== 比率1.25。ただし最小は14px（DADSの下限） */
+  --text-xs:   0.875rem;    /* 14px */
+  --text-sm:   0.9375rem;   /* 15px */
+  --text-base: 1rem;        /* 16px */
+  --text-md:   1.25rem;     /* 20px */
+  --text-lg:   1.5625rem;   /* 25px */
+  --text-xl:   1.953rem;    /* 31px */
+  --text-display: clamp(1.75rem, 3vw + 1rem, 2.4414rem);
+
+  --font-body: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  --font-num:  "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* ===== 動き ===== 2つだけ（press と nudge）。transform と opacity 以外は動かさない */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:  cubic-bezier(0.7, 0, 0.84, 0);
+  --dur-micro: 120ms;  --dur-short: 220ms;  --dur-long: 420ms;
+
+  /* ===== 形 ===== playful の上限は12px。影は1段だけ、重ねない */
+  --radius-card:  12px;
+  --radius-input: 8px;
+  --radius-pill:  999px;
+  --shadow-card: 0 1px 2px oklch(21% 0.014 262 / 0.05);
+  --shadow-lift: 0 8px 24px -10px oklch(48% 0.150 262 / 0.28);
+
+  --z-base: 1; --z-raised: 10; --z-sticky: 200; --z-modal: 400; --z-toast: 500;
+
+  --tap: 44px;
+
+  /* ===== 前の名前 =====
+     ページ側の style="" から直接呼ばれているので、消さずに新しい値へ向ける。 */
+  --bg: var(--paper);          --card: var(--paper-2);
+  --text: var(--ink);
+  --primary: var(--accent);    --primary-dark: var(--accent-dark);
+  --primary-soft: var(--accent-soft);
+  --border: var(--rule);       --border-strong: var(--rule-strong);
+  --danger-bg: var(--danger-soft);
+  --success-bg: var(--care-soft);
+  --warning-bg: var(--warning-soft);
+}
+
+* { box-sizing: border-box; }
+/* はみ出しても横スクロールは起こさない。hidden ではなく clip（sticky を壊さない） */
+html, body { overflow-x: clip; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--text-base);   /* DADSの本文の下限 */
+  line-height: 1.7;              /* 本文は150%以上 */
+}
+
+/* ===== フォーカス =====
+   黄色の内側と黒の外側の二重リング。背景が明るくても暗くてもどちらかが必ず見える。
+   どの部品でも outline を消さないこと。出方は決してアニメーションさせない。 */
+:focus-visible {
+  outline: 3px solid var(--focus-inner);
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px var(--focus-outer);
+  border-radius: 2px;
+  position: relative;
+  z-index: var(--z-raised);
+  transition: none;
+}
+/* :focus-visible を知らない古いブラウザ向け。新しいブラウザではこちらを打ち消す */
+:focus { outline: 3px solid var(--focus-inner); box-shadow: 0 0 0 6px var(--focus-outer); }
+:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+
+header.appbar {
+  background: var(--accent);
+  color: #fff;
+  padding: var(--space-md);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+header.appbar.chief { background: var(--care); }
+header.appbar a {
+  color: #fff; font-size: var(--text-sm); font-weight: 400; cursor: pointer;
+  min-height: var(--tap); display: inline-flex; align-items: center;
+  white-space: nowrap; text-decoration: underline; text-underline-offset: 3px;
+}
+
+main { max-width: 760px; margin: 0 auto; padding: var(--space-md); }
+main.wide { max-width: 1240px; }
+/* 余白はわざと不揃いにする。まとまりの間はカードの内側より広い */
+main > section + section { margin-top: var(--space-xl); }
+
+.card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-card);
+}
+/* 枠の中に枠は作らない。カードの中のカードは地の色だけで分ける */
+.card .card { box-shadow: none; border-color: transparent; background: var(--paper); }
+
+h1, h2, h3, h4 { overflow-wrap: anywhere; min-width: 0; }
+h1 { font-size: var(--text-lg); line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 var(--space-sm); }
+h2 { font-size: var(--text-md); line-height: 1.35; letter-spacing: -0.015em; margin: 0 0 var(--space-xs); }
+h3 { font-size: 1.0625rem; line-height: 1.4; margin: 0 0 var(--space-xs); }
+
+/* 数字は Geist Mono で桁をそろえる。役は「表と数の欄」「丸バッジ」の2つだけ */
+.num, .cell-count, .statline b, .summary-grid .stat b,
+.pickcell .rank, .steps .s .no, .name-chip .r, .picked-list .item .n, .calday .d {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+label { display: block; font-weight: 700; margin: var(--space-md) 0 var(--space-2xs); font-size: var(--text-base); }
+label .req { color: var(--danger); font-size: var(--text-sm); margin-left: var(--space-2xs); }
+
+/* 選ぶだけの小さなラベル。DADSの下限14pxは下回らない */
+label.inline {
+  display: inline-flex; align-items: center; gap: var(--space-xs); font-weight: 400;
+  margin: 0 var(--space-sm) 0 0; font-size: var(--text-base); min-height: var(--tap); cursor: pointer;
+}
+
+select, input[type=text], input[type=number], input[type=password], input[type=date], textarea {
+  width: 100%; padding: 11px var(--space-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  font-size: var(--text-base); background: var(--paper-2); color: var(--ink);
+  font-family: inherit; min-height: var(--tap);
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+input[type=number] { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+select:hover, input:hover, textarea:hover { border-color: var(--accent); }
+textarea { min-height: 88px; resize: vertical; line-height: 1.7; }
+input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+
+.row { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: flex-end; }
+.row > * { flex: 1; min-width: 140px; }
+.row.tight > * { flex: 0 0 auto; min-width: 0; }
+
+.checkbox-list, .radio-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+
+.chip {
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: 10px var(--space-lg); font-size: var(--text-base); cursor: pointer; user-select: none;
+  background: var(--paper-2); min-height: var(--tap); display: inline-flex; align-items: center;
+  white-space: nowrap;
+  transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chip.small { padding: var(--space-xs) 14px; font-size: var(--text-sm); }
+.chip:active { transform: translateY(1px); }
+
+/* ===== ボタン =====
+   DADSの目安 中サイズ 96×48 / 小 80×36。当たり判定は44px以上。
+   文言は動詞で終える（「保存」ではなく「人数と学年を保存」）。 */
+button {
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  border-radius: var(--radius-input);
+  padding: var(--space-sm) var(--space-lg); font-size: var(--text-base); font-weight: 700;
+  cursor: pointer; min-height: 48px; min-width: 96px; font-family: inherit; line-height: 1.4;
+  white-space: nowrap;   /* 押せる文字は2行にしない */
+  transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+button:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+button:active { transform: translateY(1px); }
+button.secondary { background: var(--paper-2); color: var(--accent); border-color: var(--accent); }
+button.secondary:hover { background: var(--accent-soft); }
+button.danger { background: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: var(--danger-dark); border-color: var(--danger-dark); }
+button.small { padding: var(--space-xs) 14px; font-size: var(--text-sm); min-height: 36px; min-width: 80px; margin: var(--space-2xs) 0; }
+/*
+  DADSは disabled を勧めていない（なぜ押せないかが伝わらないため）。
+  この画面では押せる状態のままにして、押したときに足りないものを文章で知らせている。
+  やむを得ず使う場所だけ、理由を必ず近くに書くこと。
+*/
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.msg {
+  padding: var(--space-sm) 14px; border-radius: var(--radius-input);
+  margin: var(--space-sm) 0; font-size: var(--text-base); line-height: 1.7;
+}
+.msg.success { background: var(--care-soft); color: var(--care); border: 1px solid var(--care); border-left-width: 4px; }
+.msg.error   { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); border-left-width: 4px; }
+.msg.warning { background: var(--warning-soft); color: var(--warning); border: 1px solid var(--warning); border-left-width: 4px; }
+
+table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+th, td { border: 1px solid var(--rule); padding: 10px var(--space-sm); text-align: left; line-height: 1.5; }
+th { background: var(--paper-3); font-weight: 700; }
+
+.muted { color: var(--muted); font-size: var(--text-sm); }
+.hint { color: var(--muted); font-size: var(--text-sm); margin: var(--space-2xs) 0 0; line-height: 1.7; max-width: 65ch; }
+
+.list-item {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+}
+.list-item:last-child { border-bottom: none; }
+
+.tabs { display: flex; gap: var(--space-xs); margin-bottom: var(--space-md); flex-wrap: wrap; }
+.tabs button { background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); }
+.tabs button:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ===== 表のまわりの枠（Workbench） =====
+   まとめる側の画面は表が主役。表を枠で囲って「道具の一画面」として立たせ、
+   節と節はこの枠と余白だけで分ける（節ごとに罫線を引き足さない）。 */
+.grid-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-input);
+  background: var(--paper-2);
+}
+/* 枠の内側で表の外周がもう一度出ると二重に見えるので、外周だけ消す */
+.grid-wrap > table.duty-grid > * > tr > *:first-child,
+.grid-wrap > table.assign-grid > * > tr > *:first-child { border-left: 0; }
+.grid-wrap > table.duty-grid > * > tr > *:last-child,
+.grid-wrap > table.assign-grid > * > tr > *:last-child { border-right: 0; }
+.grid-wrap > table.duty-grid > thead > tr > *,
+.grid-wrap > table.assign-grid > thead > tr > * { border-top: 0; }
+.grid-wrap > table.duty-grid > tbody > tr:last-child > *,
+.grid-wrap > table.assign-grid > tbody > tr:last-child > * { border-bottom: 0; }
+table.duty-grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 640px; font-size: var(--text-sm); }
+table.duty-grid th, table.duty-grid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; }
+table.duty-grid thead th { background: var(--paper-3); padding: var(--space-xs) var(--space-2xs); font-size: var(--text-base); font-weight: 700; }
+table.duty-grid th.rowhead {
+  background: var(--paper-3); text-align: left; padding: var(--space-xs) 10px; white-space: nowrap;
+  min-width: 96px; position: sticky; left: 0; z-index: var(--z-raised); font-size: var(--text-base);
+}
+/* 土日は色だけでなく文字（土・日）でも分かる */
+table.duty-grid thead th.sat { background: var(--accent-soft); color: var(--accent-dark); }
+table.duty-grid thead th.sun { background: var(--danger-soft); color: var(--danger); }
+
+/* 部員が押す1マス。押した順に第1〜第4希望の番号が付く。 */
+.pickcell {
+  display: block; width: 100%; min-height: 64px; padding: var(--space-xs) var(--space-2xs);
+  background: var(--paper-2); border: 0; cursor: pointer; user-select: none;
+  font-size: var(--text-sm); color: var(--muted); line-height: 1.4; font-family: inherit;
+  min-width: 0; border-radius: 0;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.pickcell:hover { background: var(--accent-soft); }
+.pickcell.picked { background: var(--accent-soft); }
+.pickcell.disabled { background: var(--paper-sunken); color: var(--muted); cursor: not-allowed; }
+.pickcell .rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--radius-pill);
+  background: var(--accent); color: #fff; font-weight: 700; font-size: var(--text-base);
+}
+/* 希望の順は濃さで表すが、数字そのものが読めるので色だけに頼っていない */
+.pickcell .rank.r1 { background: oklch(33% 0.150 262); }
+.pickcell .rank.r2 { background: oklch(40% 0.150 262); }
+.pickcell .rank.r3 { background: oklch(48% 0.150 262); }
+.pickcell .rank.r4 { background: oklch(56% 0.140 262); }
+.pickcell .cap { display: block; font-size: var(--text-xs); }
+
+/* 選んだ順の確認欄 */
+.picked-list { display: flex; flex-direction: column; gap: var(--space-xs); margin-top: 10px; }
+.picked-list .item {
+  display: flex; align-items: center; gap: var(--space-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  padding: 10px var(--space-sm); background: var(--paper-2); flex-wrap: wrap;
+}
+.picked-list .item .n { flex: 0 0 auto; font-weight: 700; color: var(--accent); }
+.picked-list .item .what { flex: 1 1 auto; font-weight: 700; }
+.picked-list .item.empty { border-style: dashed; border-color: var(--rule-strong); color: var(--muted); background: var(--paper); }
+.picked-list .item.empty .what { font-weight: 400; }
+
+/* ===== 当番表・手入れ表（手で直す） ===== */
+table.assign-grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 760px; font-size: var(--text-sm); }
+table.assign-grid th, table.assign-grid td { border: 1px solid var(--rule-strong); padding: var(--space-xs); vertical-align: top; }
+table.assign-grid thead th { background: var(--paper-3); text-align: center; font-size: var(--text-base); }
+table.assign-grid th.rowhead { background: var(--paper-3); text-align: left; white-space: nowrap; min-width: 100px; position: sticky; left: 0; z-index: var(--z-raised); font-size: var(--text-base); }
+/* 過不足は色だけでなく、下の「〇人 / 下限〜上限」の文字でも分かる */
+table.assign-grid td.short { background: var(--danger-soft); }
+table.assign-grid td.over { background: var(--warning-soft); }
+
+.name-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2xs); margin: var(--space-3xs);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) 10px;
+  font-size: var(--text-sm); background: var(--paper-2); white-space: nowrap; min-height: 36px;
+}
+.name-chip .r { font-size: var(--text-xs); color: var(--muted); }
+.name-chip .r.off { color: var(--warning); font-weight: 700; }
+.name-chip.locked { border-color: var(--warning); border-width: 2px; }
+/* チップの中の小さなボタン。見た目は小さいが当たり判定は32px確保する */
+.name-chip .lock, .name-chip .x {
+  background: none; border: 0; cursor: pointer; font-size: var(--text-sm); font-family: inherit;
+  min-width: 32px; min-height: 32px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: var(--radius-input); color: var(--ink);
+}
+.name-chip .x { color: var(--danger); font-weight: 700; }
+.name-chip .lock:hover, .name-chip .x:hover { background: var(--paper-sunken); }
+.cell-count { display: block; font-size: var(--text-xs); color: var(--muted); text-align: right; margin-top: var(--space-2xs); }
+.cell-count.short { color: var(--danger); font-weight: 700; }
+/* マスの中の「人を足す」。selectの既定の高さを保ちつつ小さめに */
+.add-select { margin-top: var(--space-2xs); font-size: var(--text-sm); padding: var(--space-xs); min-height: 40px; }
+
+/* ===== 手入れ：曜日／カレンダーの◎○× ===== */
+.mark-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.mark-row:last-child { border-bottom: none; }
+.mark-row .k { flex: 0 0 104px; font-weight: 700; font-size: var(--text-base); }
+.mark-row .k.sat { color: var(--accent-dark); }
+.mark-row .k.sun { color: var(--danger); }
+.marks { display: flex; gap: var(--space-xs); }
+.mk {
+  width: 56px; height: var(--tap); border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  background: var(--paper-2); font-size: 22px; line-height: 1; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--muted);
+  font-weight: 700; font-family: inherit; min-width: 0; padding: 0;
+  transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.mk:hover { background: var(--accent-soft); }
+.mk:active { transform: translateY(1px); }
+/* 選ばれている状態は、色に加えて枠の太さでも分かるようにしてある */
+.mk.on { border-width: 3px; }
+.mk.on.m2 { background: var(--care-soft); border-color: var(--maru2); color: var(--maru2); }
+.mk.on.m1 { background: var(--accent-soft); border-color: var(--maru1); color: var(--maru1); }
+.mk.on.m0 { background: var(--paper-sunken); border-color: var(--batsu); color: var(--batsu); }
+
+/* カレンダー（月曜始まり） */
+.cal { margin-bottom: var(--space-md); }
+.cal h4 { margin: 0 0 var(--space-xs); font-size: 1.0625rem; line-height: 1.4; }
+table.cal-grid { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: var(--text-sm); }
+table.cal-grid th, table.cal-grid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; height: 68px; vertical-align: top; }
+table.cal-grid th { background: var(--paper-3); height: auto; padding: var(--space-2xs) 0; font-size: var(--text-sm); }
+table.cal-grid th.sat { background: var(--accent-soft); color: var(--accent-dark); }
+table.cal-grid th.sun { background: var(--danger-soft); color: var(--danger); }
+table.cal-grid td.off { background: var(--paper); }
+.calday { display: block; width: 100%; height: 100%; min-height: var(--tap); border: 0; background: transparent; cursor: pointer; padding: var(--space-2xs) var(--space-3xs); font-family: inherit; }
+.calday .d { display: block; font-size: var(--text-xs); color: var(--muted); }
+.calday .m { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; color: oklch(70% 0.015 262); }
+.calday.m2 { background: var(--care-soft); } .calday.m2 .m { color: var(--maru2); }
+.calday.m1 { background: var(--accent-soft); } .calday.m1 .m { color: var(--maru1); }
+.calday.m0 { background: var(--paper-sunken); } .calday.m0 .m { color: var(--batsu); }
+.calday .who { display: block; font-size: var(--text-xs); font-weight: 700; color: var(--ink); }
+
+/* チェックシート（サブを選ぶ） */
+.checksheet { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.checksheet label {
+  display: inline-flex; align-items: center; gap: var(--space-xs); margin: 0;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input); padding: 10px 14px;
+  background: var(--paper-2); font-weight: 400; font-size: var(--text-base); cursor: pointer; min-height: var(--tap);
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.checksheet label:hover { background: var(--accent-soft); }
+/* チェック済みは、色に加えて枠の太さでも分かる */
+.checksheet label.on { border-color: var(--accent); border-width: 2px; background: var(--accent-soft); }
+.checksheet label .g { color: var(--muted); font-size: var(--text-sm); }
+
+/* ===== 見出しだけ出しておいて、押したら開く =====
+   使う頻度が低いわりに場所を取っていたところを畳んである。 */
+details.fold { border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); margin-top: var(--space-sm); }
+details.fold > summary {
+  cursor: pointer; padding: var(--space-sm) var(--space-md); font-weight: 700; font-size: var(--text-base);
+  min-height: var(--tap); display: flex; align-items: center; gap: var(--space-xs); list-style: none;
+  border-radius: var(--radius-input);
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "\25B6"; font-size: 13px; color: var(--accent); }
+details.fold[open] > summary::before { content: "\25BC"; }
+details.fold > summary:hover { background: var(--accent-soft); }
+details.fold[open] > summary { border-bottom: 1px solid var(--rule); border-radius: var(--radius-input) var(--radius-input) 0 0; }
+.fold-body { padding: var(--space-2xs) var(--space-md) var(--space-md); }
+
+/* ===== 決まりのまとまり =====
+   当番と手入れは別の表なのに、決まりが1枚に続けて並んでいて境目が見えなかった。
+   fieldset/legend で囲うと、目で見て分かれるだけでなく、読み上げでも
+   「当番の決まりの中の欄」と伝わる（DADS：関係のある入力欄はひとまとまりにする）。 */
+fieldset.rule {
+  border: 1px solid var(--rule-strong); border-left-width: 6px;
+  border-radius: var(--radius-card); padding: var(--space-xs) var(--space-md) var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+fieldset.rule > legend {
+  font-weight: 700; font-size: 1.0625rem; line-height: 1.4;
+  padding: var(--space-3xs) 10px; margin-left: -4px;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); background: var(--paper-2);
+}
+/* 何の表に効くのかを、まとまりの頭に必ず書く */
+fieldset.rule .rule-what { margin: var(--space-2xs) 0 var(--space-sm); font-size: var(--text-sm); line-height: 1.6; color: var(--ink); }
+/* 枠は灰色ではなく、そのまとまりの色にする。
+   薄い青地の上では灰色の枠が 2.98:1 しか出ず、3:1 に届かなかった。 */
+fieldset.rule-duty { border-color: var(--accent); background: var(--accent-soft); }
+fieldset.rule-duty > legend { border-color: var(--accent); color: var(--accent-dark); }
+fieldset.rule-care { border-color: var(--care); background: var(--care-soft); }
+fieldset.rule-care > legend { border-color: var(--care); color: var(--care); }
+/* 色が付いた地の上でも、入力欄は白のままにして境目を残す */
+fieldset.rule input[type="number"], fieldset.rule input[type="text"] { background: var(--paper-2); }
+
+/* 数字だけの1行。以前は大きな箱を並べていて、場所のわりに情報が少なかった。 */
+.statline { font-size: var(--text-base); line-height: 1.9; }
+.statline b { font-size: var(--text-md); margin: 0 var(--space-3xs) 0 var(--space-2xs); }
+.statline b:first-child { margin-left: 0; }
+.statline .ng { color: var(--danger); }
+.statline .sep { color: var(--muted); margin: 0 var(--space-xs); }
+
+/* 一覧の要約（サブは誰か、など）。畳んだ中身の代わりに見せる。 */
+.summary-line { font-size: var(--text-base); line-height: 1.8; }
+.summary-line .none { color: var(--danger); font-weight: 700; }
+
+/* ===== 段（Narrative Workflow） =====
+   希望を出す画面は「1 だれの 2 押す 3 出す」という順番が本当にある。
+   段の番号を見出しの頭に大きく置き、カードの上を太い罫線で切って前の段と分ける。 */
+.card.stage-card { border-top: 4px solid var(--accent); border-top-left-radius: var(--radius-card); border-top-right-radius: var(--radius-card); }
+.card.stage-card.care { border-top-color: var(--care); }
+.stage { display: flex; align-items: baseline; gap: var(--space-sm); margin: 0 0 var(--space-sm); }
+.stage .n {
+  flex: 0 0 auto; font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg); font-weight: 500; line-height: 1; color: var(--accent);
+}
+.card.stage-card.care .stage .n { color: var(--care); }
+.stage .h { font-size: var(--text-md); font-weight: 700; line-height: 1.35; letter-spacing: -0.015em; overflow-wrap: anywhere; min-width: 0; }
+
+/* 進み方の帯（Narrative Workflow・Workbench） */
+.steps { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0 0 var(--space-md); font-size: var(--text-sm); list-style: none; padding: 0; }
+.steps .s {
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: var(--space-2xs) 14px; background: var(--paper-2); color: var(--muted);
+  display: inline-flex; align-items: center; gap: var(--space-2xs); white-space: nowrap;
+}
+.steps .s .no { font-weight: 500; margin-right: var(--space-3xs); }
+.steps .s.on { background: var(--care); border-color: var(--care); color: #fff; font-weight: 700; }
+.steps .s.done { border-color: var(--care); color: var(--care); }
+/* 当番の段は青、手入れの段は緑。どちらの話かが段だけで分かる */
+.steps.duty .s.on { background: var(--accent); border-color: var(--accent); }
+.steps.duty .s.done { border-color: var(--accent); color: var(--accent-dark); }
+
+.pill-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.pill { border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); padding: var(--space-2xs) var(--space-sm); font-size: var(--text-sm); background: var(--paper-2); }
+.pill.no { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.pill.yes { background: var(--care-soft); border-color: var(--care); color: var(--care); }
+
+.summary-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.summary-grid .stat { border: 1px solid var(--rule); border-radius: var(--radius-input); padding: 10px 14px; background: var(--paper-2); min-width: 116px; }
+.summary-grid .stat b { display: block; font-size: var(--text-lg); line-height: 1.3; }
+.summary-grid .stat span { font-size: var(--text-sm); color: var(--muted); }
+
+.warn-list { max-height: 280px; overflow-y: auto; margin-top: 10px; }
+.warn-list div { font-size: var(--text-base); padding: var(--space-2xs) 0; border-bottom: 1px solid var(--rule); line-height: 1.7; }
+.warn-list div:last-child { border-bottom: none; }
+.warn-list .e { color: var(--danger); }
+.warn-list .w { color: var(--warning); }
+
+/* 画面に出さないが、読み上げには渡したい文言 */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 通信中の表示。Apps Scriptは1往復に数秒かかるので、待ちを必ず見せる */
+#busy {
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-toast);
+  background: var(--warning); color: #fff; text-align: center;
+  padding: 10px; font-size: var(--text-base); font-weight: 700; display: none;
+}
+#busy.on { display: block; }
+
+.saving-bar {
+  position: sticky; bottom: 0; background: var(--paper-2); border-top: 3px solid var(--accent);
+  padding: var(--space-sm); display: none; align-items: center; gap: var(--space-sm);
+  justify-content: space-between; margin: 0 calc(var(--space-lg) * -1) calc(var(--space-lg) * -1);
+  flex-wrap: wrap; z-index: var(--z-sticky);
+}
+.saving-bar.on { display: flex; }
+
+/* ===== 動き =====
+   2つだけ。press（押している間 1px 沈む）と nudge（入口の行で印が少し寄る）。
+   出てくる演出は置いていない。道具の画面で毎回待たされる動きは邪魔にしかならないため。
+   press は button・.chip・.mk に、nudge は入口ページの中に書いてある。 */
+a.hub-link {
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+@media (pointer: coarse) { button, .chip, .mk { min-height: 48px; } }
+
+/* 動きを減らす設定の人には、動きを出さない。フォーカスリングは元から動かしていない */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important; scroll-behavior: auto !important;
+  }
+}
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar chief"><span>手入れシステム（チーフ）</span></header>
+
+<main class="wide">
+  <!-- ログイン -->
+  <div class="card" id="loginCard" style="display:none;">
+    <h2>チーフパスワード</h2>
+    <input type="password" id="pw" placeholder="パスワード">
+    <div style="margin-top:12px;"><button id="loginBtn">開く</button></div>
+    <div id="loginMsg" role="status" aria-live="polite"></div>
+  </div>
+
+  <div id="app" style="display:none;">
+    <div class="steps" id="steps"></div>
+
+    <!-- 1. 馬 -->
+    <div class="card">
+      <h2>1. 馬を選ぶ</h2>
+      <label for="horseSelect">馬</label>
+      <select id="horseSelect"></select>
+      <!-- チーフを決めるのは副将。ここでは今のチーフを見せるだけ。 -->
+      <div id="chiefBox" style="display:none;margin-top:10px;">
+        <p class="hint" id="chiefWho"></p>
+      </div>
+    </div>
+
+    <!-- 2. 期間 -->
+    <div class="card" id="termCard" style="display:none;">
+      <h2>2. 期間を選ぶ</h2>
+      <div id="planList"></div>
+      <!-- 「開く」が失敗したときの知らせ。畳んだ中に出すと気づけないので、ここに出す。 -->
+      <div id="planOpenMsg" role="status" aria-live="polite"></div>
+
+      <details class="fold">
+        <summary>期間を新しく作る</summary>
+        <div class="fold-body">
+          <p class="hint">
+            同じ期間を<b>何頭ぶんでもまとめて作れます</b>。名前も日付も馬ごとに同じことがほとんどなので、
+            1頭ずつ作る必要はありません。
+          </p>
+
+          <label>どの馬に作るか</label>
+          <div class="row tight" style="margin-bottom:6px;">
+            <button type="button" class="small secondary" id="hAllBtn">全部の馬</button>
+            <button type="button" class="small secondary" id="hNoneBtn">全部はずす</button>
+            <button type="button" class="small secondary" id="hThisBtn">いま選んでいる馬だけ</button>
+          </div>
+          <div class="checksheet" id="horseSheet"></div>
+
+          <div class="row" style="margin-top:12px;">
+            <div>
+              <label for="termName">期間の名前</label>
+              <input type="text" id="termName" list="termList" placeholder="例：後期、夏休み、4月">
+              <datalist id="termList"></datalist>
+            </div>
+            <div>
+              <label>作り方</label>
+              <div class="radio-list">
+                <label class="inline"><input type="radio" name="mode" value="曜日" checked> 曜日</label>
+                <label class="inline"><input type="radio" name="mode" value="カレンダー"> カレンダー</label>
+              </div>
+            </div>
+          </div>
+          <p class="hint">曜日＝毎週おなじ担当。カレンダー＝日付ごとに決める（最長400日）。</p>
+
+          <div class="row" id="dateRow" style="display:none;">
+            <div><label for="fromDate">開始日</label><input type="date" id="fromDate"></div>
+            <div><label for="toDate">終了日</label><input type="date" id="toDate"></div>
+          </div>
+          <div class="row">
+            <div><label for="dayMin">1日の下限（人）</label><input type="number" id="dayMin" value="1" min="0"></div>
+            <div><label for="dayMax">1日の上限</label><input type="number" id="dayMax" value="1" min="0" placeholder="なし"></div>
+            <div><label for="newRatio">チーフの割合</label><input type="number" id="newRatio" min="1" max="10" step="0.5" placeholder="既定"></div>
+          </div>
+          <p class="hint">
+            チーフの割合＝チーフを、ほかのサブの何倍の日数入れるか。<b>2 なら チーフ2：ほかのサブ1</b>。
+            空欄なら既定値（<span class="defRatio"></span>）。あとから変えられます。
+          </p>
+          <div style="margin-top:16px;"><button id="newPlanBtn">この設定で作る</button></div>
+          <div id="termMsg" role="status" aria-live="polite"></div>
+        </div>
+      </details>
+    </div>
+
+    <!-- 3〜5 -->
+    <div id="planPane" style="display:none;">
+      <!-- この期間の決まり -->
+      <div class="card">
+        <h2 id="planTitle"></h2>
+        <p class="hint" id="planPeriod"></p>
+
+        <h3 style="margin-top:20px;">この期間の決まり</h3>
+        <div class="row">
+          <div><label for="editMin">1日の下限（人）</label><input type="number" id="editMin" min="0"></div>
+          <div><label for="editMax">1日の上限（空欄なら上限なし）</label><input type="number" id="editMax" min="0"></div>
+          <div>
+            <label for="editRatio">チーフの割合</label>
+            <input type="number" id="editRatio" min="1" max="10" step="0.5" placeholder="既定">
+          </div>
+        </div>
+        <p class="hint" id="ratioExplain"></p>
+        <div style="margin-top:16px;"><button id="savePlanBtn" class="secondary">この期間の決まりを保存</button></div>
+        <div id="planMsg" role="status" aria-live="polite"></div>
+      </div>
+
+      <!-- 3. サブ -->
+      <div class="card">
+        <h2>3. サブ</h2>
+        <div id="subSummary"></div>
+        <details class="fold" id="subFold">
+          <summary>サブを変更する</summary>
+          <div class="fold-body">
+            <p class="hint">この馬を手入れする人にチェックを入れてください。<b>チーフ本人もサブに入れます。</b>ここで選んだ人にだけ、部員の画面に投票欄が出ます。</p>
+            <div class="row tight" style="margin-bottom:6px;">
+              <button class="small secondary" id="subAllBtn">全員に入れる</button>
+              <button class="small secondary" id="subNoneBtn">全部はずす</button>
+            </div>
+            <div class="checksheet" id="subSheet"></div>
+            <div style="margin-top:16px;"><button id="saveSubsBtn">サブを保存</button></div>
+          </div>
+        </details>
+        <div id="subMsg" role="status" aria-live="polite"></div>
+      </div>
+
+      <!-- 4. 投票状況 -->
+      <div class="card">
+        <h2>4. 投票状況</h2>
+        <div id="voteStats" class="statline"></div>
+        <details class="fold">
+          <summary>ひとりずつ見る・代理で入れる</summary>
+          <div class="fold-body"><div id="voteList"></div></div>
+        </details>
+      </div>
+
+      <div class="card" id="proxyCard" style="display:none;">
+        <h2><span id="proxyName"></span> の希望を代わりに入れる</h2>
+        <p class="hint">◎＝入りたい　○＝入れる　×＝入れない。全部の日に入れてください。</p>
+        <div class="row tight" style="margin:8px 0;" id="proxyBulk"></div>
+        <div id="proxyBody"></div>
+        <div class="msg warning" id="proxyLeft" role="status" aria-live="polite"></div>
+        <div style="margin-top:12px;">
+          <button id="proxySaveBtn">保存する</button>
+          <button id="proxyCancelBtn" class="secondary" style="margin-left:8px;">やめる</button>
+        </div>
+        <div id="proxyMsg" role="status" aria-live="polite"></div>
+      </div>
+
+      <!-- 5. 手入れ表 -->
+      <div class="card">
+        <h2>5. 手入れ表</h2>
+        <p class="hint">
+          「作成する」を押すと、×の日を避けて◎の人から順に入れます。<br>
+          <b id="ratioHint"></b><br>
+          そのあと手で直せます。<b>鍵をかけた人は、作り直しても動きません。</b>
+        </p>
+        <div class="row tight">
+          <button id="genBtn">作成する</button>
+          <button id="genPreviewBtn" class="secondary">作って中身だけ見る（保存しない）</button>
+          <button id="reloadBtn" class="secondary">保存済みを読み直す</button>
+        </div>
+        <div id="genMsg" role="status" aria-live="polite"></div>
+        <div id="tableStats" class="statline"></div>
+        <div id="warnBox"></div>
+      </div>
+
+      <div class="card">
+        <div id="calPreview"></div>
+        <div id="tableBody"></div>
+        <div class="saving-bar" id="savingBar">
+          <span id="dirtyText"></span>
+          <span>
+            <button id="saveTableBtn">保存する</button>
+            <button id="discardBtn" class="secondary" style="margin-left:8px;">直したのを取り消す</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const msgIn = (id, cls, text) => { $(id).innerHTML = text ? '<div class="msg ' + cls + '">' + esc(text) + '</div>' : ''; };
+
+const 記号 = ['◎', '○', '×'];
+const 記号クラス = { '◎': 'm2', '○': 'm1', '×': 'm0' };
+
+let TOKEN = '';
+let BASE = { members: [], horses: [], plans: [], 期間名: [], days: [] };
+let P = null;          // 開いている計画（chiefLoadPlan の返り）
+let SUBS = [];         // チェックしているサブ
+let TABLE = [];        // 画面で直している手入れ表
+let DIRTY = false;
+let PROXY = null;
+let PROXY_MARKS = {};
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+const API = 'https://script.google.com/macros/s/AKfycbxRymAf5iGuZfmZE-CK2fwicbnj1tE6UZKywZ3cNDTkqxZp0aBAKIb67jYWfOzYorK2Yw/exec';
+
+/**
+ * サーバ（Apps Script）を呼ぶ。
+ *
+ * この画面は script.google.com の外に置いてあるので、GASの画面用の呼び出し口は使えない。
+ * かわりに fetch で叩く。**別オリジンなのでCookieが飛ばない**ぶん、
+ * 複数のGoogleアカウントに同時ログインしていても「ファイルを開くことができません」にならない。
+ * 画面を外に出したのはそのため。
+ *
+ * Content-Type を text/plain にしているのは、application/json にすると
+ * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ */
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: JSON.stringify({ fn: fn, args: args }),
+  }).then((res) => {
+    if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
+    return res.json();
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
+    return r.value;
+  }).finally(() => { busy(false); });
+}
+
+const 名 = (id) => { const m = BASE.members.filter((x) => x.id === id)[0]; return m ? m.name : '（消えた人）'; };
+
+// ===================== ログイン =====================
+
+(async () => {
+  try {
+    const meta = await call('chiefMeta');
+    if (meta.要パスワード) {
+      $('loginCard').style.display = 'block';
+    } else {
+      TOKEN = await call('loginChief', '');
+      await 始める();
+    }
+  } catch (e) {
+    $('loginCard').style.display = 'block';
+    msgIn('loginMsg', 'error', (e && e.message) || e);
+  }
+})();
+
+$('loginBtn').addEventListener('click', async () => {
+  try {
+    TOKEN = await call('loginChief', $('pw').value);
+    $('loginCard').style.display = 'none';
+    await 始める();
+  } catch (e) { msgIn('loginMsg', 'error', (e && e.message) || e); }
+});
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+async function 始める() {
+  BASE = await call('chiefLoadAll', TOKEN);
+  $('app').style.display = 'block';
+  $('horseSelect').innerHTML = '<option value="">選択してください</option>' +
+    BASE.horses.filter((h) => h.active).map((h) =>
+      '<option value="' + h.id + '">' + esc(h.name) + '</option>').join('');
+  $('termList').innerHTML = BASE.期間名.map((t) => '<option value="' + esc(t) + '">').join('');
+  Array.prototype.forEach.call(document.querySelectorAll('.defRatio'), (el) => {
+    el.textContent = BASE.既定のチーフ倍率;
+  });
+  renderHorseSheet();
+  renderSteps(1);
+}
+
+function renderSteps(now) {
+  const 名前 = ['馬', '期間', 'サブ', '投票', '手入れ表'];
+  $('steps').innerHTML = 名前.map((n, i) =>
+    '<span class="s' + (i + 1 === now ? ' on' : (i + 1 < now ? ' done' : '')) + '">' + (i + 1) + '. ' + n + '</span>').join('');
+}
+
+// ===================== 1. 馬 =====================
+
+$('horseSelect').addEventListener('change', () => {
+  const id = $('horseSelect').value;
+  P = null;
+  $('planPane').style.display = 'none';
+  if (!id) { $('termCard').style.display = 'none'; $('chiefBox').style.display = 'none'; renderSteps(1); return; }
+  const h = BASE.horses.filter((x) => x.id === id)[0];
+  $('chiefBox').style.display = 'block';
+  // チーフを決めるのは副将。ここでは今のチーフを知らせるだけ。
+  $('chiefWho').innerHTML = h.chief
+    ? 'この馬のチーフは <b>' + esc(h.chief) + '</b> さんです。手入れの日数が多めになります。'
+    : '<b style="color:var(--danger);">この馬のチーフが決まっていません。</b>'
+      + '副将に決めてもらってください（副将画面の「手入れ」タブ）。';
+  $('termCard').style.display = 'block';
+  renderPlanList();
+  renderSteps(2);
+});
+
+// ===================== 2. 期間 =====================
+
+function renderPlanList() {
+  const horseId = $('horseSelect').value;
+  const list = BASE.plans.filter((p) => p.horseId === horseId);
+  if (!list.length) {
+    $('planList').innerHTML = '<div class="muted">この馬の期間はまだありません。下から作ってください。</div>';
+    return;
+  }
+  $('planList').innerHTML = list.map((p) =>
+    '<div class="list-item">' +
+    '<span><b>' + esc(p.term) + '</b> <span class="muted">' +
+    (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと') +
+    '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人</span></span>' +
+    '<span class="row tight">' +
+    '<button class="small" data-open="' + esc(p.id) + '">開く</button>' +
+    '<button class="small danger" data-delp="' + esc(p.id) + '">削除</button>' +
+    '</span></div>').join('');
+}
+
+document.querySelector('input[name=mode][value=カレンダー]').addEventListener('change', () => {
+  $('dateRow').style.display = 'flex';
+});
+document.querySelector('input[name=mode][value=曜日]').addEventListener('change', () => {
+  $('dateRow').style.display = 'none';
+});
+
+// どの馬に作るかのチェックシート
+let 作る馬 = [];
+function renderHorseSheet() {
+  $('horseSheet').innerHTML = BASE.horses.filter((h) => h.active).map((h) => {
+    const on = 作る馬.indexOf(h.id) >= 0;
+    return '<label class="' + (on ? 'on' : '') + '">' +
+      '<input type="checkbox" data-horse="' + esc(h.id) + '"' + (on ? ' checked' : '') + '> ' +
+      esc(h.name) + '</label>';
+  }).join('');
+}
+$('horseSheet').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-horse]');
+  if (!c) return;
+  const i = 作る馬.indexOf(c.dataset.horse);
+  if (c.checked && i < 0) 作る馬.push(c.dataset.horse);
+  if (!c.checked && i >= 0) 作る馬.splice(i, 1);
+  renderHorseSheet();
+});
+$('hAllBtn').addEventListener('click', () => { 作る馬 = BASE.horses.filter((h) => h.active).map((h) => h.id); renderHorseSheet(); });
+$('hNoneBtn').addEventListener('click', () => { 作る馬 = []; renderHorseSheet(); });
+$('hThisBtn').addEventListener('click', () => {
+  作る馬 = $('horseSelect').value ? [$('horseSelect').value] : [];
+  renderHorseSheet();
+});
+
+$('newPlanBtn').addEventListener('click', async () => {
+  const mode = document.querySelector('input[name=mode]:checked').value;
+  if (!作る馬.length) {
+    return void msgIn('termMsg', 'error', 'どの馬に作るか、上のチェックで1頭以上選んでください。「全部の馬」も使えます。');
+  }
+  try {
+    // 選んだ馬すべてに同じ期間を作る（1頭ずつ作らなくてよい）
+    const r = await call('chiefSavePlanForHorses', TOKEN, 作る馬, {
+      term: $('termName').value, mode: mode,
+      from: mode === 'カレンダー' ? $('fromDate').value : '',
+      to: mode === 'カレンダー' ? $('toDate').value : '',
+      min: $('dayMin').value, max: $('dayMax').value, chiefRatio: $('newRatio').value,
+    });
+    BASE = await call('chiefLoadAll', TOKEN);
+    $('termList').innerHTML = BASE.期間名.map((t) => '<option value="' + esc(t) + '">').join('');
+    $('termName').value = '';
+    renderPlanList();
+    renderHorseSheet();
+
+    const 文 = [];
+    if (r.作った.length) 文.push(r.作った.length + '頭ぶん作りました（' + r.作った.map((x) => x.name).join('、') + '）。');
+    if (r.作った.some((x) => x.引き継いだ)) 文.push('前の期間があった馬は、そのサブを引き継いでいます。確認してください。');
+    if (r.飛ばした.length) 文.push('同じ名前の期間がすでにあった ' + r.飛ばした.join('、') + ' は飛ばしました（作り直すと集めた◎○×が消えるため）。');
+    if (r.だめ.length) 文.push('作れなかったもの：' + r.だめ.join(' / '));
+    msgIn('termMsg', r.だめ.length ? 'warning' : 'success', 文.join(' '));
+
+    // 1頭だけなら、そのまま開く
+    if (r.作った.length === 1) await openPlan(r.作った[0].id);
+  } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
+});
+
+$('planList').addEventListener('click', async (e) => {
+  const o = e.target.closest('[data-open]');
+  if (o) return void openPlan(o.dataset.open);
+  const d = e.target.closest('[data-delp]');
+  if (d) {
+    const p = BASE.plans.filter((x) => x.id === d.dataset.delp)[0];
+    if (!confirm(馬名(p.horseId) + ' の「' + p.term + '」を削除します。\nサブ・投票・手入れ表も消えます。よろしいですか？')) return;
+    try {
+      await call('chiefDeletePlan', TOKEN, p.id);
+      BASE = await call('chiefLoadAll', TOKEN);
+      P = null;
+      $('planPane').style.display = 'none';
+      renderPlanList();
+      msgIn('termMsg', 'success', '削除しました。');
+    } catch (err) { msgIn('termMsg', 'error', (err && err.message) || err); }
+  }
+});
+
+async function openPlan(planId) {
+  if (DIRTY && !confirm('保存していない直しがあります。ほかの期間を開くと消えます。よろしいですか？')) return;
+  msgIn('planOpenMsg', '', '');
+  let データ;
+  try {
+    データ = await call('chiefLoadPlan', TOKEN, planId);
+  } catch (e) {
+    // 畳んだ中ではなく、押したボタンのすぐ下に出す
+    return void msgIn('planOpenMsg', 'error', '開けませんでした：' + ((e && e.message) || e));
+  }
+  // 中身が空で返ることがある（サーバが数でない値を返すと、画面には null が届く）。
+  // そのまま進むと「null の subs が読めない」という分かりにくい落ち方をするので、ここで止める。
+  if (!データ || !データ.plan) {
+    return void msgIn('planOpenMsg', 'error',
+      'この期間の中身が受け取れませんでした。シートの列がずれている可能性があります。'
+      + 'スプレッドシートのメニュー「当番・手入れ」→「初期設定（シートを作る）」を一度実行してから、もう一度開いてください。');
+  }
+  try {
+    P = データ;
+    SUBS = (P.subs || []).slice();
+    TABLE = (P.cells || []).slice();
+    DIRTY = false;
+    $('planPane').style.display = 'block';
+    msgIn('genMsg', P.keyError ? 'error' : '', P.keyError || '');
+    renderPlanSettings();
+    renderSubs();
+    renderVotes();
+    renderTable();
+    renderSteps(SUBS.length ? ((P.votes || []).length ? 5 : 4) : 3);
+    $('planPane').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {
+    // 画面を組み立てる途中で転んでも、何が起きたか分かるようにする
+    $('planPane').style.display = 'block';
+    msgIn('planOpenMsg', 'error',
+      '開いたあとの表示でつまずきました：' + ((e && e.message) || e) + '（この文言をそのまま伝えてください）');
+  }
+}
+
+// ===== この期間の決まり（1日の人数とチーフの割合） =====
+
+function renderPlanSettings() {
+  $('planTitle').textContent = (P.horse ? P.horse.name : '?') + '　' + P.plan.term;
+  $('planPeriod').textContent = P.plan.mode === 'カレンダー'
+    ? P.plan.from + ' 〜 ' + P.plan.to + '（' + P.keys.length + '日）'
+    : '曜日ごと（毎週おなじ担当）';
+
+  $('editMin').value = P.plan.min;
+  $('editMax').value = P.plan.max === null ? '' : P.plan.max;
+  // 空欄＝全体の既定値に任せる。入っていればこの馬だけその割合になる。
+  $('editRatio').value = P.plan.chiefRatio === null ? '' : P.plan.chiefRatio;
+
+  const 倍率 = P.チーフ倍率;
+  const 独自 = P.plan.chiefRatio !== null;
+  const チーフ名 = P.chiefMemberId ? 名(P.chiefMemberId) : '';
+  $('ratioExplain').innerHTML =
+    '<b>チーフの割合</b>＝この馬のチーフを、ほかのサブの何倍の日数入れるか。空欄なら全体の既定値（' +
+    esc(String(P.既定のチーフ倍率)) + '）を使います。<br>' +
+    (倍率 <= 1
+      ? '今は<b>全員おなじ日数</b>で回します。'
+      : '今は<b>チーフ' + esc(String(倍率)) + '：ほかのサブ1</b>' + (独自 ? '（この馬だけの設定）' : '（既定値）') + '。' +
+        (チーフ名
+          ? 'チーフは<b>' + esc(チーフ名) + '</b>さんです。'
+          : '<b>ただし、この馬のチーフが決まっていないので効いていません。</b>上の「この馬のチーフ」に名前を入れ、その人をサブにも入れてください。'));
+}
+
+$('savePlanBtn').addEventListener('click', async () => {
+  if (!P) return;
+  try {
+    // 方式と日付はそのまま送る（変えないので、集めた◎○×は消えない）
+    await call('chiefSavePlan', TOKEN, {
+      id: P.plan.id, horseId: P.plan.horseId, term: P.plan.term,
+      mode: P.plan.mode, from: P.plan.from, to: P.plan.to,
+      min: $('editMin').value, max: $('editMax').value,
+      chiefRatio: $('editRatio').value, note: P.plan.note,
+    });
+    BASE = await call('chiefLoadAll', TOKEN);
+    await reloadPlan();
+    msgIn('planMsg', 'success', '保存しました。次に「作成する」を押すと、この割合で組み直します。');
+  } catch (e) { msgIn('planMsg', 'error', (e && e.message) || e); }
+});
+
+// 受け取った計画データで画面を出し直す
+function 描き直す(データ) {
+  P = データ;
+  SUBS = (P.subs || []).slice();
+  TABLE = (P.cells || []).slice();
+  DIRTY = false;
+  renderPlanSettings();
+  renderSubs();
+  renderVotes();
+  renderTable();
+}
+
+async function reloadPlan() {
+  if (!P) return;
+  描き直す(await call('chiefLoadPlan', TOKEN, P.plan.id));
+}
+
+// ===================== 3. サブ =====================
+
+function renderSubs() {
+  $('subSheet').innerHTML = BASE.members.map((m) => {
+    const on = SUBS.indexOf(m.id) >= 0;
+    return '<label class="' + (on ? 'on' : '') + '">' +
+      '<input type="checkbox" data-sub="' + esc(m.id) + '"' + (on ? ' checked' : '') + '> ' +
+      esc(m.name) + (m.grade ? ' <span class="g">' + m.grade + '年</span>' : '') + '</label>';
+  }).join('');
+
+  // 畳んでいるときは、誰がサブかだけ1行で見せる
+  const 保存ずみ = P ? (P.subs || []) : [];
+  $('subSummary').innerHTML = 保存ずみ.length
+    ? '<div class="summary-line">' + 保存ずみ.map((id) =>
+        esc(名(id)) + (id === (P && P.chiefMemberId) ? '（チーフ）' : '')).join('、') +
+      '　<span class="muted">' + 保存ずみ.length + '人</span></div>'
+    : '<div class="summary-line"><span class="none">まだ誰も選ばれていません。</span>' +
+      'サブを選ぶまで、部員の画面に投票欄は出ません。</div>';
+}
+
+$('subSheet').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-sub]');
+  if (!c) return;
+  const id = c.dataset.sub;
+  const i = SUBS.indexOf(id);
+  if (c.checked && i < 0) SUBS.push(id);
+  if (!c.checked && i >= 0) SUBS.splice(i, 1);
+  renderSubs();
+});
+$('subAllBtn').addEventListener('click', () => { SUBS = BASE.members.map((m) => m.id); renderSubs(); });
+$('subNoneBtn').addEventListener('click', () => { SUBS = []; renderSubs(); });
+
+$('saveSubsBtn').addEventListener('click', async () => {
+  if (!P) return;
+  const 外れる = (P.subs || []).filter((id) => SUBS.indexOf(id) < 0);
+  if (外れる.length && !confirm(外れる.map(名).join('、') + ' をサブから外します。\nこの人たちの投票と、手入れ表に入っているぶんも消えます。よろしいですか？')) return;
+  try {
+    // 保存と、画面を出し直すためのデータを1回でもらう（2往復すると待ちが倍になる）
+    const r = await call('chiefSaveSubs', TOKEN, P.plan.id, SUBS);
+    描き直す(r.plan);
+    msgIn('subMsg', 'success', 'サブを保存しました（' + r.count + '人）。部員の画面に投票欄が出ます。' +
+      (r.外れた ? '外した' + r.外れた + '人ぶんの◎○×も消しました。' : ''));
+    renderSteps(4);
+  } catch (e) { msgIn('subMsg', 'error', (e && e.message) || e); }
+});
+
+// ===================== 4. 投票状況 =====================
+
+const 私の票 = (memberId) => {
+  const o = {};
+  (P.votes || []).filter((v) => v.memberId === memberId).forEach((v) => { o[v.key] = v.mark; });
+  return o;
+};
+const 出したか = (memberId) => (P.keys || []).length > 0 &&
+  (P.keys || []).every((k) => 私の票(memberId)[k.key]);
+
+function renderVotes() {
+  const 済 = SUBS.filter(出したか);
+  const 未 = SUBS.filter((id) => !出したか(id));
+  $('voteStats').innerHTML =
+    '出した人 <b>' + 済.length + '</b>／' + SUBS.length + '人' +
+    '<span class="sep">|</span>' +
+    (未.length
+      ? 'まだの人 <b class="ng">' + 未.length + '</b>人　<span class="muted">' +
+        esc(未.slice(0, 6).map(名).join('、')) + (未.length > 6 ? ' ほか' : '') + '</span>'
+      : '<span style="color:var(--success);">全員そろいました</span>');
+
+  if (!SUBS.length) {
+    $('voteList').innerHTML = '<div class="muted">サブを選ぶと、ここに投票の状況が出ます。</div>';
+    return;
+  }
+
+  $('voteList').innerHTML = SUBS.map((id) => {
+    const v = 私の票(id);
+    const ある = 出したか(id);
+    const 数 = { '◎': 0, '○': 0, '×': 0 };
+    (P.keys || []).forEach((k) => { if (v[k.key]) 数[v[k.key]]++; });
+    const 中身 = ある
+      ? 記号.map((s) => '<span class="pill">' + s + ' ' + 数[s] + '日</span>').join('')
+      : '<span class="pill no">まだ出していません</span>';
+    const 代理 = (P.votes || []).some((x) => x.memberId === id && x.byChief) ? '<span class="pill">代理入力</span>' : '';
+    return '<div class="list-item" style="align-items:flex-start;">' +
+      '<span style="flex:1 1 auto;"><b>' + esc(名(id)) + '</b>' +
+      '<div class="pill-list">' + 中身 + 代理 + '</div></span>' +
+      '<span class="row tight">' +
+      '<button class="small secondary" data-proxy="' + esc(id) + '">' + (ある ? '直す' : '代理で入れる') + '</button>' +
+      (ある ? '<button class="small danger" data-clearv="' + esc(id) + '">消す</button>' : '') +
+      '</span></div>';
+  }).join('');
+}
+
+$('voteList').addEventListener('click', async (e) => {
+  const p = e.target.closest('[data-proxy]');
+  if (p) {
+    PROXY = p.dataset.proxy;
+    PROXY_MARKS = 私の票(PROXY);
+    $('proxyCard').style.display = 'block';
+    $('proxyName').textContent = 名(PROXY);
+    msgIn('proxyMsg', '', '');
+    renderProxy();
+    $('proxyCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const c = e.target.closest('[data-clearv]');
+  if (c) {
+    if (!confirm(名(c.dataset.clearv) + ' の投票を消します。よろしいですか？')) return;
+    try { await call('chiefClearVote', TOKEN, P.plan.id, c.dataset.clearv); await reloadPlan(); }
+    catch (err) { alert((err && err.message) || err); }
+  }
+});
+
+// 部員の画面と同じ見た目で、チーフが代わりに入れる
+function 記号の入力(keys, marks, mode) {
+  if (mode !== 'カレンダー') {
+    return keys.map((k) => {
+      const cls = k.key === '土' ? ' sat' : (k.key === '日' ? ' sun' : '');
+      return '<div class="mark-row"><span class="k' + cls + '">' + esc(k.label) + '</span>' +
+        '<span class="marks">' + 記号.map((s) =>
+          '<button type="button" class="mk ' + 記号クラス[s] + (marks[k.key] === s ? ' on' : '') + '"' +
+          ' data-pk="' + esc(k.key) + '" data-pm="' + esc(s) + '">' + s + '</button>').join('') + '</span></div>';
+    }).join('');
+  }
+  return カレンダー(keys, (k) => {
+    const v = marks[k.key] || '';
+    return '<button type="button" class="calday ' + (記号クラス[v] || '') + '" data-pcycle="' + esc(k.key) + '">' +
+      '<span class="d">' + Number(k.key.slice(8)) + '</span><span class="m">' + (v || '・') + '</span></button>';
+  });
+}
+
+// 月曜始まりのカレンダーを組む。マスの中身は 中身を作る(k) が返す。
+function カレンダー(keys, 中身を作る) {
+  const ある = {};
+  keys.forEach((k) => { ある[k.key] = k; });
+  const 月順 = [];
+  const 月ごと = {};
+  keys.forEach((k) => {
+    const ym = k.key.slice(0, 7);
+    if (!月ごと[ym]) { 月ごと[ym] = []; 月順.push(ym); }
+    月ごと[ym].push(k);
+  });
+  const 頭 = ['月', '火', '水', '木', '金', '土', '日'];
+
+  return 月順.map((ym) => {
+    const y = Number(ym.slice(0, 4));
+    const mo = Number(ym.slice(5, 7));
+    const 末日 = new Date(y, mo, 0).getDate();
+    const 先頭 = (new Date(y, mo - 1, 1).getDay() + 6) % 7;
+
+    const マス = [];
+    for (let i = 0; i < 先頭; i++) マス.push('<td class="off"></td>');
+    for (let d = 1; d <= 末日; d++) {
+      const key = y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
+      マス.push(ある[key]
+        ? '<td>' + 中身を作る(ある[key]) + '</td>'
+        : '<td class="off"><span class="calday"><span class="d">' + d + '</span></span></td>');
+    }
+    while (マス.length % 7) マス.push('<td class="off"></td>');
+
+    let rows = '';
+    for (let i = 0; i < マス.length; i += 7) rows += '<tr>' + マス.slice(i, i + 7).join('') + '</tr>';
+    return '<div class="cal"><h4>' + y + '年' + mo + '月</h4><table class="cal-grid"><thead><tr>' +
+      頭.map((w) => '<th' + (w === '土' ? ' class="sat"' : (w === '日' ? ' class="sun"' : '')) + '>' + w + '</th>').join('') +
+      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+  }).join('');
+}
+
+function renderProxy() {
+  $('proxyBulk').innerHTML = 記号.map((s) =>
+    '<button type="button" class="small secondary" data-pall="' + esc(s) + '">全部' + s + '</button>').join('') +
+    '<button type="button" class="small secondary" data-prest="1">未入力を○に</button>';
+  $('proxyBody').innerHTML = 記号の入力(P.keys, PROXY_MARKS, P.plan.mode);
+  const 残り = P.keys.filter((k) => !PROXY_MARKS[k.key]).length;
+  $('proxyLeft').className = 'msg ' + (残り ? 'warning' : 'success');
+  $('proxyLeft').textContent = 残り ? 'あと' + 残り + '日ぶん入れてください。' : '全部そろいました。';
+  $('proxySaveBtn').disabled = 残り !== 0;
+}
+
+$('proxyCard').addEventListener('click', (e) => {
+  const mk = e.target.closest('[data-pm]');
+  if (mk) { PROXY_MARKS[mk.dataset.pk] = mk.dataset.pm; return renderProxy(); }
+  const cy = e.target.closest('[data-pcycle]');
+  if (cy) {
+    const k = cy.dataset.pcycle;
+    const i = 記号.indexOf(PROXY_MARKS[k] || '');
+    PROXY_MARKS[k] = 記号[(i + 1) % 記号.length];
+    return renderProxy();
+  }
+  const all = e.target.closest('[data-pall]');
+  if (all) {
+    PROXY_MARKS = {};
+    P.keys.forEach((k) => { PROXY_MARKS[k.key] = all.dataset.pall; });
+    return renderProxy();
+  }
+  const rest = e.target.closest('[data-prest]');
+  if (rest) {
+    P.keys.forEach((k) => { if (!PROXY_MARKS[k.key]) PROXY_MARKS[k.key] = '○'; });
+    return renderProxy();
+  }
+});
+
+$('proxySaveBtn').addEventListener('click', async () => {
+  try {
+    await call('chiefSaveVoteFor', TOKEN, P.plan.id, PROXY, PROXY_MARKS);
+    const n = 名(PROXY);
+    $('proxyCard').style.display = 'none';
+    PROXY = null;
+    await reloadPlan();
+    alert(n + ' の希望を保存しました。');
+  } catch (e) { msgIn('proxyMsg', 'error', (e && e.message) || e); }
+});
+$('proxyCancelBtn').addEventListener('click', () => { $('proxyCard').style.display = 'none'; PROXY = null; });
+
+// ===================== 5. 手入れ表 =====================
+
+const 日の人 = (key) => TABLE.filter((c) => c.key === key);
+
+function renderTable() {
+  if (!P || !P.keys.length) { $('tableBody').innerHTML = ''; $('calPreview').innerHTML = ''; return; }
+  const 下限 = P.plan.min;
+  const 上限 = P.plan.max;
+
+  const 倍率 = P.チーフ倍率 || 1;
+  $('ratioHint').textContent = 倍率 <= 1
+    ? 'サブ全員おなじ日数で回します。'
+    : (P.chiefMemberId
+      ? 'チーフ（' + 名(P.chiefMemberId) + '）は、ほかのサブの' + 倍率 + '倍の日数で回します。'
+      : 'チーフ' + 倍率 + '：ほかのサブ1で回す決まりですが、この馬のチーフが決まっていないので効いていません。');
+
+  // カレンダー方式は、まず月ごとの絵で全体を見せる
+  $('calPreview').innerHTML = P.plan.mode === 'カレンダー'
+    ? カレンダー(P.keys, (k) => {
+        const 人 = 日の人(k.key);
+        const 足りない = 人.length < 下限;
+        return '<span class="calday' + (足りない ? ' m0' : '') + '">' +
+          '<span class="d">' + Number(k.key.slice(8)) + '</span>' +
+          (人.length
+            ? 人.map((c) => '<span class="who">' + esc(名(c.memberId)) + (c.locked ? '🔒' : '') + '</span>').join('')
+            : '<span class="m">・</span>') + '</span>';
+      })
+    : '';
+
+  const rows = P.keys.map((k) => {
+    const 人 = 日の人(k.key);
+    const 足りない = 人.length < 下限;
+    const 多い = 上限 !== null && 人.length > 上限;
+
+    const chips = 人.map((c) => {
+      const mk = ((P.votes || []).filter((v) => v.memberId === c.memberId && v.key === k.key)[0] || {}).mark || '—';
+      const 場所 = k.label + 'の' + 名(c.memberId);
+      // 鍵と×は span ではなく button にする。span だとキーボードで押せないため。
+      return '<span class="name-chip' + (c.locked ? ' locked' : '') + '">' +
+        '<button type="button" class="lock" data-lock="' + esc(k.key + '|' + c.memberId) + '"' +
+        ' aria-pressed="' + (c.locked ? 'true' : 'false') + '"' +
+        ' aria-label="' + esc(場所) + 'に鍵をかける（かけると作り直しても動きません）">' + (c.locked ? '🔒' : '🔓') + '</button>' +
+        esc(名(c.memberId)) +
+        '<span class="r' + (mk === '×' ? ' off' : '') + '">' + esc(mk) + '</span>' +
+        '<button type="button" class="x" data-del="' + esc(k.key + '|' + c.memberId) + '"' +
+        ' aria-label="' + esc(場所) + 'を外す">×</button></span>';
+    }).join('');
+
+    return '<tr class="' + (足りない ? 'short' : '') + '">' +
+      '<th style="white-space:nowrap;' + (足りない ? 'background:var(--danger-bg);' : '') + '">' + esc(k.label) + '</th>' +
+      '<td>' + (chips || '<span class="muted">まだ決まっていません</span>') +
+      (多い ? ' <span class="pill no">上限' + 上限 + '人を超えています</span>' : '') +
+      '</td></tr>';
+  }).join('');
+
+  // 「人を足す」は各マスに置かず、表の外にまとめて1つだけ置く。
+  // 30日ぶんプルダウンが並ぶと、それだけで画面が埋まってしまうため。
+  const 足りない日 = P.keys.filter((k) => 日の人(k.key).length < 下限);
+  $('tableBody').innerHTML =
+    '<div class="row tight" style="margin-bottom:10px;">' +
+    '<button type="button" class="secondary" id="addPersonBtn">＋ 担当を足す</button>' +
+    (足りない日.length
+      ? '<span class="muted" style="align-self:center;">決まっていない日が' + 足りない日.length + '日あります</span>'
+      : '') +
+    '</div>' +
+    '<div id="addPersonBox" style="display:none;" class="card">' +
+    '<div class="row">' +
+    '<div><label for="addDay">日</label><select id="addDay">' +
+    P.keys.map((k) => {
+      const n = 日の人(k.key).length;
+      return '<option value="' + esc(k.key) + '">' + esc(k.label) +
+        '（今 ' + n + '人' + (n < 下限 ? '・足りない' : '') + '）</option>';
+    }).join('') + '</select></div>' +
+    '<div><label for="addWho">だれを</label><select id="addWho">' +
+    SUBS.map((id) => '<option value="' + esc(id) + '">' + esc(名(id)) + '</option>').join('') +
+    '</select></div>' +
+    '<div style="flex:0 0 auto;"><button type="button" id="addDoBtn">この日に入れる</button></div>' +
+    '</div>' +
+    '<p class="hint" id="addHint"></p>' +
+    '</div>' +
+    '<div class="grid-wrap"><table>' +
+    '<thead><tr><th style="width:130px;">日</th><th>担当（記号は本人の希望）</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody></table></div>';
+
+  const 数 = {};
+  TABLE.forEach((c) => { 数[c.memberId] = (数[c.memberId] || 0) + 1; });
+  const 埋まらない = P.keys.filter((k) => 日の人(k.key).length < 下限).length;
+  // 大きな箱を並べるのをやめて1行に。日数の内訳もその場に続ける。
+  $('tableStats').innerHTML =
+    '決まった日 <b>' + (P.keys.length - 埋まらない) + '</b>／' + P.keys.length + '日' +
+    (埋まらない ? '<span class="sep">|</span>決まらない日 <b class="ng">' + 埋まらない + '</b>日' : '') +
+    '<span class="sep">|</span><span class="muted">' +
+    SUBS.map((id) => esc(名(id)) + (id === P.chiefMemberId ? '（チーフ）' : '') + ' ' + (数[id] || 0) + '日').join('　') +
+    '</span>';
+
+  renderWarnings(P.warnings);
+  $('savingBar').className = 'saving-bar' + (DIRTY ? ' on' : '');
+  $('dirtyText').textContent = DIRTY ? '直したところがまだ保存されていません。' : '';
+}
+
+function renderWarnings(list) {
+  const w = list || [];
+  $('warnBox').innerHTML = w.length
+    ? '<div class="warn-list">' + w.map((x) =>
+        '<div class="' + (x.level === 'error' ? 'e' : 'w') + '">' + (x.level === 'error' ? '⚠ ' : '・') + esc(x.text) + '</div>').join('') + '</div>'
+    : '<div class="msg success">気になるところはありません。</div>';
+}
+
+$('tableBody').addEventListener('click', (e) => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    const p = del.dataset.del.split('|');
+    const i = TABLE.findIndex((c) => c.key === p[0] && c.memberId === p[1]);
+    if (i >= 0) { TABLE.splice(i, 1); DIRTY = true; renderTable(); }
+    return;
+  }
+  const lock = e.target.closest('[data-lock]');
+  if (lock) {
+    const p = lock.dataset.lock.split('|');
+    const c = TABLE.filter((x) => x.key === p[0] && x.memberId === p[1])[0];
+    if (c) { c.locked = !c.locked; DIRTY = true; renderTable(); }
+  }
+});
+
+// 「担当を足す」。押すと日と人を選ぶ欄が出る。
+$('tableBody').addEventListener('click', (e) => {
+  if (e.target.closest('#addPersonBtn')) {
+    const box = $('addPersonBox');
+    const 開く = box.style.display === 'none';
+    box.style.display = 開く ? 'block' : 'none';
+    if (開く) {
+      // 決まっていない日があれば、その最初の日を初めから選んでおく
+      const 空き = P.keys.filter((k) => 日の人(k.key).length < P.plan.min)[0];
+      if (空き) $('addDay').value = 空き.key;
+      更新addHint();
+    }
+    return;
+  }
+  const go = e.target.closest('#addDoBtn');
+  if (go) {
+    const key = $('addDay').value;
+    const who = $('addWho').value;
+    if (!key || !who) return;
+    if (TABLE.some((c) => c.key === key && c.memberId === who)) {
+      $('addHint').textContent = 名(who) + ' さんはもうその日に入っています。';
+      return;
+    }
+    TABLE.push({ key: key, memberId: who, mark: '', locked: true });
+    DIRTY = true;
+    const ラベル = (P.keys.filter((k) => k.key === key)[0] || {}).label || key;
+    renderTable();
+    // 出し直したあとも欄を開いたままにして、続けて足せるようにする
+    $('addPersonBox').style.display = 'block';
+    $('addDay').value = key;
+    $('addHint').textContent = ラベル + ' に ' + 名(who) + ' さんを入れました。続けて足せます。';
+  }
+});
+
+// 選んだ人がその日を×にしていないか、その場で知らせる
+function 更新addHint() {
+  const key = $('addDay') && $('addDay').value;
+  const who = $('addWho') && $('addWho').value;
+  if (!key || !who || !$('addHint')) return;
+  const v = (P.votes || []).filter((x) => x.memberId === who && x.key === key)[0];
+  const ラベル = (P.keys.filter((k) => k.key === key)[0] || {}).label || key;
+  $('addHint').innerHTML = v
+    ? esc(名(who)) + ' さんは ' + esc(ラベル) + ' を <b>' + esc(v.mark) + '</b> にしています。' +
+      (v.mark === '×' ? '<b style="color:var(--danger);">入れない日です。</b>' : '')
+    : esc(名(who)) + ' さんは ' + esc(ラベル) + ' の希望を出していません。';
+}
+$('tableBody').addEventListener('change', (e) => {
+  if (e.target.closest('#addDay') || e.target.closest('#addWho')) 更新addHint();
+});
+
+$('genBtn').addEventListener('click', () => 作る(true));
+$('genPreviewBtn').addEventListener('click', () => 作る(false));
+
+async function 作る(保存する) {
+  if (!P) return;
+  if (DIRTY && !confirm('保存していない直しがあります。作り直すと消えます。よろしいですか？')) return;
+  try {
+    const r = await call('chiefGenerateCare', TOKEN, P.plan.id, !!保存する);
+    TABLE = r.cells;
+    P.warnings = r.warnings;
+    DIRTY = !保存する;
+    renderTable();
+    renderSteps(5);
+    msgIn('genMsg', 保存する ? 'success' : 'warning',
+      保存する ? '作って保存しました。' : '作りました。まだ保存していません（下の「保存する」で確定します）。');
+  } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
+}
+
+$('reloadBtn').addEventListener('click', async () => {
+  if (DIRTY && !confirm('保存していない直しがあります。読み直すと消えます。よろしいですか？')) return;
+  await reloadPlan();
+  msgIn('genMsg', 'success', '保存されているものを読み直しました。');
+});
+
+$('saveTableBtn').addEventListener('click', async () => {
+  try {
+    const r = await call('chiefSaveTable', TOKEN, P.plan.id, TABLE);
+    P.warnings = r.warnings;
+    DIRTY = false;
+    renderTable();
+    msgIn('genMsg', 'success', '保存しました（' + r.count + '件）。');
+  } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
+});
+
+$('discardBtn').addEventListener('click', async () => {
+  if (!confirm('直したのを取り消して、保存されているものに戻します。よろしいですか？')) return;
+  await reloadPlan();
+});
+
+window.addEventListener('beforeunload', (e) => {
+  if (!DIRTY) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+</script>
+</body>
+</html>
