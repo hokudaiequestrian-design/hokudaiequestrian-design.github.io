@@ -11,17 +11,25 @@ const API = {
 };
 
 async function 呼ぶ(api, fn, args) {
-  const res = await fetch(api, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ fn: fn, args: args || [] }),
-    redirect: 'follow',
-  });
-  const cors = res.headers.get('access-control-allow-origin');
-  const body = await res.text();
-  let 中身 = null;
-  try { 中身 = JSON.parse(body); } catch (e) { /* HTMLが返ってきたときはそのまま見せる */ }
-  return { status: res.status, cors: cors, 中身: 中身, 生: body.slice(0, 160) };
+  // Apps Script は続けて叩くと、たまにJSONではなくHTMLのエラーページを返す。
+  // 本当に壊れているのか、その場かぎりのものかを分けるため、間を置いて1度だけ試し直す。
+  let 最後 = null;
+  for (let 回 = 0; 回 < 2; 回++) {
+    const res = await fetch(api, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ fn: fn, args: args || [] }),
+      redirect: 'follow',
+    });
+    const cors = res.headers.get('access-control-allow-origin');
+    const body = await res.text();
+    let 中身 = null;
+    try { 中身 = JSON.parse(body); } catch (e) { /* HTMLが返ってきたときはそのまま見せる */ }
+    最後 = { status: res.status, cors: cors, 中身: 中身, 生: body.slice(0, 160) };
+    if (中身) return 最後;
+    if (回 === 0) await new Promise((r) => setTimeout(r, 3000));
+  }
+  return 最後;
 }
 
 let ng = 0, 件 = 0;
@@ -74,6 +82,26 @@ const 確認 = (名, 条件, 補足) => {
   const h = await 呼ぶ(API.人員表, 'getMyResponse', ['無い大会', '無い部員']);
   確認('人員表：日本語の引数でも落ちない', h.中身 !== null,
     h.中身 ? (h.中身.ok ? '通った' : h.中身.error) : '生=' + h.生);
+
+  // --- マイページ（入口が両方を1回ずつ呼ぶ） ---
+  const i = await 呼ぶ(API.当番, 'getMyPage', ['']);
+  const 名簿 = i.中身 && i.中身.ok && i.中身.value.members ? i.中身.value.members : [];
+  確認('当番：getMyPage が名簿を返す', 名簿.length > 0, 名簿.length + '人');
+
+  if (名簿.length) {
+    const 名 = 名簿[0].name;
+    const k = await 呼ぶ(API.当番, 'getMyPage', [名]);
+    const v = k.中身 && k.中身.ok ? k.中身.value : null;
+    確認('当番：getMyPage が自分のぶんを返す',
+      !!(v && v.me && v.当番 && Array.isArray(v.予定)),
+      v && v.me ? 'サブ ' + v.手入れ.length + '頭・受付中 ' + v.当番.期間.length + '件・有給 ' + (v.有給 ? v.有給.残り + '日' : 'なし')
+        : (k.中身 ? k.中身.error : k.生));
+
+    const l = await 呼ぶ(API.人員表, 'getMyPage', [名]);
+    const w = l.中身 && l.中身.ok ? l.中身.value : null;
+    確認('人員表：getMyPage が大会を返す', !!(w && Array.isArray(w.大会)),
+      w ? '大会 ' + w.大会.length + '件' : (l.中身 ? l.中身.error : l.生));
+  }
 
   console.log(ng ? ng + '件 失敗' : 件 + '件 すべて通過');
   process.exit(ng ? 1 : 0);

@@ -22,7 +22,9 @@
 
 ```
 build.js      GASのHTMLから docs/ を組み立てる
-apicheck.js   本物のウェブアプリに外から投げて端から端まで通す
+mypage.js     入口（マイページ）の中身。build.js が焼き込む
+mypage.css    そのぶんの見た目
+tests/        検査いろいろ
 docs/         GitHub Pages が配るもの
 ```
 
@@ -33,6 +35,7 @@ docs/         GitHub Pages が配るもの
 2. `call()` を GAS の画面用の呼び出しから `fetch` に差し替える
 3. 入口ページは `コード.gs` の `入口の中身()` を**実際に動かして**中身を焼き込む
 4. 検索避けを入れる（`docs/robots.txt` と、各ページの `<meta name="robots" content="noindex, nofollow">`）
+5. 入口に `mypage.js` と `mypage.css` を差し込み、2本のAPIのURLを渡す
 
 スプレッドシートと Apps Script はそのまま残る。変わったのは**画面の置き場所と、呼び方だけ**。
 
@@ -55,19 +58,23 @@ Content-Type: text/plain;charset=UTF-8
 ## 直すとき
 
 ```
-node build.js      # GASのHTMLから組み立て直す
-node apicheck.js   # 本物のウェブアプリに通してみる
+node build.js           # GASのHTMLから組み立て直す
+node tests/apicheck.js  # 本物のウェブアプリに通してみる
 ```
 
 画面の中身を直すときは **GAS 側の HTML を直してから `build.js`**。`docs/` を直接いじらない。
 
-検査（scratchpad に置いてあるもの）:
+検査（`tests/`。どれも `node tests/〇〇.js`）:
 
-| | 見ているもの |
-|---|---|
-| `apitest.js` | `外から呼べる関数` が画面側の `call()` と `コード.gs` の実体とずれていないか |
-| `synctest.js` | 人員表システムとの名簿の同期 |
-| `apicheck.js` | 本物のウェブアプリへの往復（Cookieなし） |
+| | 見ているもの | 件数 |
+|---|---|---|
+| `apitest.js` | `外から呼べる関数` が画面側の `call()`・入口の `mypage.js`・`コード.gs` の実体とずれていないか | 10 |
+| `toubantest.js` | 当番・手入れ・休みの中身（Nodeの模擬スプレッドシートで `コード.gs` を動かす） | 254 |
+| `synctest.js` | 人員表システムとの名簿の同期 | 36 |
+| `apicheck.js` | 本物のウェブアプリへの往復（Cookieなし。マイページまで） | 14 |
+
+Apps Script は続けて叩くと、たまにJSONではなくHTMLのエラーページを返す。
+`apicheck.js` は間を置いて1度だけ試し直すので、そこで落ちたときは本当に壊れている。
 
 ## ページ
 
@@ -82,6 +89,13 @@ node apicheck.js   # 本物のウェブアプリに通してみる
 | `yasumi-admin.html` | 休みをまとめる（副将パスワード） | 当番・手入れ |
 | `taikai.html` | 大会の出欠を出す | 人員表 |
 | `taikai-admin.html` | 人員表をまとめる（管理者パスワード） | 人員表 |
+
+入口は**マイページ**。名前を選ぶと、その人の「これから」「まだ出していないもの」「毎週」
+「サブの馬・有給の残り」が出て、その下に上の一覧が並ぶ。中身は2つの `getMyPage(名前)` を
+並列で呼んで作る（開いてから出るまでおよそ6秒。Apps Script は元からこれくらいかかる）。
+
+**覚えるのは名前**。当番・手入れ（`m_xxxxxxxxxx`）と大会人員表（`m_001`）で部員IDの体系が違い、
+画面が全部おなじドメインに並んでいるので、IDのまま覚えると画面を移るたびに当てが外れる。
 
 入口から中へは**同じフォルダの相対リンク**なので、置き場所を変えても付いていく。
 
