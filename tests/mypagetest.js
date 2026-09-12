@@ -390,6 +390,77 @@ const 本文 = M.組み立てる(t, null, ['大会のぶんを読めませんで
 確かめる('片方が読めなくてもカレンダーは出る', 本文.indexOf('これからの1週間') > 0 && 本文.indexOf('読めませんでした') > 0);
 確かめる('毎週の当番は下にまとめて書く', 本文.indexOf('毎週の当番') > 0);
 
+// ===================== 3. マイページに戻るボタン =====================
+
+見出し('組み立てたページ：マイページに戻る');
+const docs = path.join(__dirname, '..', 'docs');
+const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
+確かめる('中のページが8つある', 中のページ.length === 8, 中のページ.join(','));
+中のページ.forEach((f) => {
+  const s = fs.readFileSync(path.join(docs, f), 'utf8');
+  const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];
+  確かめる(f + '：見出し帯に戻るリンクがある', 帯.indexOf('class="backhome"') > 0, 帯.slice(0, 80));
+  確かめる(f + '：戻るリンクが題より前（左上）にある',
+    帯.indexOf('backhome') < 帯.indexOf('<span'), 帯.slice(0, 120));
+  確かめる(f + '：帯が上に貼り付く（下まで読んでも戻れる）', s.indexOf('header.appbar { position: sticky;') > 0);
+  確かめる(f + '：立場を付け直す', s.indexOf("localStorage.getItem('role')") > 0);
+});
+const 入口HTML = fs.readFileSync(path.join(docs, 'index.html'), 'utf8');
+確かめる('入口じたいには戻るリンクを付けない', 入口HTML.indexOf('class="backhome"') < 0);
+確かめる('入口は立場を覚える', 入口HTML.indexOf("localStorage.setItem('role'") > 0);
+
+// ===================== 4. 出し終わったときのボタン =====================
+
+// build.js が各ページに差し込むスクリプトを、簡単な模擬DOMで動かす
+見出し('組み立てたページ：出し終わったときのボタン');
+const 差し込み = (fs.readFileSync(path.join(__dirname, '..', 'build.js'), 'utf8')
+  .match(/const 戻るのJS = `<script>([\s\S]*?)<` \+ `\/script>`;/) || [])[1];
+確かめる('差し込むスクリプトを取り出せる', !!差し込み);
+
+function 要素(cls, text) {
+  return {
+    className: cls, textContent: text, dataset: {}, href: '', 後ろ: [],
+    classList: { contains: (c) => cls.split(' ').indexOf(c) >= 0 },
+    querySelectorAll: () => [],
+    insertAdjacentElement(どこ, el) { this.後ろ.push(el); },
+  };
+}
+const 帯のリンク = 要素('backhome', '← マイページ');
+let 観察 = null;
+const body = 要素('', '');
+const domCtx = vm.createContext({
+  console: console,
+  localStorage: { getItem: (k) => (k === 'role' ? 'admlinks' : null) },
+  encodeURIComponent: encodeURIComponent,
+  MutationObserver: function (cb) { 観察 = cb; this.observe = () => {}; },
+  document: {
+    body: body,
+    querySelectorAll: (sel) => (sel === 'a.backhome' ? [帯のリンク] : []),
+    createElement: () => 要素('', ''),
+  },
+});
+vm.runInContext(差し込み, domCtx, { filename: 'build.js の差し込み' });
+
+確かめる('帯のリンクに立場が付く', 帯のリンク.href === 'index.html?role=admlinks', 帯のリンク.href);
+
+const 出せた = 要素('msg success', '送信しました。ありがとうございます。');
+観察([{ addedNodes: [出せた] }]);
+確かめる('出し終わった知らせの下にボタンが出る',
+  出せた.後ろ.length === 1 && 出せた.後ろ[0].className === 'donehome' && 出せた.後ろ[0].textContent === 'マイページに戻る',
+  JSON.stringify(出せた.後ろ.map((x) => x.className)));
+確かめる('ボタンにも立場が付く', 出せた.後ろ[0].href === 'index.html?role=admlinks', 出せた.後ろ[0].href);
+
+観察([{ addedNodes: [出せた] }]);
+確かめる('同じ知らせに2つ付かない', 出せた.後ろ.length === 1, String(出せた.後ろ.length));
+
+const 読み込み = 要素('msg success', '前回の回答を読み込みました。書き換えて送信すると更新されます。');
+観察([{ addedNodes: [読み込み] }]);
+確かめる('読み込んだだけの知らせには付けない', 読み込み.後ろ.length === 0, String(読み込み.後ろ.length));
+
+const 失敗の知らせ = 要素('msg error', '送信に失敗しました：つながりませんでした');
+観察([{ addedNodes: [失敗の知らせ] }]);
+確かめる('失敗の知らせには付けない', 失敗の知らせ.後ろ.length === 0, String(失敗の知らせ.後ろ.length));
+
 // ===================== まとめ =====================
 
 console.log('\n' + (失敗.length ? '✗ ' + 失敗.length + '件失敗' : '✓ ぜんぶ通った') + '（' + ok + '/' + (ok + 失敗.length) + '）');

@@ -111,6 +111,90 @@ function callを差し替える(html, api) {
   return html.split(元のcall).join(新しいcall(api));
 }
 
+// ===== 2.5 「マイページに戻る」 =====
+/**
+ * 入口（マイページ）へ戻るリンクを、各ページの見出し帯に足す。
+ *
+ * **原本（GASの画面）には入れない。** 入口ページは静的サイトにしか無く、
+ * script.google.com 側に置くと行き先の無いリンクになるため、ここで足す。
+ *
+ * 立場（部員／チーフ／副将）は入口が localStorage に覚えるので、戻り先にも付け直す。
+ * 覚えていなければただの index.html（＝部員用）に戻る。
+ */
+const 戻るの印 = /<header class="appbar([^"]*)">/;
+const 戻るリンク = '<a class="backhome" href="index.html">← マイページ</a>';
+const 戻るのCSS = `<style>
+/* 「マイページに戻る」は**いつでも左上**に出す（2026-09-13にユーザーが決めた）。
+   見出し帯ごと貼り付けておけば、下まで読んでいる途中でも戻れる。 */
+header.appbar { position: sticky; top: 0; z-index: var(--z-sticky); }
+header.appbar > span { margin-right: auto; }   /* 題が伸びて、ほかのリンクは右に寄る */
+header.appbar a.backhome {
+  border: 1px solid rgba(255, 255, 255, 0.75); border-radius: var(--radius-pill);
+  padding: 4px 14px; text-decoration: none; font-weight: 700;
+}
+header.appbar a.backhome:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* 出し終わったときに、知らせの下に出すボタン（2026-09-13にユーザーが決めた）。
+   出したあとは次の画面へ移ることが多いので、帯まで戻らなくても押せるところに置く。 */
+a.donehome {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--tap); margin-top: var(--space-sm); padding: var(--space-xs) var(--space-lg);
+  background: var(--accent); color: #fff; font-size: var(--text-base); font-weight: 700;
+  border-radius: var(--radius-input); text-decoration: none;
+}
+a.donehome:hover { background: var(--accent-dark); }
+</style>`;
+const 戻るのJS = `<script>
+/*
+  入口（マイページ）へ戻る道を2つ用意する。どちらも静的サイトだけのもの。
+    1. 見出し帯の「← マイページ」…… いつでも左上に見えている
+    2. 出し終わったときのボタン …… 送信できた知らせの下に足す
+
+  2は、知らせを出すところが画面ごとにバラバラ（show() だったり innerHTML だったり）なので、
+  **出てきた「成功の知らせ」を見つけて足す**形にしてある。そのぶん画面側は触らずに済む。
+*/
+(function () {
+  let 戻り先 = 'index.html';
+  try {
+    const 立場 = localStorage.getItem('role');
+    if (立場 && 立場 !== 'links') 戻り先 = 'index.html?role=' + encodeURIComponent(立場);
+  } catch (e) { /* 保存できない設定でも、部員用の入口には戻れる */ }
+  document.querySelectorAll('a.backhome').forEach((a) => { a.href = 戻り先; });
+
+  // 「前回の回答を読み込みました」のような成功の知らせもあるので、**出し終わった知らせだけ**に付ける
+  const 出し終わった = /(送信しました|出しました|申し込みました|受け付けました|登録しました|保存しました)/;
+
+  const 足す = (el) => {
+    if (!el || el.dataset.home === '1' || !出し終わった.test(el.textContent || '')) return;
+    el.dataset.home = '1';
+    const a = document.createElement('a');
+    a.className = 'donehome';
+    a.href = 戻り先;
+    a.textContent = 'マイページに戻る';
+    el.insertAdjacentElement('afterend', a);
+  };
+  const 見る = (根) => {
+    if (!根 || 根.querySelectorAll === undefined) return;
+    if (根.classList && 根.classList.contains('msg') && 根.classList.contains('success')) 足す(根);
+    根.querySelectorAll('.msg.success').forEach(足す);
+  };
+  new MutationObserver((記録) => {
+    記録.forEach((m) => m.addedNodes.forEach(見る));
+  }).observe(document.body, { childList: true, subtree: true });
+  見る(document.body);
+})();
+<` + `/script>`;
+
+function 戻るを足す(html) {
+  if (!戻るの印.test(html)) throw new Error('見出し帯（<header class="appbar">）が見つからない');
+  // 帯のいちばん**前**に入れる。題より左＝画面の左上に出したいため
+  html = html.replace(戻るの印, (帯) => 帯 + NL + '  ' + 戻るリンク);
+  if (html.indexOf('</head>') < 0) throw new Error('</head> が見つからない');
+  html = html.replace('</head>', 戻るのCSS + NL + '</head>');
+  if (html.indexOf('</body>') < 0) throw new Error('</body> が見つからない');
+  return html.replace('</body>', 戻るのJS + NL + '</body>');
+}
+
 // ===== 3. 入口ページ =====
 // コード.gs の 入口の中身() をそのまま動かして、題や説明を焼き込む。
 // URLだけは、同じフォルダに並ぶ静的ページへの相対リンクに差し替える。
@@ -197,6 +281,8 @@ function 入口を作る() {
 const HUB = ${JSON.stringify(中身, null, 2)};
 
 const 立場 = new URLSearchParams(location.search).get('role') || 'links';
+// 中のページの「マイページに戻る」が、同じ立場の入口に戻れるように覚えておく
+try { localStorage.setItem('role', 立場); } catch (e) { /* 保存できない設定でも、部員用には戻れる */ }
 const 中身 = HUB[立場] || HUB.links;
 
 document.documentElement.style.setProperty('--hub-color', 中身.色);
@@ -248,6 +334,7 @@ let 件 = 0;
   html = スタイルを埋める(html, プロジェクト);
   html = 検索避けを入れる(html);
   html = callを差し替える(html, p.api);
+  html = 戻るを足す(html);
   if (html.indexOf('google.script.run') >= 0) {
     throw new Error(p.出す + ' に google.script.run が残っている');
   }

@@ -1013,6 +1013,8 @@ const HUB = {
 };
 
 const 立場 = new URLSearchParams(location.search).get('role') || 'links';
+// 中のページの「マイページに戻る」が、同じ立場の入口に戻れるように覚えておく
+try { localStorage.setItem('role', 立場); } catch (e) { /* 保存できない設定でも、部員用には戻れる */ }
 const 中身 = HUB[立場] || HUB.links;
 
 document.documentElement.style.setProperty('--hub-color', 中身.色);
