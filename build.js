@@ -153,6 +153,11 @@ function 入口を作る() {
   let html = スタイルを埋める(src, 当番);
   html = 検索避けを入れる(html);
 
+  // マイページぶんのCSS。hub.html 自身の <style> の末尾に足す
+  const 印 = '</style>' + NL + '</head>';
+  if (html.indexOf(印) < 0) throw new Error('入口の </style></head> が見つからない');
+  html = html.split(印).join(fs.readFileSync(path.join(__dirname, 'mypage.css'), 'utf8') + 印);
+
   // 色はスクリプトレットで入っていたので、CSS変数に逃がして画面側から差す
   html = html.split('background: <?= 中身.色 ?>;').join('background: var(--hub-color, var(--accent));');
 
@@ -167,6 +172,15 @@ function 入口を作る() {
 </header>
 
 <main>
+  <!-- マイページ。静的サイトでだけ動く（GASの画面からは別プロジェクトの人員表APIを呼べない）。
+       名前を選ぶのが先で、そのあとに下のリンクへ入る。 -->
+  <section class="me-pick">
+    <label for="meSelect">あなたの名前</label>
+    <select id="meSelect"><option value="">読み込んでいます…</option></select>
+    <p class="hint">選ぶと、あなたのぶんをここに出します。次からは覚えているので選び直さなくて済みます。</p>
+  </section>
+  <div id="meBody"></div>
+
   <div id="hub-groups"></div>
 
   `;
@@ -214,7 +228,13 @@ document.getElementById('hub-groups').innerHTML = 中身.groups.map((g) => (
 )).join('');
 </script>
 `;
-  html = html.split('</main>').join('</main>' + 組み立て);
+  // マイページの中身。API の2本をここで渡す（mypage.js から見えるようにする）
+  const マイページ = '<script>' + NL +
+    'const API = ' + JSON.stringify(API, null, 2) + ';' + NL +
+    fs.readFileSync(path.join(__dirname, 'mypage.js'), 'utf8') + NL +
+    '<' + '/script>' + NL;
+
+  html = html.split('</main>').join('</main>' + 組み立て + マイページ);
   return html;
 }
 

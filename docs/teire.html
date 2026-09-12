@@ -594,6 +594,27 @@ a.hub-link {
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+/* 選んだ人は「名前」で覚える。
+   当番・手入れと大会人員表では部員IDの体系が違い（m_xxxxxxxxxx と m_001）、
+   両方にいる人でも一致しない。画面が全部おなじドメインに並んでいるので、
+   IDのまま覚えると画面を移るたびに当てが外れて選び直しになる。
+   名簿は「名簿をそろえる」で同期していて、名前は揃っている。 */
+function 名前を覚える(members, memberId) {
+  const m = (members || []).filter((x) => x.id === memberId)[0];
+  if (!m) return;
+  try { localStorage.setItem('me', m.name); } catch (e) { /* 保存できない設定でも画面は動かす */ }
+}
+function 覚えた人のID(members) {
+  let 名 = '';
+  try { 名 = localStorage.getItem('me') || ''; } catch (e) {}
+  const m = (members || []).filter((x) => x.name === 名)[0];
+  if (m) return m.id;
+  // 名前で覚える前に使っていた人のぶん（同じシステムの中でだけ当たる）
+  let 旧 = '';
+  try { 旧 = localStorage.getItem('memberId') || ''; } catch (e) {}
+  return (members || []).some((x) => x.id === 旧) ? 旧 : '';
+}
+
 const 記号 = ['◎', '○', '×'];
 const 記号クラス = { '◎': 'm2', '○': 'm1', '×': 'm0' };
 const 記号の説明 = { '◎': '入りたい', '○': '入れる', '×': '入れない' };
@@ -846,7 +867,7 @@ async function onMemberChange() {
   const memberId = $('memberSelect').value;
   段を塗る(!!memberId);
   if (!memberId) { $('plans').innerHTML = ''; return; }
-  localStorage.setItem('memberId', memberId);
+  名前を覚える(DATA.members, memberId);
   $('plans').innerHTML = '<div class="card muted">読み込んでいます…</div>';
   try {
     const r = await call('getCareMemberData', memberId);
@@ -871,8 +892,8 @@ async function onMemberChange() {
       DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
     $('memberSelect').addEventListener('change', onMemberChange);
 
-    const saved = localStorage.getItem('memberId');
-    if (saved && DATA.members.some((m) => m.id === saved)) {
+    const saved = 覚えた人のID(DATA.members);
+    if (saved) {
       $('memberSelect').value = saved;
       onMemberChange();
     }

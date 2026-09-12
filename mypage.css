@@ -1,0 +1,47 @@
+
+/* ===== マイページ（静的サイトでだけ動く。GASの画面は人員表APIを呼べないため） =====
+   ここも Index-First。行が並ぶ形を崩さず、箱を増やさない。 */
+.me-pick { padding: var(--space-md) var(--space-2xs) var(--space-lg); border-bottom: 1px solid var(--rule-strong); }
+.me-pick label { display: block; font-weight: 700; margin-bottom: var(--space-2xs); font-size: var(--text-base); }
+.me-pick select { width: 100%; max-width: 24rem; min-height: 48px; font-size: 1rem; }
+.me-pick .hint { margin: var(--space-2xs) 0 0; }
+
+.me-sec { margin-bottom: var(--space-xl); }
+.me-sec > h2 {
+  font-size: var(--text-sm); font-weight: 700; letter-spacing: 0.08em;
+  color: var(--muted); margin: 0 0 var(--space-2xs);
+}
+.me-list { border-top: 1px solid var(--rule-strong); }
+.me-row {
+  display: flex; align-items: baseline; gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-2xs); border-bottom: 1px solid var(--rule);
+  font-size: var(--text-base); line-height: 1.6;
+}
+.me-row:last-child { border-bottom: 1px solid var(--rule-strong); }
+.me-row .when { flex: 0 0 auto; font-family: var(--font-num); color: var(--muted); min-width: 6.5em; }
+.me-row .what { flex: 1 1 auto; min-width: 0; }
+.me-row .tag {
+  flex: 0 0 auto; font-size: var(--text-xs); border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-pill); padding: 0 10px; color: var(--muted);
+}
+
+/* まだ出していないもの。色だけに頼らず「未」の字と枠で示す */
+a.me-todo {
+  display: flex; align-items: center; gap: var(--space-sm); min-height: 56px;
+  padding: var(--space-sm) var(--space-2xs); border-bottom: 1px solid var(--rule);
+  text-decoration: none; color: var(--ink);
+}
+a.me-todo:last-child { border-bottom: 1px solid var(--rule-strong); }
+a.me-todo:hover { background: var(--accent-soft); }
+a.me-todo .mi {
+  flex: 0 0 auto; font-size: var(--text-xs); font-weight: 700;
+  border: 1px solid var(--warning); color: var(--warning);
+  border-radius: var(--radius-pill); padding: 1px 10px;
+}
+a.me-todo .t { flex: 1 1 auto; font-weight: 700; }
+a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-strong); }
+.me-done { padding: var(--space-sm) var(--space-2xs); border-top: 1px solid var(--rule-strong); border-bottom: 1px solid var(--rule-strong); font-size: var(--text-base); }
+.me-facts { display: flex; flex-wrap: wrap; gap: var(--space-sm) var(--space-lg); padding: var(--space-sm) var(--space-2xs); border-bottom: 1px solid var(--rule-strong); }
+.me-facts div { font-size: var(--text-base); }
+.me-facts b { font-family: var(--font-num); font-size: 1.125rem; }
+.me-msg { padding: var(--space-sm) var(--space-2xs); font-size: var(--text-base); }

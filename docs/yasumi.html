@@ -565,6 +565,10 @@ a.hub-link {
   Hallmark · macrostructure: 14 Narrative Workflow · genre: playful · design-system: design.md
   休みの申し込み。当番（青）・手入れ（緑）と並ぶ3つ目なので、帯は ink の黒で分ける。
   色相を増やさない（design.md：色相は262に寄せる／手入れの165だけが例外）。
+
+  休みは続くとは限らない（バイトの曜日、飛び飛びの試験日）ので、
+  「はじめの日〜終わりの日」ではなく **カレンダーの日を押して選ぶ**。
+  みんなの休みも同じカレンダーに出す。誰が休む日かを見ながら選べるほうが早い。
 */
 header.appbar.yasumi { background: var(--ink); }
 .card.stage-card.yasumi { border-top-color: var(--ink); }
@@ -572,12 +576,12 @@ header.appbar.yasumi { background: var(--ink); }
 .steps.yasumi .s.on { background: var(--ink); border-color: var(--ink); color: #fff; }
 .steps.yasumi .s.done { border-color: var(--ink); color: var(--ink); }
 
-/* 種類の札。色だけに頼らず、必ず1文字の印と名前を出す */
+/* 種類の札。名前をそのまま出す（1文字の印はカレンダーの狭いマスだけで使う）。 */
 .kind-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
 .kindchip {
   border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
   padding: 10px var(--space-lg); font-size: var(--text-base); cursor: pointer; user-select: none;
-  background: var(--paper-2); min-height: var(--tap); display: inline-flex; align-items: center; gap: var(--space-xs);
+  background: var(--paper-2); min-height: var(--tap); display: inline-flex; align-items: center;
   transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
 }
 .kindchip:active { transform: translateY(1px); }
@@ -585,29 +589,67 @@ header.appbar.yasumi { background: var(--ink); }
 .kindchip.on.k-yuukyuu { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .kindchip.on.k-kisetsu { border-color: var(--care); background: var(--care-soft); color: var(--care); }
 
-/* 日ごとのカレンダー。月曜始まり。 */
+/* 月めくり */
 .month-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
 .month-head .now { font-size: var(--text-md); font-weight: 700; font-family: var(--font-num); }
 .month-head button { min-width: 80px; }
+
+/* カレンダー。1マスが押せるボタン。月曜始まり。 */
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); overflow: hidden; background: var(--paper-2); }
 .cal-grid .dow { background: var(--paper-3); text-align: center; font-size: var(--text-sm); font-weight: 700; padding: var(--space-2xs) 0; border-bottom: 1px solid var(--rule-strong); }
 .cal-grid .dow.sat { color: var(--accent-dark); }
 .cal-grid .dow.sun { color: var(--danger); }
-.cal-grid .cell { border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); min-height: 84px; padding: var(--space-2xs); }
-.cal-grid .cell:nth-child(7n + 1) { border-left: 0; }
-.cal-grid .cell.blank { background: var(--paper); }
-.cal-grid .cell.today { background: var(--accent-soft); }
-.cal-grid .cell .d { display: block; font-family: var(--font-num); font-size: var(--text-sm); color: var(--muted); }
-.cal-grid .cell.today .d { color: var(--accent-dark); font-weight: 700; }
-.who {
-  display: block; font-size: var(--text-xs); line-height: 1.5; margin-top: var(--space-3xs);
-  border-left: 3px solid var(--rule-strong); padding-left: var(--space-2xs); overflow-wrap: anywhere;
+.cal-grid .blank { border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); background: var(--paper); min-height: 92px; }
+.cal-grid .blank:nth-child(7n + 1) { border-left: 0; }
+
+.daycell {
+  border: 0; border-top: 1px solid var(--rule); border-left: 1px solid var(--rule);
+  background: var(--paper-2); min-height: 92px; padding: var(--space-2xs);
+  font-family: inherit; font-size: var(--text-xs); text-align: left; cursor: pointer;
+  display: block; width: 100%; color: var(--ink); border-radius: 0;
+  transition: background-color var(--dur-micro) var(--ease-out);
 }
+.daycell:nth-child(7n + 1) { border-left: 0; }
+.daycell:hover { background: var(--accent-soft); }
+.daycell:active { transform: translateY(1px); }
+.daycell .d { display: flex; align-items: center; gap: var(--space-2xs); font-family: var(--font-num); font-size: var(--text-sm); color: var(--muted); }
+.daycell.today .d { color: var(--accent-dark); font-weight: 700; }
+.daycell.sugita { background: var(--paper-sunken); color: var(--muted); }
+.daycell.sugita:hover { background: var(--paper-sunken); }
+
+/* 選んだ日。色だけでなく、四角い印にチェックを入れて分かるようにする */
+.daycell .box {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border: 2px solid var(--rule-strong); border-radius: 4px;
+  background: var(--paper-2); font-size: 14px; line-height: 1; color: transparent;
+}
+.daycell.eranda { background: var(--accent-soft); }
+.daycell.eranda .box { border-color: var(--accent); background: var(--accent); color: #fff; }
+.daycell.eranda .d { color: var(--accent); font-weight: 700; }
+.daycell.sugita .box { border-style: dashed; }
+
+/* その日に休む人 */
+.who { display: block; line-height: 1.5; margin-top: var(--space-3xs); border-left: 3px solid var(--rule-strong); padding-left: var(--space-2xs); overflow-wrap: anywhere; }
 .who .m { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-3xs); }
 .who.k-yuukyuu { border-left-color: var(--accent); }
 .who.k-baito { border-left-color: var(--warning); }
 .who.k-kisetsu { border-left-color: var(--care); }
 .who.matteiru { border-left-style: dashed; color: var(--muted); }
+.who.jibun { font-weight: 700; }
+
+/* 選んだ日の並び */
+.picked { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.picked .p {
+  border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+  border-radius: var(--radius-pill); padding: var(--space-2xs) var(--space-sm);
+  font-size: var(--text-sm); font-family: var(--font-num); display: inline-flex; align-items: center; gap: var(--space-2xs);
+}
+.picked .p button {
+  min-width: 0; min-height: 0; padding: 0 var(--space-2xs); background: transparent;
+  border: 0; color: var(--accent); font-size: var(--text-base); font-weight: 700; line-height: 1;
+}
+.picked .p button:hover { background: transparent; color: var(--danger); }
+.picked .none { color: var(--muted); font-size: var(--text-sm); }
 
 /* 自分が出したもの */
 .mine-item { display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm); padding: var(--space-sm) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
@@ -632,7 +674,7 @@ header.appbar.yasumi { background: var(--ink); }
 
   <ol class="steps yasumi" id="stepStrip" style="display:none;" aria-label="進み方">
     <li class="s" data-step="1"><span class="no">1</span>名前</li>
-    <li class="s" data-step="2"><span class="no">2</span>休む日を出す</li>
+    <li class="s" data-step="2"><span class="no">2</span>カレンダーで日を選ぶ</li>
     <li class="s" data-step="3"><span class="no">3</span>出したもの</li>
   </ol>
 
@@ -642,34 +684,45 @@ header.appbar.yasumi { background: var(--ink); }
     <select id="memberSelect"></select>
     <p class="hint">
       <b>有給休暇</b>と<b>季節休み</b>はここから申し込みます。副将が了承すると決まりです。
-      <b>バイト</b>は副将が入れるので、ここには出てきません（入っていなければ副将に伝えてください）。
+      <b>バイト</b>は副将が入れるので、ここからは出せません（入っていなければ副将に伝えてください）。
     </p>
     <div id="paidBox"></div>
   </section>
 
   <section id="formStage" style="display:none;">
-    <p class="stage"><span class="n">2</span><span class="h">休む日を出す</span></p>
+    <p class="stage"><span class="n">2</span><span class="h">カレンダーで日を選ぶ</span></p>
+
     <div class="card">
       <label id="kindLabel">どの休みか<span class="req">必須</span></label>
       <div class="kind-list" id="kinds" role="group" aria-labelledby="kindLabel"></div>
 
-      <div class="row">
-        <div>
-          <label for="fromDate">休みはじめる日<span class="req">必須</span></label>
-          <input type="date" id="fromDate">
-        </div>
-        <div>
-          <label for="toDate">休み終わる日<span class="req">必須</span></label>
-          <input type="date" id="toDate">
-        </div>
+      <p class="hint" style="margin-top:var(--space-md);">
+        休む日を<b>カレンダーで押して選びます</b>。<b>飛び飛びでも構いません</b>（押すたびに増え、もう一度押すと外れます）。
+        月をまたいでも選べます。選び終えたら下の「まとめて申し込む」を押してください。
+      </p>
+
+      <div class="month-head">
+        <button type="button" class="secondary small" id="prevMonth">前の月</button>
+        <span class="now" id="monthNow"></span>
+        <button type="button" class="secondary small" id="nextMonth">次の月</button>
       </div>
-      <p class="hint" id="daysHint">1日だけなら、同じ日を2つとも入れてください。</p>
+      <div class="cal-grid" id="calGrid"></div>
+      <p class="hint">
+        マスの中の名前は<b>その日に休む人</b>です。　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み　／　点線は了承待ち
+      </p>
+
+      <label style="margin-top:var(--space-lg);">選んだ日　<span id="pickedCount" class="muted"></span></label>
+      <div class="picked" id="pickedList"></div>
+      <p class="hint" id="daysHint"></p>
 
       <label for="reason">ひとこと（帰省・試験・免許合宿など）</label>
       <input type="text" id="reason" maxlength="60" placeholder="実家に帰ります">
 
       <div id="formMsg"></div>
-      <button id="sendBtn" type="button">この日で申し込む</button>
+      <div class="row tight" style="margin-top:var(--space-sm);">
+        <button id="sendBtn" type="button">選んだ日をまとめて申し込む</button>
+        <button id="clearBtn" type="button" class="secondary">選んだ日をぜんぶ外す</button>
+      </div>
     </div>
   </section>
 
@@ -677,25 +730,32 @@ header.appbar.yasumi { background: var(--ink); }
     <p class="stage"><span class="n">3</span><span class="h">出したもの</span></p>
     <div class="card" id="mineCard"></div>
   </section>
-
-  <section id="allStage" style="display:none;">
-    <h2>みんなの休み</h2>
-    <p class="hint">了承ずみのものと、了承待ちのもの（点線）が出ます。バイトもここに出ます。</p>
-    <div class="card">
-      <div class="month-head">
-        <button type="button" class="secondary small" id="prevMonth">前の月</button>
-        <span class="now" id="monthNow"></span>
-        <button type="button" class="secondary small" id="nextMonth">次の月</button>
-      </div>
-      <div class="cal-grid" id="calGrid"></div>
-      <p class="hint">印　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み</p>
-    </div>
-  </section>
 </main>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* 選んだ人は「名前」で覚える。
+   当番・手入れと大会人員表では部員IDの体系が違い（m_xxxxxxxxxx と m_001）、
+   両方にいる人でも一致しない。画面が全部おなじドメインに並んでいるので、
+   IDのまま覚えると画面を移るたびに当てが外れて選び直しになる。
+   名簿は「名簿をそろえる」で同期していて、名前は揃っている。 */
+function 名前を覚える(members, memberId) {
+  const m = (members || []).filter((x) => x.id === memberId)[0];
+  if (!m) return;
+  try { localStorage.setItem('me', m.name); } catch (e) { /* 保存できない設定でも画面は動かす */ }
+}
+function 覚えた人のID(members) {
+  let 名 = '';
+  try { 名 = localStorage.getItem('me') || ''; } catch (e) {}
+  const m = (members || []).filter((x) => x.name === 名)[0];
+  if (m) return m.id;
+  // 名前で覚える前に使っていた人のぶん（同じシステムの中でだけ当たる）
+  let 旧 = '';
+  try { 旧 = localStorage.getItem('memberId') || ''; } catch (e) {}
+  return (members || []).some((x) => x.id === 旧) ? 旧 : '';
+}
 
 const 印 = { '有給休暇': '有', 'バイト': 'バ', '季節休み': '季' };
 const 種類クラス = { '有給休暇': 'k-yuukyuu', 'バイト': 'k-baito', '季節休み': 'k-kisetsu' };
@@ -703,6 +763,7 @@ const 状態クラス = { '申請中': 's-shinsei', '承認': 's-shounin', '却�
 
 let DATA = { members: [], all: [], mine: [], kinds: [] };
 let 選んだ種類 = '';
+let 選んだ日 = {};        // 'YYYY-MM-DD' → true
 let 表示月 = '';          // 'YYYY-MM'
 let busyCount = 0;
 
@@ -740,18 +801,13 @@ function call(fn) {
   }).finally(() => { busy(false); });
 }
 
-const 今日 = () => {
-  const d = new Date();
-  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-};
-const 日数 = (a, b) => {
-  if (!a || !b || b < a) return 0;
-  return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1;
-};
+const 日付 = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+const 今日 = () => 日付(new Date());
 const 和風 = (key) => {
   const m = String(key || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? (Number(m[2]) + '/' + Number(m[3])) : key;
 };
+const 選んだ並び = () => Object.keys(選んだ日).filter((k) => 選んだ日[k]).sort();
 
 function 知らせ(場所, cls, text) {
   $(場所).innerHTML = text ? '<div class="msg ' + cls + '" role="status">' + esc(text) + '</div>' : '';
@@ -764,7 +820,8 @@ function 段を塗る(名前あり) {
     el.className = 's' + (n === 段 ? ' on' : (n < 段 ? ' done' : ''));
     if (n === 段) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
   });
-  $('formStage').style.display = 名前あり ? 'block' : 'none';
+  // カレンダーは名前を選ぶ前から見えていてよい（みんなの休みを見るだけの人もいる）。
+  // 押したときに「先に名前を選んでください」と言う（design.md：disabled は使わない）。
   $('mineStage').style.display = 名前あり ? 'block' : 'none';
 }
 
@@ -787,9 +844,8 @@ function 有給を出す() {
 // ===== 種類の札 =====
 function 種類を出す() {
   $('kinds').innerHTML = DATA.kinds.map((k) =>
-    '<button type="button" class="kindchip ' + 種類クラス[k] + (k === 選んだ種類 ? ' on' : '') + '" data-kind="' + esc(k) + '">' +
-      '<span class="m">' + esc(印[k] || '') + '</span>' + esc(k) +
-    '</button>').join('');
+    '<button type="button" class="kindchip ' + 種類クラス[k] + (k === 選んだ種類 ? ' on' : '') + '" ' +
+      'aria-pressed="' + (k === 選んだ種類) + '" data-kind="' + esc(k) + '">' + esc(k) + '</button>').join('');
 }
 
 $('kinds').addEventListener('click', (e) => {
@@ -797,29 +853,127 @@ $('kinds').addEventListener('click', (e) => {
   if (!b) return;
   選んだ種類 = b.dataset.kind;
   種類を出す();
-  日数を出す();
+  選んだ日を出す();
 });
 
-function 日数を出す() {
-  const a = $('fromDate').value;
-  const b = $('toDate').value || a;
-  const n = 日数(a, b);
-  if (!a) { $('daysHint').textContent = '1日だけなら、同じ日を2つとも入れてください。'; return; }
-  if (!n) { $('daysHint').textContent = '終わりの日が始まりの日より前になっています。'; return; }
-  let 文 = n + '日ぶんです。';
-  if (選んだ種類 === '有給休暇' && DATA.paid) {
-    const あと = DATA.paid.残り - n;
-    文 += '申し込むと、' + DATA.year + '年度の有給の残りは ' + あと + '日 になります。';
-    if (あと < 0) 文 += ' 足りないので、このままでは出せません。';
+// ===== カレンダー =====
+function 月を進める(delta) {
+  const m = 表示月.split('-');
+  表示月 = 日付(new Date(Number(m[0]), Number(m[1]) - 1 + delta, 1)).slice(0, 7);
+  カレンダーを出す();
+}
+$('prevMonth').addEventListener('click', () => 月を進める(-1));
+$('nextMonth').addEventListener('click', () => 月を進める(1));
+
+// その日に休む人を、日ごとに集める
+function 日ごとの休み() {
+  const 表 = {};
+  DATA.all.forEach((l) => {
+    const 端 = new Date(l.to + 'T00:00:00');
+    for (const d = new Date(l.from + 'T00:00:00'); d <= 端; d.setDate(d.getDate() + 1)) {
+      (表[日付(d)] = 表[日付(d)] || []).push(l);
+    }
+  });
+  return 表;
+}
+
+function カレンダーを出す() {
+  const y = Number(表示月.split('-')[0]);
+  const m = Number(表示月.split('-')[1]);
+  $('monthNow').textContent = y + '年' + m + '月';
+
+  const 表 = 日ごとの休み();
+  const 私 = $('memberSelect').value;
+  const 曜日 = ['月', '火', '水', '木', '金', '土', '日'];
+  let html = 曜日.map((w, i) =>
+    '<div class="dow' + (i === 5 ? ' sat' : (i === 6 ? ' sun' : '')) + '">' + w + '</div>').join('');
+
+  const 先頭 = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+  const 末日 = new Date(y, m, 0).getDate();
+  for (let i = 0; i < 先頭; i++) html += '<div class="blank"></div>';
+
+  for (let d = 1; d <= 末日; d++) {
+    const key = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+    const 過ぎた = key < 今日();
+    const 選んだ = !!選んだ日[key];
+    const 面々 = 表[key] || [];
+    html += '<button type="button" class="daycell' +
+        (選んだ ? ' eranda' : '') + (過ぎた ? ' sugita' : '') + (key === 今日() ? ' today' : '') + '" ' +
+        'data-day="' + key + '" aria-pressed="' + 選んだ + '" ' +
+        'aria-label="' + m + '月' + d + '日' + (選んだ ? '（選んでいます）' : '') + '">' +
+      '<span class="d"><span class="box" aria-hidden="true">✓</span>' + d + '</span>' +
+      面々.map((l) =>
+        '<span class="who ' + (種類クラス[l.kind] || '') + (l.state === '申請中' ? ' matteiru' : '') +
+          (l.memberId === 私 ? ' jibun' : '') + '">' +
+          '<span class="m">' + esc(印[l.kind] || '') + '</span>' + esc(l.name) +
+        '</span>').join('') +
+      '</button>';
   }
-  if (選んだ種類 === '季節休み') 文 += '季節休みは有給を減らしません。';
+  $('calGrid').innerHTML = html;
+}
+
+$('calGrid').addEventListener('click', (e) => {
+  const b = e.target.closest('.daycell');
+  if (!b) return;
+  const key = b.dataset.day;
+
+  // 押せない形にはせず、押したときに理由を言う（design.md / DADS）
+  if (!$('memberSelect').value) {
+    return 知らせ('formMsg', 'warning', 'はじめに、いちばん上であなたの名前を選んでください。選んでから日を押せます。');
+  }
+  if (key < 今日()) {
+    return 知らせ('formMsg', 'warning', '過ぎた日は申し込めません。もう休んだぶんは副将に直接伝えてください。');
+  }
+  const 出してある = DATA.mine.filter((l) =>
+    (l.state === '申請中' || l.state === '承認') && l.from <= key && key <= l.to)[0];
+  if (出してある) {
+    return 知らせ('formMsg', 'warning',
+      和風(key) + ' は、すでに「' + 出してある.kind + '」で出してあります（' + 出してある.state + '）。'
+      + '取り消すときは下の「出したもの」から。');
+  }
+
+  if (選んだ日[key]) delete 選んだ日[key]; else 選んだ日[key] = true;
+  知らせ('formMsg', '', '');
+  カレンダーを出す();
+  選んだ日を出す();
+});
+
+// ===== 選んだ日 =====
+function 選んだ日を出す() {
+  const 並び = 選んだ並び();
+  $('pickedCount').textContent = 並び.length ? '（' + 並び.length + '日）' : '';
+  $('pickedList').innerHTML = 並び.length
+    ? 並び.map((k) => '<span class="p">' + 和風(k) +
+        '<button type="button" data-drop="' + k + '" aria-label="' + 和風(k) + ' を外す">×</button></span>').join('')
+    : '<span class="none">まだ選んでいません。上のカレンダーで休む日を押してください。</span>';
+
+  let 文 = '';
+  if (並び.length) {
+    文 = 並び.length + '日ぶんです。';
+    if (選んだ種類 === '有給休暇' && DATA.paid) {
+      const あと = DATA.paid.残り - 並び.length;
+      文 += '申し込むと、' + DATA.year + '年度の有給の残りは ' + あと + '日 になります。';
+      if (あと < 0) 文 += ' 足りないので、このままでは出せません。';
+    }
+    if (選んだ種類 === '季節休み') 文 += '季節休みは有給を減らしません。';
+  }
   $('daysHint').textContent = 文;
 }
-$('fromDate').addEventListener('change', () => {
-  if (!$('toDate').value || $('toDate').value < $('fromDate').value) $('toDate').value = $('fromDate').value;
-  日数を出す();
+
+$('pickedList').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-drop]');
+  if (!b) return;
+  delete 選んだ日[b.dataset.drop];
+  カレンダーを出す();
+  選んだ日を出す();
 });
-$('toDate').addEventListener('change', 日数を出す);
+
+$('clearBtn').addEventListener('click', () => {
+  選んだ日 = {};
+  カレンダーを出す();
+  選んだ日を出す();
+  知らせ('formMsg', '', '');
+});
 
 // ===== 出したもの =====
 function 自分のぶんを出す() {
@@ -833,7 +987,7 @@ function 自分のぶんを出す() {
     return '<div class="mine-item">' +
       '<span class="when">' + 和風(l.from) + (l.to !== l.from ? '〜' + 和風(l.to) : '') +
         ' <span class="muted">' + l.days + '日</span></span>' +
-      '<span>' + esc(印[l.kind] || '') + ' ' + esc(l.kind) + '</span>' +
+      '<span>' + esc(l.kind) + '</span>' +
       '<span class="state ' + (状態クラス[l.state] || '') + '">' + esc(l.state) + '</span>' +
       (l.memo ? '<span class="muted">副将より：' + esc(l.memo) + '</span>' : '') +
       (消せる ? '<button type="button" class="secondary small" data-cancel="' + l.id + '">取り消す</button>' : '') +
@@ -857,71 +1011,23 @@ $('mineCard').addEventListener('click', async (e) => {
 // ===== 申し込む =====
 $('sendBtn').addEventListener('click', async () => {
   const memberId = $('memberSelect').value;
-  // disabled は使わない。押したときに足りないものを文章で言う（design.md）。
   if (!memberId) return 知らせ('formMsg', 'warning', 'はじめに、いちばん上であなたの名前を選んでください。');
   if (!選んだ種類) return 知らせ('formMsg', 'warning', '「どの休みか」で 有給休暇 か 季節休み を選んでください。');
-  const a = $('fromDate').value;
-  const b = $('toDate').value || a;
-  if (!a) return 知らせ('formMsg', 'warning', '休みはじめる日を入れてください。');
-  if (!日数(a, b)) return 知らせ('formMsg', 'warning', '終わりの日が始まりの日より前になっています。');
+  const 並び = 選んだ並び();
+  if (!並び.length) return 知らせ('formMsg', 'warning', 'カレンダーで休む日を押して選んでください。');
 
   try {
-    const r = await call('submitLeave', memberId, 選んだ種類, a, b, $('reason').value);
+    const r = await call('submitLeaveDays', memberId, 選んだ種類, 並び, $('reason').value);
+    選んだ日 = {};
     $('reason').value = '';
     await 読み直す();
-    知らせ('formMsg', 'success', '出しました（' + r.days + '日ぶん）。副将が了承するまでは「申請中」です。');
+    知らせ('formMsg', 'success',
+      '出しました（' + r.days + '日ぶん' + (r.count > 1 ? '／続いている日ごとに' + r.count + '件' : '') + '）。'
+      + '副将が了承するまでは「申請中」です。');
   } catch (err) {
     知らせ('formMsg', 'error', ((err && err.message) || err));
   }
 });
-
-// ===== みんなの休み（カレンダー） =====
-function 月を進める(delta) {
-  const m = 表示月.split('-');
-  const d = new Date(Number(m[0]), Number(m[1]) - 1 + delta, 1);
-  表示月 = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
-  カレンダーを出す();
-}
-$('prevMonth').addEventListener('click', () => 月を進める(-1));
-$('nextMonth').addEventListener('click', () => 月を進める(1));
-
-function カレンダーを出す() {
-  const [y, m] = 表示月.split('-').map(Number);
-  $('monthNow').textContent = y + '年' + m + '月';
-
-  // 日ごとに集める
-  const 日ごと = {};
-  DATA.all.forEach((l) => {
-    const 端a = new Date(l.from + 'T00:00:00');
-    const 端b = new Date(l.to + 'T00:00:00');
-    for (const d = new Date(端a.getTime()); d <= 端b; d.setDate(d.getDate() + 1)) {
-      const key = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-      (日ごと[key] = 日ごと[key] || []).push(l);
-    }
-  });
-
-  const 曜日 = ['月', '火', '水', '木', '金', '土', '日'];
-  let html = 曜日.map((w, i) =>
-    '<div class="dow' + (i === 5 ? ' sat' : (i === 6 ? ' sun' : '')) + '">' + w + '</div>').join('');
-
-  const 一日 = new Date(y, m - 1, 1);
-  const 先頭 = (一日.getDay() + 6) % 7;           // 月曜始まり
-  const 末日 = new Date(y, m, 0).getDate();
-  for (let i = 0; i < 先頭; i++) html += '<div class="cell blank"></div>';
-  for (let d = 1; d <= 末日; d++) {
-    const key = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
-    const 面々 = 日ごと[key] || [];
-    html += '<div class="cell' + (key === 今日() ? ' today' : '') + '">' +
-      '<span class="d">' + d + '</span>' +
-      面々.map((l) =>
-        '<span class="who ' + (種類クラス[l.kind] || '') + (l.state === '申請中' ? ' matteiru' : '') + '">' +
-          '<span class="m">' + esc(印[l.kind] || '') + '</span>' + esc(l.name) +
-          (l.state === '申請中' ? '（待ち）' : '') +
-        '</span>').join('') +
-      '</div>';
-  }
-  $('calGrid').innerHTML = html;
-}
 
 // ===== 読み込み =====
 async function 読み直す() {
@@ -932,14 +1038,14 @@ async function 読み直す() {
   種類を出す();
   有給を出す();
   自分のぶんを出す();
-  日数を出す();
   カレンダーを出す();
+  選んだ日を出す();
 }
 
 async function onMemberChange() {
   const memberId = $('memberSelect').value;
   段を塗る(!!memberId);
-  if (memberId) localStorage.setItem('memberId', memberId);
+  if (memberId) 名前を覚える(DATA.members, memberId);
   知らせ('formMsg', '', '');
   await 読み直す();
 }
@@ -952,21 +1058,20 @@ async function onMemberChange() {
     $('loading').style.display = 'none';
     $('pickCard').style.display = 'block';
     $('stepStrip').style.display = 'flex';
-    $('allStage').style.display = 'block';
+    $('formStage').style.display = 'block';
     段を塗る(false);
-    $('fromDate').min = 今日();
-    $('toDate').min = 今日();
     選んだ種類 = (r.kinds && r.kinds[0]) || '';
     種類を出す();
     カレンダーを出す();
+    選んだ日を出す();
 
     $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
       (r.members || []).map((m) =>
         '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
     $('memberSelect').addEventListener('change', onMemberChange);
 
-    const saved = localStorage.getItem('memberId');
-    if (saved && (r.members || []).some((m) => m.id === saved)) {
+    const saved = 覚えた人のID(r.members);
+    if (saved) {
       $('memberSelect').value = saved;
       await onMemberChange();
     }

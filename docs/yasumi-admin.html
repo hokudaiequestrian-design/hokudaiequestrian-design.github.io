@@ -579,7 +579,6 @@ header.appbar.yasumi { background: var(--ink); }
 .state.s-shounin { border-color: var(--care); color: var(--care); background: var(--care-soft); }
 .state.s-kyakka { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
 .state.s-torikeshi { color: var(--muted); }
-.kind-mark { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-2xs); }
 
 table.yasumi-grid td { vertical-align: middle; }
 table.yasumi-grid td.acts { white-space: nowrap; }
@@ -873,7 +872,7 @@ function 申し込みを出す() {
       '<tr>' +
         '<td class="no-col">' + (i + 1) + '</td>' +
         '<td>' + esc(l.name) + '</td>' +
-        '<td><span class="kind-mark">' + esc(印[l.kind] || '') + '</span>' + esc(l.kind) + '</td>' +
+        '<td>' + esc(l.kind) + '</td>' +
         '<td class="when">' + 和風(l.from) + (l.to !== l.from ? '〜' + 和風(l.to) : '') + '</td>' +
         '<td class="no-col">' + l.days + '</td>' +
         '<td><span class="state ' + (状態クラス[l.state] || '') + '">' + esc(l.state) + '</span></td>' +

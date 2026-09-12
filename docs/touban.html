@@ -615,6 +615,27 @@ a.hub-link {
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* 選んだ人は「名前」で覚える。
+   当番・手入れと大会人員表では部員IDの体系が違い（m_xxxxxxxxxx と m_001）、
+   両方にいる人でも一致しない。画面が全部おなじドメインに並んでいるので、
+   IDのまま覚えると画面を移るたびに当てが外れて選び直しになる。
+   名簿は「名簿をそろえる」で同期していて、名前は揃っている。 */
+function 名前を覚える(members, memberId) {
+  const m = (members || []).filter((x) => x.id === memberId)[0];
+  if (!m) return;
+  try { localStorage.setItem('me', m.name); } catch (e) { /* 保存できない設定でも画面は動かす */ }
+}
+function 覚えた人のID(members) {
+  let 名 = '';
+  try { 名 = localStorage.getItem('me') || ''; } catch (e) {}
+  const m = (members || []).filter((x) => x.name === 名)[0];
+  if (m) return m.id;
+  // 名前で覚える前に使っていた人のぶん（同じシステムの中でだけ当たる）
+  let 旧 = '';
+  try { 旧 = localStorage.getItem('memberId') || ''; } catch (e) {}
+  return (members || []).some((x) => x.id === 旧) ? 旧 : '';
+}
 const show = (cls, text) => { $('msg').innerHTML = '<div class="msg ' + cls + '">' + esc(text) + '</div>'; };
 
 let DATA = { members: [], terms: [], days: [], 希望の数: 4 };
@@ -814,7 +835,7 @@ async function onMemberChange() {
   const termId = $('termSelect').value;
   TERM = DATA.terms.filter((t) => t.id === termId)[0] || null;
   if (!memberId || !TERM) { $('formCard').style.display = 'none'; return; }
-  localStorage.setItem('memberId', memberId);
+  名前を覚える(DATA.members, memberId);
   localStorage.setItem('termId', termId);
   ME = DATA.members.filter((m) => m.id === memberId)[0] || null;
 
@@ -899,8 +920,8 @@ $('submitBtn').addEventListener('click', async () => {
     $('memberSelect').addEventListener('change', onMemberChange);
     $('termSelect').addEventListener('change', onMemberChange);
 
-    const saved = localStorage.getItem('memberId');
-    if (saved && DATA.members.some((m) => m.id === saved)) {
+    const saved = 覚えた人のID(DATA.members);
+    if (saved) {
       $('memberSelect').value = saved;
       onMemberChange();
     }
