@@ -975,6 +975,12 @@ $('submitBtn').addEventListener('click', async () => {
   const 足す = (el) => {
     if (!el || el.dataset.home === '1' || !出し終わった.test(el.textContent || '')) return;
     el.dataset.home = '1';
+    // マイページが、サーバの返事を待たずに「まだ出していないもの」から消せるようにしておく
+    try {
+      localStorage.setItem('mypage:出したところ', JSON.stringify({
+        url: location.pathname.split('/').pop(), 時刻: Date.now(),
+      }));
+    } catch (e) { /* 保存できない設定なら、次に読んだときに正しくなる */ }
     const a = document.createElement('a');
     a.className = 'donehome';
     a.href = 戻り先;

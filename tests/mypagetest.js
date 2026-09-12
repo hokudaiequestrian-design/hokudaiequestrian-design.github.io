@@ -177,11 +177,15 @@ const ctx = vm.createContext(sandbox);
 vm.runInContext(
   fs.readFileSync(人員表, 'utf8') + '\n;this.外から呼べる関数 = 外から呼べる関数; this.終日の枠ID = 終日の枠ID;',
   ctx, { filename: 'コード.gs' });
-// 実機では呼び出しごとに新しい実行になり、readRows の覚えも消える
+// 実機では呼び出しごとに新しい実行になり、読んだシートの覚えも「版を進めたか」も消える。
+// テストでも同じ条件にするため、関数を呼ぶ直前に両方を戻す。
+// 覚えを消す() は「書き替えた」合図で版まで進めてしまうので、ここでは置き場を直に空にする
+const 実行を始める = new vm.Script(
+  'Object.keys(読んだ中身).forEach((k) => { delete 読んだ中身[k]; }); 版を進めた = false;');
 const G = new Proxy(ctx, {
   get(t, k) {
     const v = t[k];
-    if (typeof v === 'function') return (...a) => { if (t.覚えを消す) t.覚えを消す(); return v.apply(t, a); };
+    if (typeof v === 'function') return (...a) => { 実行を始める.runInContext(ctx); return v.apply(t, a); };
     return v;
   },
 });
@@ -294,6 +298,25 @@ G.adminSaveEvent(T, { name: '去年の大会', startDate: 日(-30), endDate: 日
 const 去年 = G.getMyPage('美浦').大会.filter((x) => x.name === '去年の大会')[0];
 確かめる('終わった大会は終わった印が付いて日が空', 去年.終わった === true && 去年.日.length === 0, JSON.stringify(去年));
 
+// ===================== 1.4 版（変わっていなければ送らない） =====================
+
+見出し('人員表：版');
+const 版あり = G.getMyPage('美浦');
+確かめる('返事に版が入る', !!版あり.版, String(版あり.版));
+const 同じ = G.getMyPage('美浦', 版あり.版);
+確かめる('同じ版なら「同じ」とだけ返す', 同じ.同じ === true && !同じ.大会, JSON.stringify(同じ));
+確かめる('送る量がほぼ0になる',
+  JSON.stringify(同じ).length < JSON.stringify(版あり).length / 10,
+  JSON.stringify(同じ).length + 'バイト ← ' + JSON.stringify(版あり).length + 'バイト');
+確かめる('違う版なら中身を返す', !!G.getMyPage('美浦', 'ちがう版').大会);
+
+// 書き替えたら版が変わり、画面は取り直すことになる
+G.adminSaveEvent(T, { name: '版のテスト大会', startDate: 日(5), endDate: 日(5), competitions: [], jobs: [] });
+const 書き替えたあと = G.getMyPage('美浦', 版あり.版);
+確かめる('書き替えたら「同じ」と言わない', !書き替えたあと.同じ && !!書き替えたあと.大会, JSON.stringify(書き替えたあと).slice(0, 60));
+確かめる('新しい版が付く', 書き替えたあと.版 !== 版あり.版, 書き替えたあと.版 + ' ← ' + 版あり.版);
+G.adminDeleteEvent(T, G.loadEvents().filter((e) => e.name === '版のテスト大会')[0].id);
+
 // ===================== 1.5 読んだシートの覚え =====================
 
 // 1回の実行のあいだ同じシートを読み直さない。ただし書き替えたら忘れること。
@@ -320,8 +343,45 @@ ctx.シートを読む = 元のシートを読む;
 
 // IIFE の中の関数を外へ出して読み込む（画面のファイルはそのまま使う）
 const 入口のソース = fs.readFileSync(入口, 'utf8')
-  .replace('  始める();', '  this.__test = { 一週間を組む, 重なり, 週の見た目, 先の予定, 組み立てる, 和風, 足す };');
-const 入口ctx = vm.createContext({ console: console, fetch: () => {}, localStorage: null, document: { getElementById: () => null } });
+  .replace('  始める();',
+    '  this.__test = { 一週間を組む, 重なり, 週の見た目, 先の予定, 組み立てる, 節々, 描く, 和風, 足す };');
+
+// 模擬DOM。innerHTML を書いた回数を数えて、「変わった節だけ書き換える」を確かめられるようにする
+function 模擬要素() {
+  const el = { id: '', children: [], 書いた: 0, _html: '' };
+  Object.defineProperty(el, 'innerHTML', {
+    get() { return el._html; },
+    set(v) { el._html = v; el.書いた++; },
+  });
+  el.insertBefore = (子, 前) => {
+    const i = 前 ? el.children.indexOf(前) : -1;
+    const いま = el.children.indexOf(子);
+    if (いま >= 0) el.children.splice(いま, 1);
+    if (i < 0) el.children.push(子); else el.children.splice(i, 0, 子);
+    子.親 = el;
+    return 子;
+  };
+  el.remove = () => {
+    if (!el.親) return;
+    const i = el.親.children.indexOf(el);
+    if (i >= 0) el.親.children.splice(i, 1);
+  };
+  return el;
+}
+const meBody = 模擬要素();
+const 覚え箱 = {};
+const 入口ctx = vm.createContext({
+  console: console, fetch: () => {}, Date: Date,
+  localStorage: {
+    getItem: (k) => (覚え箱[k] === undefined ? null : 覚え箱[k]),
+    setItem: (k, v) => { 覚え箱[k] = String(v); },
+    removeItem: (k) => { delete 覚え箱[k]; },
+  },
+  document: {
+    getElementById: (id) => (id === 'meBody' ? meBody : null),
+    createElement: () => 模擬要素(),
+  },
+});
 vm.runInContext(入口のソース, 入口ctx, { filename: 'mypage.js' });
 const M = 入口ctx.__test;
 確かめる('入口の中の関数を取り出せる', !!(M && M.一週間を組む), Object.keys(入口ctx));
@@ -416,6 +476,38 @@ const 本文 = M.組み立てる(t, null, ['大会のぶんを読めませんで
   M.組み立てる(t, jm, [], true).indexOf('前回の内容です') > 0);
 確かめる('新しく取れたときは断り書きを付けない',
   M.組み立てる(t, jm, [], false).indexOf('前回の内容です') < 0);
+
+// ===================== 2.5 書き換えを最小にする／出した直後 =====================
+
+見出し('入口：変わった節だけ書き換える');
+const 節 = M.節々(t, jm, [], false);
+確かめる('節に名前が付いている',
+  JSON.stringify(節.map((s) => s.id)) === JSON.stringify(['meNotice', 'meWeek', 'meSoon', 'meTodo', 'meFacts']),
+  JSON.stringify(節.map((s) => s.id)));
+
+M.描く(t, jm, [], false);
+確かめる('節のぶんだけ箱ができる', meBody.children.length === 5, String(meBody.children.length));
+const 週の箱 = meBody.children[1];
+const 書いた回数 = 週の箱.書いた;
+M.描く(t, jm, [], false);
+確かめる('同じ中身なら書き換えない', 週の箱.書いた === 書いた回数, String(週の箱.書いた) + '回目');
+
+const t2 = JSON.parse(JSON.stringify(t));
+t2.有給 = { 残り: 7, 待ち: 0 };
+M.描く(t2, jm, [], false);
+確かめる('変わった節だけ書き換える',
+  週の箱.書いた === 書いた回数 && meBody.children[4].書いた === 2,
+  '週' + 週の箱.書いた + '回／事実' + meBody.children[4].書いた + '回');
+
+見出し('入口：出した直後（返事を待たずに消す）');
+const 大会が未提出 = (html) => html.indexOf('大会の出欠') > 0;
+確かめる('ふだんは未提出に出る', 大会が未提出(M.組み立てる(t, jm, [], false)));
+覚え箱['mypage:出したところ'] = JSON.stringify({ url: 'taikai.html', 時刻: Date.now() });
+確かめる('出した直後、前回の内容を出すあいだは消える', !大会が未提出(M.組み立てる(t, jm, [], true)));
+確かめる('新しく取れたぶんには効かせない（本当の答えを出す）', 大会が未提出(M.組み立てる(t, jm, [], false)));
+覚え箱['mypage:出したところ'] = JSON.stringify({ url: 'taikai.html', 時刻: Date.now() - 20 * 60 * 1000 });
+確かめる('古い印は効かない（20分前）', 大会が未提出(M.組み立てる(t, jm, [], true)));
+delete 覚え箱['mypage:出したところ'];
 
 // ===================== 3. マイページに戻るボタン =====================
 

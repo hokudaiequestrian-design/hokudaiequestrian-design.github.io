@@ -204,6 +204,17 @@
       '<span class="tag">' + esc(x.印) + '</span></div>').join('');
   }
 
+  /**
+   * いま出したばかりのページ。出した直後は、まだサーバの返事に反映されていないので、
+   * **返事を待たずにその行を消す**（楽観的な先出し）。各ページに差し込んだ
+   * スクリプト（build.js）が、送信できたときにここへ書く。
+   */
+  function 出したところ() {
+    const v = 取り出す('mypage:出したところ');
+    if (!v || !v.url) return null;
+    return Date.now() - (v.時刻 || 0) < 10 * 60 * 1000 ? v : null;   // 10分だけ効かせる
+  }
+
   function まだのものを集める(t, j) {
     const out = [];
     (((t && t.当番) || {}).期間 || []).forEach((x) => {
@@ -221,35 +232,44 @@
     return out;
   }
 
-  function 組み立てる(t, j, 困った, 更新中) {
+  /**
+   * 画面を「節」の集まりとして組む。1節＝1つの箱で、**中身が変わった節だけを書き換える**
+   * （下の 描く）。全部を作り直すと、読んでいる途中で画面が飛ぶうえ、
+   * スマホでは毎回ここが重くなる。
+   */
+  function 節々(t, j, 困った, 更新中) {
     const 章 = [];
+    const 知らせ = [];
 
-    if (更新中) 章.push('<p class="me-fresh">前回の内容です。いま新しいぶんを読んでいます…</p>');
+    if (更新中) 知らせ.push('<p class="me-fresh">前回の内容です。いま新しいぶんを読んでいます…</p>');
     if (困った.length) {
-      章.push('<p class="me-msg">' + 困った.map(esc).join('<br>') +
+      知らせ.push('<p class="me-msg">' + 困った.map(esc).join('<br>') +
         '<br>出せなかったところだけ空になっています。下のリンクからは今までどおり使えます。</p>');
     }
+    章.push({ id: 'meNotice', html: 知らせ.join('') });
+
     if (t && !t.me && j && !j.me) {
-      return '<p class="me-msg">その名前が名簿にありません。副将に伝えてください。</p>';
+      return [{ id: 'meNotice', html: '<p class="me-msg">その名前が名簿にありません。副将に伝えてください。</p>' }];
     }
 
     // これからの1週間
     const 今日 = (t && t.今日) || 文字に(new Date());
-    章.push(節('これからの1週間', 週の見た目(t, j, 今日)));
+    章.push({ id: 'meWeek', html: 節('これからの1週間', 週の見た目(t, j, 今日)) });
 
     // 1週間より先
     const 先 = 先の予定(t, j, 今日);
-    if (先) 章.push(節('1週間より先', '<div class="me-list">' + 先 + '</div>'));
+    章.push({ id: 'meSoon', html: 先 ? 節('1週間より先', '<div class="me-list">' + 先 + '</div>') : '' });
 
-    // まだ出していないもの
-    const まだ = まだのものを集める(t, j);
-    章.push(節('まだ出していないもの', まだ.length
+    // まだ出していないもの。いま出したばかりのぶんは、返事を待たずに消しておく
+    const 出した = 更新中 ? 出したところ() : null;
+    const まだ = まだのものを集める(t, j).filter((x) => !出した || x.url !== 出した.url);
+    章.push({ id: 'meTodo', html: 節('まだ出していないもの', まだ.length
       ? '<div class="me-list">' + まだ.map((x) =>
           '<a class="me-todo" href="' + esc(x.url) + '">' +
             '<span class="mi">未</span><span class="t">' + esc(x.t) + '</span>' +
             '<span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>' +
           '</a>').join('') + '</div>'
-      : '<div class="me-done">ぜんぶ出してあります。</div>'));
+      : '<div class="me-done">ぜんぶ出してあります。</div>') });
 
     // 毎週決まっているもの・サブの馬・有給
     const 事実 = [];
@@ -262,9 +282,34 @@
       事実.push('<div>有給の残り　<b>' + esc(t.有給.残り) + '</b> 日' +
         (t.有給.待ち ? '<span class="tag" style="margin-left:8px;">了承待ち ' + esc(t.有給.待ち) + '日</span>' : '') + '</div>');
     }
-    if (事実.length) 章.push('<div class="me-facts">' + 事実.join('') + '</div>');
+    章.push({ id: 'meFacts', html: 事実.length ? '<div class="me-facts">' + 事実.join('') + '</div>' : '' });
 
-    return 章.join('');
+    return 章;
+  }
+
+  // 検査用。画面では使わない（画面は 描く のほうを通る）
+  const 組み立てる = (t, j, 困った, 更新中) => 節々(t, j, 困った, 更新中).map((s) => s.html).join('');
+
+  /**
+   * 節を突き合わせて、**中身が変わった節だけ** innerHTML を入れ替える。
+   * 変わっていない節には触らないので、読んでいる位置も、押しかけのリンクも飛ばない。
+   */
+  const 描いた = {};
+  function 描く(t, j, 困った, 更新中) {
+    const 本体 = $('meBody');
+    if (!本体) return;
+    const 欲しい = 節々(t, j, 困った, 更新中);
+    const 残り = {};
+    Array.prototype.forEach.call(本体.children, (el) => { 残り[el.id] = el; });
+
+    欲しい.forEach((s, i) => {
+      let el = 残り[s.id];
+      if (el) delete 残り[s.id];
+      else { el = document.createElement('div'); el.id = s.id; }
+      if (描いた[s.id] !== s.html) { el.innerHTML = s.html; 描いた[s.id] = s.html; }
+      if (本体.children[i] !== el) 本体.insertBefore(el, 本体.children[i] || null);
+    });
+    Object.keys(残り).forEach((k) => { 残り[k].remove(); delete 描いた[k]; });
   }
 
   // 名簿を選べるようにする。名簿は当番側のどの getMyPage でも一緒に返ってくる。
@@ -276,34 +321,45 @@
   }
 
   async function 出す(名) {
-    if (!名) { $('meBody').innerHTML = ''; return; }
+    if (!名) { $('meBody').innerHTML = ''; Object.keys(描いた).forEach((k) => { delete 描いた[k]; }); return; }
     名前を覚える(名);
 
     // 前に取ってあるぶんを先に出す。通信を待たずに読み始められる。
     const 前 = 取り出す(鍵(名));
-    $('meBody').innerHTML = 前
-      ? 組み立てる(前.t, 前.j, [], true)
-      : '<p class="me-msg">読み込んでいます…</p>';
+    if (前) 描く(前.t, 前.j, [], true);
+    else $('meBody').innerHTML = '<p class="me-msg">読み込んでいます…</p>';
 
     let t = null, j = null;
+    let 版t = 前 && 前.版t, 版j = 前 && 前.版j;
+    let 変わった = false;
     const 困った = [];
     const sel = $('meSelect');
+
+    // 持っている版を渡す。何も書き替わっていなければ「同じ」とだけ返るので、
+    // 送られてくる量も、画面を書き換える手間もゼロになる。
     await Promise.all([
-      呼ぶ(API.当番, 'getMyPage', [名]).then((r) => {
-        t = r;
+      呼ぶ(API.当番, 'getMyPage', [名, 前 ? 版t : null]).then((r) => {
+        if (r && r.同じ) { t = 前.t; return; }
+        t = r; 版t = r.版; 変わった = true;
         if (sel && sel.options.length <= 1) 名簿を並べる(sel, r.members, 名);   // 名簿もこの返りに入っている
       }).catch((e) => 困った.push('当番・手入れを読めませんでした：' + e.message)),
-      呼ぶ(API.人員表, 'getMyPage', [名]).then((r) => { j = r; }).catch((e) => 困った.push('大会のぶんを読めませんでした：' + e.message)),
+      呼ぶ(API.人員表, 'getMyPage', [名, 前 ? 版j : null]).then((r) => {
+        if (r && r.同じ) { j = 前.j; return; }
+        j = r; 版j = r.版; 変わった = true;
+      }).catch((e) => 困った.push('大会のぶんを読めませんでした：' + e.message)),
     ]);
 
     // 両方そろったときだけ覚える（片方だけ新しい、という中身にしない）
-    if (t && j) 保存する(鍵(名), { t: t, j: j });
+    if (t && j) {
+      if (変わった) 保存する(鍵(名), { t: t, j: j, 版t: 版t, 版j: 版j });
+      try { localStorage.removeItem('mypage:出したところ'); } catch (e) { /* 消せなくても10分で切れる */ }
+    }
     if ((!t || !j) && 前) {
       困った.push('読めなかったところは、前回の内容を出しています。');
       if (!t) t = 前.t;
       if (!j) j = 前.j;
     }
-    $('meBody').innerHTML = 組み立てる(t, j, 困った, false);
+    描く(t, j, 困った, false);
   }
 
   /**
