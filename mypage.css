@@ -100,3 +100,8 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-facts div { font-size: var(--text-base); }
 .me-facts b { font-family: var(--font-num); font-size: 1.125rem; }
 .me-msg { padding: var(--space-sm) var(--space-2xs); font-size: var(--text-base); }
+/* 前回の内容を先に出しているあいだの断り書き。読み始められるが、まだ古いかもしれない */
+.me-fresh {
+  margin: 0 0 var(--space-xs); padding: var(--space-2xs) var(--space-xs);
+  background: var(--paper-3); color: var(--muted); font-size: var(--text-sm);
+}

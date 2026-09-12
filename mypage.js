@@ -37,6 +37,15 @@
   const 覚えた名前 = () => { try { return localStorage.getItem('me') || ''; } catch (e) { return ''; } };
   const 名前を覚える = (n) => { try { localStorage.setItem('me', n); } catch (e) { /* 保存できない設定でも動かす */ } };
 
+  /*
+    前に取った中身を覚えておき、**開いた瞬間にそれを出す**（2026-09-13）。
+    Apps Script は1回の往復に2〜5秒かかる。待っているあいだ真っ白だと「遅い」のではなく
+    「壊れている」ように見えるので、前回のぶんを先に出して、届いたら差し替える。
+  */
+  const 保存する = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* いっぱいなら諦める */ } };
+  const 取り出す = (k) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } };
+  const 鍵 = (名) => 'mypage:' + 名;
+
   // ----- 日付。シートと同じ 2026-09-15 の文字列のまま足し引きする -----
   const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -212,9 +221,10 @@
     return out;
   }
 
-  function 組み立てる(t, j, 困った) {
+  function 組み立てる(t, j, 困った, 更新中) {
     const 章 = [];
 
+    if (更新中) 章.push('<p class="me-fresh">前回の内容です。いま新しいぶんを読んでいます…</p>');
     if (困った.length) {
       章.push('<p class="me-msg">' + 困った.map(esc).join('<br>') +
         '<br>出せなかったところだけ空になっています。下のリンクからは今までどおり使えます。</p>');
@@ -245,7 +255,8 @@
     const 事実 = [];
     const 当番 = ((((t || {}).当番) || {}).決まったぶん) || [];
     if (当番.length) 事実.push('<div>毎週の当番　' + esc(当番.map((c) => c.曜日 + '曜 ' + c.当番).join('／')) + '</div>');
-    const 馬 = ((t && t.手入れ) || []).map((p) => p.horse + (p.chief ? '（チーフ ' + p.chief + '）' : ''));
+    // チーフの名前は出さない（2026-09-13にユーザーが決めた。自分のページに要らない）
+    const 馬 = ((t && t.手入れ) || []).map((p) => p.horse);
     if (馬.length) 事実.push('<div>サブの馬　' + esc(馬.join('／')) + '</div>');
     if (t && t.有給) {
       事実.push('<div>有給の残り　<b>' + esc(t.有給.残り) + '</b> 日' +
@@ -256,34 +267,77 @@
     return 章.join('');
   }
 
+  // 名簿を選べるようにする。名簿は当番側のどの getMyPage でも一緒に返ってくる。
+  function 名簿を並べる(sel, members, 名) {
+    if (!members || !members.length) return;
+    sel.innerHTML = '<option value="">選択してください</option>' +
+      members.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
+    if (名 && members.some((m) => m.name === 名)) sel.value = 名;
+  }
+
   async function 出す(名) {
     if (!名) { $('meBody').innerHTML = ''; return; }
     名前を覚える(名);
-    $('meBody').innerHTML = '<p class="me-msg">読み込んでいます…</p>';
+
+    // 前に取ってあるぶんを先に出す。通信を待たずに読み始められる。
+    const 前 = 取り出す(鍵(名));
+    $('meBody').innerHTML = 前
+      ? 組み立てる(前.t, 前.j, [], true)
+      : '<p class="me-msg">読み込んでいます…</p>';
+
     let t = null, j = null;
     const 困った = [];
+    const sel = $('meSelect');
     await Promise.all([
-      呼ぶ(API.当番, 'getMyPage', [名]).then((r) => { t = r; }).catch((e) => 困った.push('当番・手入れを読めませんでした：' + e.message)),
+      呼ぶ(API.当番, 'getMyPage', [名]).then((r) => {
+        t = r;
+        if (sel && sel.options.length <= 1) 名簿を並べる(sel, r.members, 名);   // 名簿もこの返りに入っている
+      }).catch((e) => 困った.push('当番・手入れを読めませんでした：' + e.message)),
       呼ぶ(API.人員表, 'getMyPage', [名]).then((r) => { j = r; }).catch((e) => 困った.push('大会のぶんを読めませんでした：' + e.message)),
     ]);
-    $('meBody').innerHTML = 組み立てる(t, j, 困った);
+
+    // 両方そろったときだけ覚える（片方だけ新しい、という中身にしない）
+    if (t && j) 保存する(鍵(名), { t: t, j: j });
+    if ((!t || !j) && 前) {
+      困った.push('読めなかったところは、前回の内容を出しています。');
+      if (!t) t = 前.t;
+      if (!j) j = 前.j;
+    }
+    $('meBody').innerHTML = 組み立てる(t, j, 困った, false);
   }
 
+  /**
+   * 開いたときの流れ。**待つ回数を減らすのが肝**（2026-09-13）。
+   *   ・名簿だけを取る往復をやめた。当番側の getMyPage は名前を渡しても名簿を一緒に返すので、
+   *     名前を覚えている人は **2回の往復（当番・人員表を同時）** だけで済む
+   *   ・名簿も中身も前回のぶんを覚えてあるので、開いた瞬間は通信0回で出る
+   */
   async function 始める() {
     const sel = $('meSelect');
     if (!sel) return;
     sel.addEventListener('change', () => 出す(sel.value));
+
+    const 名 = 覚えた名前();
+    名簿を並べる(sel, 取り出す('mypage:名簿'), 名);   // 覚えている名簿ですぐ選べるようにする
+
+    if (名) {
+      await 出す(名);
+      const t = (取り出す(鍵(名)) || {}).t;
+      if (t && t.members) 保存する('mypage:名簿', t.members);
+      return;
+    }
+
+    // まだ誰も選んでいないときだけ、名簿を取りに行く
     try {
       const r = await 呼ぶ(API.当番, 'getMyPage', ['']);
-      const members = r.members || [];
-      sel.innerHTML = '<option value="">選択してください</option>' +
-        members.map((m) => '<option value="' + esc(m.name) + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
-      const 名 = 覚えた名前();
-      if (名 && members.some((m) => m.name === 名)) { sel.value = 名; await 出す(名); }
+      名簿を並べる(sel, r.members, '');
+      保存する('mypage:名簿', r.members || []);
     } catch (e) {
-      sel.innerHTML = '<option value="">名簿を読めませんでした</option>';
-      $('meBody').innerHTML = '<p class="me-msg">名簿を読めませんでした：' + esc(e.message) +
-        '<br>下のリンクからは今までどおり使えます。</p>';
+      if (sel.options.length <= 1) {
+        sel.innerHTML = '<option value="">名簿を読めませんでした</option>';
+        $('meBody').innerHTML = '<p class="me-msg">名簿を読めませんでした：' + esc(e.message) +
+          '<br>下のリンクからは今までどおり使えます。</p>';
+      }
     }
   }
 
