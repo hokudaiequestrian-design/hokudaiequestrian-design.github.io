@@ -540,7 +540,7 @@ const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) &&
 ['touban.html', 'teire.html', 'yasumi.html', 'taikai.html'].forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   確かめる(f + '：名前を聞き直さない', s.indexOf('function 名前は聞かない') > 0);
-  確かめる(f + '：「ちがう人」で戻せる', s.indexOf('>ちがう人</button>') > 0);
+  確かめる(f + '：名前を選び直すところは置かない（入口でやる）', s.indexOf('>ちがう人</button>') < 0);
   確かめる(f + '：URLで「どれの話か」を受け取る', s.indexOf('function URLの') > 0);
 });
 
