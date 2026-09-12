@@ -27,11 +27,12 @@ docs/         GitHub Pages が配るもの
 ```
 
 **原本は GAS のプロジェクトのまま**（`Documents/当番・手入れシステム_GAS` と `Documents/人員表システム_GAS`）。
-ここでは組み立てるだけなので、二重管理にならない。`build.js` がやるのは3つ。
+ここでは組み立てるだけなので、二重管理にならない。`build.js` がやるのは4つ。
 
 1. `<?!= include('style') ?>` を `style.html` の中身に差し替える
 2. `call()` を GAS の画面用の呼び出しから `fetch` に差し替える
 3. 入口ページは `コード.gs` の `入口の中身()` を**実際に動かして**中身を焼き込む
+4. 検索避けを入れる（`docs/robots.txt` と、各ページの `<meta name="robots" content="noindex, nofollow">`）
 
 スプレッドシートと Apps Script はそのまま残る。変わったのは**画面の置き場所と、呼び方だけ**。
 
@@ -77,6 +78,8 @@ node apicheck.js   # 本物のウェブアプリに通してみる
 | `teire.html` | 手入れの希望を出す | 当番・手入れ |
 | `touban-admin.html` | 当番をまとめる（副将パスワード） | 当番・手入れ |
 | `teire-chief.html` | 手入れをまとめる（チーフパスワード） | 当番・手入れ |
+| `yasumi.html` | 休みを申し込む | 当番・手入れ |
+| `yasumi-admin.html` | 休みをまとめる（副将パスワード） | 当番・手入れ |
 | `taikai.html` | 大会の出欠を出す | 人員表 |
 | `taikai-admin.html` | 人員表をまとめる（管理者パスワード） | 人員表 |
 
@@ -84,10 +87,19 @@ node apicheck.js   # 本物のウェブアプリに通してみる
 
 ## 配るURL
 
-GitHub Pages の URL に `?role=` を付けたもの。
+```
+部員   https://hokudaiequestrian-design.github.io/
+チーフ https://hokudaiequestrian-design.github.io/?role=chieflinks
+副将   https://hokudaiequestrian-design.github.io/?role=admlinks
+```
 
-```
-部員   .../index.html
-チーフ .../index.html?role=chieflinks
-副将   .../index.html?role=admlinks
-```
+入口の `?role=` だけで切り替わる。中のページへは入口から入る。
+
+## 検索避け
+
+GitHub Pages を無料で使うにはリポジトリが public でなければならないので、**このURLは誰でも読める**。
+出欠と休みの画面はパスワードなしで開ける作りなので、URLを見つけた人は**部員の名前を取れる**。
+そのぶんを少しでも狭めるため、`docs/robots.txt` でクロールを止め、各ページにも `noindex` を入れてある。
+
+それでも「知っている人だけが開ける」程度の守りでしかない。もっと絞るなら、
+部員共通の合言葉を出欠・休みの画面にもかけることになる（作りの変更が要る）。

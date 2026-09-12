@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <base target="_top">
+<meta name="robots" content="noindex, nofollow">
 <!--
   Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
   pre-emit critique: P5 H5 E5 S5 R4 V4
@@ -568,7 +569,7 @@ a.hub-link {
   <!-- ログイン -->
   <div class="card" id="loginCard" style="display:none;">
     <h2>チーフパスワード</h2>
-    <input type="password" id="pw" placeholder="パスワード">
+    <input type="password" id="pw" placeholder="パスワード" aria-label="チーフパスワード">
     <div style="margin-top:12px;"><button id="loginBtn">開く</button></div>
     <div id="loginMsg" role="status" aria-live="polite"></div>
   </div>

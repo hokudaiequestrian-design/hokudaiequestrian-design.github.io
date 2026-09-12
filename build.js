@@ -35,6 +35,8 @@ const ページ = [
   { 出す: 'teire.html', 元: 当番 + '/teire.html', api: API.当番, 題: '手入れの希望を出す' },
   { 出す: 'touban-admin.html', 元: 当番 + '/admin.html', api: API.当番, 題: '当番をまとめる' },
   { 出す: 'teire-chief.html', 元: 当番 + '/chief.html', api: API.当番, 題: '手入れをまとめる' },
+  { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
+  { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: '休みをまとめる' },
   { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
   { 出す: 'taikai-admin.html', 元: 人員表 + '/admin.html', api: API.人員表, 題: '人員表をまとめる' },
 ];
@@ -45,6 +47,16 @@ function スタイルを埋める(html, プロジェクト) {
   const 印 = "<?!= include('style') ?>";
   if (html.indexOf(印) < 0) throw new Error('include(style) が見つからない');
   return html.split(印).join(style.trim());
+}
+
+// ===== 検索避け =====
+// 部員の名前が出る画面なので、検索結果には出さない。GitHub Pages は public のリポジトリしか
+// 配れないので、URLは誰でも読める。robots.txt でクロールを止めたうえで、
+// どこかからリンクをたどられたときのために各ページにも noindex を入れる。
+function 検索避けを入れる(html) {
+  const 印 = '<base target="_top">';
+  if (html.indexOf(印) < 0) throw new Error('<base target="_top"> が見つからない');
+  return html.split(印).join(印 + NL + '<meta name="robots" content="noindex, nofollow">');
 }
 
 // ===== 2. call() を fetch に差し替える =====
@@ -119,6 +131,8 @@ function 入口の中身たち() {
     当番_副将: 'touban-admin.html',
     手入れ_部員: 'teire.html',
     手入れ_チーフ: 'teire-chief.html',
+    休み_部員: 'yasumi.html',
+    休み_副将: 'yasumi-admin.html',
   });
   const 人員表URL = (page) => (page === 'admin' ? 'taikai-admin.html' : 'taikai.html');
   const 入口の中身 = eval('(' + grab('入口の中身').replace('function 入口の中身(', 'function (') + ')');
@@ -137,6 +151,7 @@ function 入口の中身たち() {
 function 入口を作る() {
   const src = fs.readFileSync(当番 + '/hub.html', 'utf8');
   let html = スタイルを埋める(src, 当番);
+  html = 検索避けを入れる(html);
 
   // 色はスクリプトレットで入っていたので、CSS変数に逃がして画面側から差す
   html = html.split('background: <?= 中身.色 ?>;').join('background: var(--hub-color, var(--accent));');
@@ -211,6 +226,7 @@ let 件 = 0;
   const プロジェクト = path.dirname(p.元);
   let html = fs.readFileSync(p.元, 'utf8');
   html = スタイルを埋める(html, プロジェクト);
+  html = 検索避けを入れる(html);
   html = callを差し替える(html, p.api);
   if (html.indexOf('google.script.run') >= 0) {
     throw new Error(p.出す + ' に google.script.run が残っている');
@@ -223,6 +239,9 @@ let 件 = 0;
 fs.writeFileSync(path.join(出す先, 'index.html'), 入口を作る(), 'utf8');
 console.log('  index.html  ← 当番・手入れシステム_GAS/hub.html（?role=chieflinks / admlinks で切り替え）');
 件++;
+
+// 検索避け。noindex は各ページにも入れてあるが、そもそもクロールさせない。
+fs.writeFileSync(path.join(出す先, 'robots.txt'), 'User-agent: *' + NL + 'Disallow: /' + NL, 'utf8');
 
 // GitHub Pages に Jekyll の処理をさせない（_ で始まるファイルなどを触らせない）
 fs.writeFileSync(path.join(出す先, '.nojekyll'), '', 'utf8');

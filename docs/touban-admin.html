@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <base target="_top">
+<meta name="robots" content="noindex, nofollow">
 <!--
   Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
   pre-emit critique: P5 H5 E5 S5 R4 V4
@@ -571,7 +572,7 @@ a.hub-link {
   <!-- ログイン -->
   <div class="card" id="loginCard">
     <h2>副将パスワード</h2>
-    <input type="password" id="pw" placeholder="パスワード">
+    <input type="password" id="pw" placeholder="パスワード" aria-label="副将パスワード">
     <div style="margin-top:12px;"><button id="loginBtn">開く</button></div>
     <div id="loginMsg" role="status" aria-live="polite"></div>
   </div>
@@ -641,7 +642,7 @@ a.hub-link {
           <summary>まとめて足す・人員表システムから取り込む</summary>
           <div class="fold-body">
             <p class="hint">1行に1人。「名前 入部年」か「名前 学年」。名前だけでも足せます（学年はあとで直せます）。</p>
-            <textarea id="bulkText" placeholder="山田太郎 2025&#10;鈴木花子 2&#10;佐藤次郎"></textarea>
+            <textarea id="bulkText" aria-label="まとめて足す部員（1行に1人）" placeholder="山田太郎 2025&#10;鈴木花子 2&#10;佐藤次郎"></textarea>
             <div style="margin-top:12px;"><button id="bulkBtn" class="secondary">まとめて足す</button></div>
             <p class="hint" style="margin-top:12px;">
               人員表システムから1〜3年生を読み込むときは、スプレッドシートのメニュー

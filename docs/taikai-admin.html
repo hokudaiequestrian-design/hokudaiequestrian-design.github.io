@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <base target="_top">
+<meta name="robots" content="noindex, nofollow">
 <style>
 :root {
   --bg: #f5f6f8;
@@ -384,6 +385,13 @@ th.short { background: #fef2f2; }
       <div class="pill-list" id="unansweredList"></div>
       <h3 style="margin-top:16px;">行けない日がある部員</h3>
       <div class="pill-list" id="absentList"></div>
+      <h3 style="margin-top:16px;">当番・手入れで休みが決まっている人</h3>
+      <p class="hint">
+        当番・手入れシステムで<b>了承ずみ</b>の休み・バイトのうち、この大会の日と重なるものです。
+        <b>人員表からは自動で外しません</b>（本人が「行ける」と答えていることがあるため）。
+        本人に確かめて、欠席にするか休みを取り消してもらってください。
+      </p>
+      <div class="pill-list" id="yasumiList"></div>
       <h3 style="margin-top:16px;">連絡事項</h3>
       <div id="commentList" class="muted">なし</div>
     </div>
@@ -1146,6 +1154,7 @@ function renderEntriesTab() {
     $('responseStats').innerHTML = '';
     $('unansweredList').innerHTML = '<span class="muted">大会を選択してください</span>';
     $('absentList').innerHTML = ''; $('commentList').innerHTML = 'なし';
+    $('yasumiList').innerHTML = '';
     $('entryList').innerHTML = '大会を選択してください';
     return;
   }
@@ -1176,6 +1185,28 @@ function renderEntriesTab() {
     const 全欠 = !attendsAny(att, m.id);
     return '<span class="pill no">' + esc(m.name) + '<span class="muted">／' + (全欠 ? '全日欠席' : esc(ng)) + '</span></span>';
   }).join('') : '<span class="muted">なし</span>';
+
+  // 当番・手入れの休みと重なる人。読めなかったときは理由をそのまま出す（黙って空にしない）。
+  const 休み = EV.休み || { 使えた: false, 理由: '', 表: {}, 名前だけ: [] };
+  if (!休み.使えた) {
+    $('yasumiList').innerHTML = '<span class="muted">' + esc(休み.理由 || '当番・手入れシステムを読めませんでした。') + '</span>';
+  } else {
+    const 重なる人 = ALL.members.filter((m) => 休み.表[m.id] && Object.keys(休み.表[m.id]).length);
+    $('yasumiList').innerHTML = (重なる人.length
+      ? 重なる人.map((m) => {
+          const 日 = days.filter((d) => 休み.表[m.id][d.date]);
+          const 中身 = 日.map((d) => d.label + '＝' + 休み.表[m.id][d.date]).join('、');
+          // その日に「行ける」と答えているのに休みが了承されている人は、とくに危ないので赤で出す
+          const ずれ = 日.some((d) => attendsOn(att, m.id, d.date));
+          return '<span class="pill ' + (ずれ ? 'no' : '') + '">' + esc(m.name) +
+            '<span class="muted">／' + esc(中身) + (ずれ ? '／出席と答えています' : '') + '</span></span>';
+        }).join('')
+      : '<span class="muted">なし</span>')
+      + ((休み.名前だけ || []).length
+        ? '<p class="hint">当番・手入れのほうにいて、こちらの名簿で見つからない人：<b>' +
+          esc(休み.名前だけ.join('、')) + '</b>。名前の書き方が違うかもしれません。</p>'
+        : '');
+  }
 
   // 連絡事項は日ごとの行に同じものが入るので、部員ごとに1つにまとめる
   const 連絡 = {};

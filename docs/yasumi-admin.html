@@ -560,53 +560,210 @@ a.hub-link {
   }
 }
 </style>
+<style>
+/*
+  Hallmark · macrostructure: 05 Workbench · genre: playful · design-system: design.md
+  休みをまとめる画面。当番（青）・手入れ（緑）と並ぶ3つ目なので、帯は ink の黒で分ける。
+  申し込みは **来た順** に並べる。先着順はこの並びで効かせている。
+*/
+header.appbar.yasumi { background: var(--ink); }
+.tabs button.active { background: var(--ink); border-color: var(--ink); }
+
+.no-col { font-family: var(--font-num); font-weight: 700; color: var(--muted); white-space: nowrap; }
+.when { font-family: var(--font-num); font-weight: 700; white-space: nowrap; }
+.state {
+  display: inline-block; border-radius: var(--radius-pill); padding: 2px var(--space-sm);
+  font-size: var(--text-sm); border: 1px solid var(--rule-strong); white-space: nowrap;
+}
+.state.s-shinsei { border-color: var(--warning); color: var(--warning); background: var(--warning-soft); }
+.state.s-shounin { border-color: var(--care); color: var(--care); background: var(--care-soft); }
+.state.s-kyakka { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
+.state.s-torikeshi { color: var(--muted); }
+.kind-mark { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-2xs); }
+
+table.yasumi-grid td { vertical-align: middle; }
+table.yasumi-grid td.acts { white-space: nowrap; }
+table.yasumi-grid td.acts button { margin-right: var(--space-2xs); }
+table.yasumi-grid input[type=text] { min-height: 40px; font-size: var(--text-sm); }
+table.paid-grid td.num, table.paid-grid th.num { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+table.paid-grid input[type=number] { width: 84px; min-height: 40px; text-align: right; }
+td.nokori.ng { color: var(--danger); font-weight: 700; }
+
+/* カレンダー（部員用と同じ形。こちらは却下・取消も薄く出す） */
+.month-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+.month-head .now { font-size: var(--text-md); font-weight: 700; font-family: var(--font-num); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); overflow: hidden; background: var(--paper-2); }
+.cal-grid .dow { background: var(--paper-3); text-align: center; font-size: var(--text-sm); font-weight: 700; padding: var(--space-2xs) 0; border-bottom: 1px solid var(--rule-strong); }
+.cal-grid .dow.sat { color: var(--accent-dark); }
+.cal-grid .dow.sun { color: var(--danger); }
+.cal-grid .cell { border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); min-height: 92px; padding: var(--space-2xs); }
+.cal-grid .cell:nth-child(7n + 1) { border-left: 0; }
+.cal-grid .cell.blank { background: var(--paper); }
+.cal-grid .cell.today { background: var(--accent-soft); }
+.cal-grid .cell .d { display: block; font-family: var(--font-num); font-size: var(--text-sm); color: var(--muted); }
+.who { display: block; font-size: var(--text-xs); line-height: 1.5; margin-top: var(--space-3xs); border-left: 3px solid var(--rule-strong); padding-left: var(--space-2xs); overflow-wrap: anywhere; }
+.who .m { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-3xs); }
+.who.k-yuukyuu { border-left-color: var(--accent); }
+.who.k-baito { border-left-color: var(--warning); }
+.who.k-kisetsu { border-left-color: var(--care); }
+.who.matteiru { border-left-style: dashed; color: var(--muted); }
+</style>
 </head>
 <body>
 <div id="busy">通信中です…</div>
-<header class="appbar"><span>手入れの希望を出す</span></header>
+<header class="appbar yasumi"><span>休みカレンダー（副将）</span></header>
 
-<main>
-  <div id="loading" class="card muted">読み込んでいます…</div>
+<main class="wide">
+  <div class="card" id="loginCard">
+    <h2>副将パスワード</h2>
+    <input type="password" id="pw" placeholder="パスワード" aria-label="副将パスワード">
+    <div style="margin-top:12px;"><button id="loginBtn" type="button">開く</button></div>
+    <div id="loginMsg" role="status" aria-live="polite"></div>
+  </div>
 
-  <!-- 進み方。手入れの段は2つ（Narrative Workflow） -->
-  <ol class="steps" id="stepStrip" style="display:none;" aria-label="進み方">
-    <li class="s" data-step="1"><span class="no">1</span>名前</li>
-    <li class="s" data-step="2"><span class="no">2</span>馬ごとに ◎○× を出す</li>
-  </ol>
+  <div id="app" style="display:none;">
+    <div class="card" style="padding:12px 16px;">
+      <div class="row" style="align-items:center;">
+        <div style="flex:0 0 auto;"><b>見ている年度</b></div>
+        <div><select id="yearSelect" aria-label="見る年度"></select></div>
+        <div style="flex:0 0 auto;" id="countBox" class="muted"></div>
+      </div>
+    </div>
 
-  <section class="card stage-card care" id="pickCard" style="display:none;">
-    <p class="stage"><span class="n">1</span><span class="h">だれの希望か</span></p>
-    <label for="memberSelect">あなたの名前</label>
-    <select id="memberSelect"></select>
-    <p class="hint">あなたが<b>サブに入っている馬</b>の分だけ出てきます。出てこない馬があれば、その馬のチーフに連絡してください。</p>
-  </section>
+    <div class="tabs" role="tablist">
+      <button type="button" class="active" data-tab="apply">申し込み</button>
+      <button type="button" data-tab="cal">カレンダー</button>
+      <button type="button" data-tab="add">休み・バイトを入れる</button>
+      <button type="button" data-tab="paid">有給の残り</button>
+      <button type="button" data-tab="conf">決まり</button>
+    </div>
 
-  <section id="planStage" style="display:none;">
-    <p class="stage"><span class="n">2</span><span class="h">馬ごとに ◎○× を出す</span></p>
-    <p class="hint" style="margin-bottom:var(--space-sm);">
-      <b>◎ 入りたい</b>　<b>○ 入れる</b>　<b>× 入れない</b>。×の日には入りません。馬ごとに出したら、その馬の「出す」を押してください。
-    </p>
-    <div id="plans"></div>
-  </section>
+    <!-- ① 申し込み -->
+    <section id="tab-apply">
+      <div class="card">
+        <h2>申し込み（来た順）</h2>
+        <p class="hint">
+          <b>上から順に来たもの</b>です。先に出した人が上に並びます。
+          了承すると、その日は手入れの担当から外れます（決まりでOFFにもできます）。
+        </p>
+        <div class="row tight" style="margin-bottom:12px;">
+          <label class="inline"><input type="checkbox" id="onlyWaiting" checked> 了承待ちだけ出す</label>
+        </div>
+        <div id="applyMsg"></div>
+        <div class="grid-wrap">
+          <table class="yasumi-grid" id="applyTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ② カレンダー -->
+    <section id="tab-cal" style="display:none;">
+      <div class="card">
+        <div class="month-head">
+          <button type="button" class="secondary small" id="prevMonth">前の月</button>
+          <span class="now" id="monthNow"></span>
+          <button type="button" class="secondary small" id="nextMonth">次の月</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <p class="hint">印　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み　／　点線は了承待ち</p>
+      </div>
+    </section>
+
+    <!-- ③ 入れる -->
+    <section id="tab-add" style="display:none;">
+      <div class="card">
+        <h2>休み・バイトを入れる</h2>
+        <p class="hint">
+          <b>バイトはここからしか入りません</b>（部員の画面には出ません）。
+          入れたものは、その場で「承認」になります。本人の代わりに有給・季節休みを入れることもできます。
+        </p>
+        <div class="row">
+          <div>
+            <label for="addMember">だれの<span class="req">必須</span></label>
+            <select id="addMember"></select>
+          </div>
+          <div>
+            <label for="addKind">どの休み<span class="req">必須</span></label>
+            <select id="addKind"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label for="addFrom">はじめの日<span class="req">必須</span></label>
+            <input type="date" id="addFrom">
+          </div>
+          <div>
+            <label for="addTo">終わりの日<span class="req">必須</span></label>
+            <input type="date" id="addTo">
+          </div>
+        </div>
+        <label for="addReason">ひとこと</label>
+        <input type="text" id="addReason" maxlength="60" placeholder="バイト（コンビニ）">
+        <div id="addMsg"></div>
+        <button type="button" id="addBtn">この休みを入れる</button>
+      </div>
+    </section>
+
+    <!-- ④ 有給 -->
+    <section id="tab-paid" style="display:none;">
+      <div class="card">
+        <h2>有給の残り（<span id="paidYear"></span>年度）</h2>
+        <p class="hint">
+          付与を空にすると、決まりの「年間日数」に戻ります。人ごとに増やしたいときだけ入れてください。
+          残りは<b>了承待ちのぶんも引いた数</b>です。
+        </p>
+        <div id="paidMsg"></div>
+        <div class="grid-wrap">
+          <table class="paid-grid" id="paidTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ⑤ 決まり -->
+    <section id="tab-conf" style="display:none;">
+      <div class="card">
+        <h2>休みの決まり</h2>
+        <div class="row">
+          <div>
+            <label for="confDays">有給の年間日数</label>
+            <input type="number" id="confDays" min="0" step="1">
+          </div>
+          <div>
+            <label for="confMonth">年度の始まり月</label>
+            <input type="number" id="confMonth" min="1" max="12" step="1">
+          </div>
+        </div>
+        <p class="hint">4なら、4月から翌年3月までで1年度と数えます。</p>
+        <label class="inline" style="margin-top:16px;">
+          <input type="checkbox" id="confHazusu"> 了承ずみの休み・バイトの日は、手入れの担当から外す
+        </label>
+        <p class="hint">
+          日付で組む手入れ（カレンダー方式）にだけ効きます。曜日で組むときは日付が無いので効きません。
+        </p>
+        <div id="confMsg"></div>
+        <button type="button" id="confBtn">休みの決まりを保存</button>
+      </div>
+    </section>
+  </div>
 </main>
 
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const 記号 = ['◎', '○', '×'];
-const 記号クラス = { '◎': 'm2', '○': 'm1', '×': 'm0' };
-const 記号の説明 = { '◎': '入りたい', '○': '入れる', '×': '入れない' };
+const 印 = { '有給休暇': '有', 'バイト': 'バ', '季節休み': '季' };
+const 種類クラス = { '有給休暇': 'k-yuukyuu', 'バイト': 'k-baito', '季節休み': 'k-kisetsu' };
+const 状態クラス = { '申請中': 's-shinsei', '承認': 's-shounin', '却下': 's-kyakka', '取消': 's-torikeshi' };
 
-let DATA = { members: [], plans: [] };
-let MARKS = {};   // 計画ID → キー → 記号
+let TOKEN = '';
+let D = null;
+let 表示月 = '';
 let busyCount = 0;
 
 function busy(on) {
   busyCount += on ? 1 : -1;
   $('busy').className = busyCount > 0 ? 'on' : '';
 }
-
 const API = 'https://script.google.com/macros/s/AKfycbxRymAf5iGuZfmZE-CK2fwicbnj1tE6UZKywZ3cNDTkqxZp0aBAKIb67jYWfOzYorK2Yw/exec';
 
 /**
@@ -635,251 +792,237 @@ function call(fn) {
     return r.value;
   }).finally(() => { busy(false); });
 }
-
-// いまどの段にいるかを帯に塗る
-function 段を塗る(名前あり) {
-  Array.prototype.forEach.call(document.querySelectorAll("#stepStrip .s"), (el) => {
-    const n = Number(el.dataset.step);
-    const 段 = 名前あり ? 2 : 1;
-    el.className = "s" + (n === 段 ? " on" : (n < 段 ? " done" : ""));
-    if (n === 段) el.setAttribute("aria-current", "step"); else el.removeAttribute("aria-current");
-  });
-  document.getElementById("planStage").style.display = 名前あり ? "block" : "none";
+function 知らせ(場所, cls, text) {
+  $(場所).innerHTML = text ? '<div class="msg ' + cls + '" role="status">' + esc(text) + '</div>' : '';
 }
-const show = (planId, cls, text) => {
-  const el = document.querySelector('[data-msg="' + planId + '"]');
-  if (el) el.innerHTML = '<div class="msg ' + cls + '">' + esc(text) + '</div>';
+const 今日 = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+};
+const 和風 = (key) => {
+  const m = String(key || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? (Number(m[2]) + '/' + Number(m[3])) : key;
 };
 
-// ===== 曜日方式：7行に◎○×を並べる =====
-function 曜日の表(plan) {
-  const m = MARKS[plan.id] || {};
-  return '<div>' + plan.keys.map((k) => {
-    const cls = k.key === '土' ? ' sat' : (k.key === '日' ? ' sun' : '');
-    return '<div class="mark-row" role="group" aria-label="' + esc(k.label) + 'の希望">' +
-      '<span class="k' + cls + '">' + esc(k.label) + '</span>' +
-      '<span class="marks">' + 記号.map((s) =>
-        '<button type="button" class="mk ' + 記号クラス[s] + (m[k.key] === s ? ' on' : '') + '"' +
-        ' data-plan="' + esc(plan.id) + '" data-key="' + esc(k.key) + '" data-mark="' + esc(s) + '"' +
-        ' aria-pressed="' + (m[k.key] === s ? 'true' : 'false') + '"' +
-        ' aria-label="' + esc(k.label) + 'は' + 記号の説明[s] + '（' + s + '）"' +
-        '>' + s + '</button>').join('') + '</span>' +
-      '</div>';
-  }).join('') + '</div>';
-}
+// ===== ログイン =====
+$('loginBtn').addEventListener('click', async () => {
+  if (!$('pw').value) return 知らせ('loginMsg', 'warning', 'パスワードを入れてください。');
+  try {
+    TOKEN = await call('login', $('pw').value);
+    $('loginCard').style.display = 'none';
+    $('app').style.display = 'block';
+    await 読み直す();
+  } catch (e) {
+    知らせ('loginMsg', 'error', ((e && e.message) || e));
+  }
+});
+$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
 
-// ===== カレンダー方式：月曜始まりのカレンダー。押すと ◎→○→×→◎ と変わる =====
-function カレンダーの表(plan) {
-  const m = MARKS[plan.id] || {};
-  const ある = {};
-  plan.keys.forEach((k) => { ある[k.key] = k; });
-
-  // 月ごとに分ける
-  const 月順 = [];
-  const 月ごと = {};
-  plan.keys.forEach((k) => {
-    const ym = k.key.slice(0, 7);
-    if (!月ごと[ym]) { 月ごと[ym] = []; 月順.push(ym); }
-    月ごと[ym].push(k);
+// ===== タブ =====
+document.querySelector('.tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-tab]');
+  if (!b) return;
+  Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), (x) => { x.className = x === b ? 'active' : ''; });
+  ['apply', 'cal', 'add', 'paid', 'conf'].forEach((t) => {
+    $('tab-' + t).style.display = (t === b.dataset.tab) ? 'block' : 'none';
   });
+});
 
-  const 頭 = ['月', '火', '水', '木', '金', '土', '日'];
-  return 月順.map((ym) => {
-    const y = Number(ym.slice(0, 4));
-    const mo = Number(ym.slice(5, 7));
-    const 末日 = new Date(y, mo, 0).getDate();
-    // その月の1日が何曜か（月曜=0）
-    const 先頭 = (new Date(y, mo - 1, 1).getDay() + 6) % 7;
+// ===== 読み込み =====
+async function 読み直す(年度) {
+  D = await call('yasumiLoadAll', TOKEN, 年度 || null);
+  if (!表示月) 表示月 = 今日().slice(0, 7);
 
-    const マス = [];
-    for (let i = 0; i < 先頭; i++) マス.push('<td class="off"></td>');
-    for (let d = 1; d <= 末日; d++) {
-      const key = y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
-      if (!ある[key]) {
-        マス.push('<td class="off"><span class="calday"><span class="d">' + d + '</span></span></td>');
-      } else {
-        const v = m[key] || '';
-        const 曜 = ある[key].label.replace(/^.*（|）$/g, '');
-        マス.push('<td><button type="button" class="calday ' + (記号クラス[v] || '') + '"' +
-          ' data-plan="' + esc(plan.id) + '" data-key="' + esc(key) + '" data-cycle="1"' +
-          ' aria-label="' + mo + '月' + d + '日（' + esc(曜) + '）　いまは' +
-          (v ? esc(記号の説明[v]) + '（' + v + '）' : '未入力') + '。押すと次の希望に変わります"' +
-          '>' +
-          '<span class="d">' + d + '</span>' +
-          '<span class="m">' + (v || '・') + '</span></button></td>');
-      }
-    }
-    while (マス.length % 7) マス.push('<td class="off"></td>');
+  $('yearSelect').innerHTML = (D.years || []).map((y) =>
+    '<option value="' + y + '"' + (y === D.year ? ' selected' : '') + '>' + y + '年度</option>').join('');
+  const 待ち = D.leaves.filter((l) => l.state === '申請中').length;
+  $('countBox').textContent = 待ち ? '了承待ちが ' + 待ち + ' 件あります' : '了承待ちはありません';
+  $('paidYear').textContent = D.year;
 
-    let rows = '';
-    for (let i = 0; i < マス.length; i += 7) rows += '<tr>' + マス.slice(i, i + 7).join('') + '</tr>';
+  申し込みを出す();
+  カレンダーを出す();
+  有給を出す();
 
-    return '<div class="cal"><h4>' + y + '年' + mo + '月</h4>' +
-      '<table class="cal-grid"><thead><tr>' +
-      頭.map((w) => '<th' + (w === '土' ? ' class="sat"' : (w === '日' ? ' class="sun"' : '')) + '>' + w + '</th>').join('') +
-      '</tr></thead><tbody>' + rows + '</tbody></table></div>';
-  }).join('');
+  $('addMember').innerHTML = '<option value="">選択してください</option>' +
+    D.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
+  $('addKind').innerHTML = D.kinds.map((k) => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
+
+  $('confDays').value = D.settings.有給日数;
+  $('confMonth').value = D.settings.年度始まり月;
+  $('confHazusu').checked = !!D.settings.休みを外す;
 }
 
-function 残りの数(plan) {
-  const m = MARKS[plan.id] || {};
-  return plan.keys.filter((k) => !m[k.key]).length;
-}
+$('yearSelect').addEventListener('change', async () => {
+  await 読み直す(Number($('yearSelect').value));
+});
 
-function renderPlan(plan) {
-  const 期間 = plan.mode === 'カレンダー'
-    ? plan.from + ' 〜 ' + plan.to + '（' + plan.keys.length + '日）'
-    : '曜日ごと';
-  const 残り = 残りの数(plan);
+// ===== ① 申し込み =====
+$('onlyWaiting').addEventListener('change', 申し込みを出す);
 
-  return '<div class="card" data-card="' + esc(plan.id) + '">' +
-    '<h2>' + esc(plan.horse) + '　<span class="muted">' + esc(plan.term) + '</span></h2>' +
-    '<div class="muted">' + esc(期間) + (plan.chief ? '　チーフ：' + esc(plan.chief) : '') + '</div>' +
-    (plan.broken
-      ? '<div class="msg error">この期間の設定がおかしくなっています。チーフに連絡してください。</div>'
-      : (
-        '<p class="hint">◎＝入りたい　○＝入れる　×＝入れない。<b>全部の日</b>に入れてください。' +
-        (plan.mode === 'カレンダー' ? '日付を押すと ◎→○→× と変わります。' : '') + '</p>' +
-        '<div class="row tight" style="margin:8px 0;">' +
-        記号.map((s) => '<button type="button" class="small secondary" data-all="' + esc(plan.id) + '" data-mark="' + esc(s) + '">全部' + s + '</button>').join('') +
-        '<button type="button" class="small secondary" data-rest="' + esc(plan.id) + '">未入力を○に</button>' +
-        '</div>' +
-        (plan.mode === 'カレンダー' ? カレンダーの表(plan) : 曜日の表(plan)) +
-        '<div class="msg ' + (残り ? 'warning' : 'success') + '" data-left="' + esc(plan.id) + '" role="status" aria-live="polite">' +
-        (残り ? 'あと' + 残り + '日ぶん入れてください。全部そろうと送信できます。' : '全部そろいました。送信できます。') + '</div>' +
-        // 送信ボタンは押せるままにしておく。足りないときは押した時点で何日ぶん足りないかを出す。
-        '<button type="button" data-send="' + esc(plan.id) + '">' + esc(plan.horse) + 'の希望を送信する</button>' +
-        '<div data-msg="' + esc(plan.id) + '" role="status" aria-live="polite"></div>'
-      )) +
-    '</div>';
-}
-
-function renderPlans() {
-  if (!DATA.plans.length) {
-    $('plans').innerHTML = '<div class="card muted">サブに入っている馬がありません。チーフが決めるまで待ってください。</div>';
+function 申し込みを出す() {
+  const 待ちだけ = $('onlyWaiting').checked;
+  const 並び = D.leaves.filter((l) => !待ちだけ || l.state === '申請中');
+  if (!並び.length) {
+    $('applyTable').innerHTML = '<tbody><tr><td class="muted">' +
+      (待ちだけ ? '了承待ちはありません。' : 'この年度の休みはまだありません。') + '</td></tr></tbody>';
     return;
   }
-  $('plans').innerHTML = DATA.plans.map(renderPlan).join('');
+  $('applyTable').innerHTML =
+    '<thead><tr><th>来た順</th><th>名前</th><th>休み</th><th>いつ</th><th>日数</th><th>今</th><th>ひとこと</th><th>副将メモ</th><th>する</th></tr></thead><tbody>' +
+    並び.map((l, i) =>
+      '<tr>' +
+        '<td class="no-col">' + (i + 1) + '</td>' +
+        '<td>' + esc(l.name) + '</td>' +
+        '<td><span class="kind-mark">' + esc(印[l.kind] || '') + '</span>' + esc(l.kind) + '</td>' +
+        '<td class="when">' + 和風(l.from) + (l.to !== l.from ? '〜' + 和風(l.to) : '') + '</td>' +
+        '<td class="no-col">' + l.days + '</td>' +
+        '<td><span class="state ' + (状態クラス[l.state] || '') + '">' + esc(l.state) + '</span></td>' +
+        '<td class="muted">' + esc(l.reason || '') + '</td>' +
+        '<td><input type="text" data-memo="' + l.id + '" value="' + esc(l.memo || '') + '" maxlength="60" placeholder="ひとこと返す"></td>' +
+        '<td class="acts">' +
+          (l.state !== '承認' ? '<button type="button" class="small" data-do="承認" data-id="' + l.id + '">了承する</button>' : '') +
+          (l.state !== '却下' ? '<button type="button" class="small danger" data-do="却下" data-id="' + l.id + '">却下する</button>' : '') +
+          (l.state !== '申請中' && l.kind !== 'バイト' ? '<button type="button" class="small secondary" data-do="申請中" data-id="' + l.id + '">待ちに戻す</button>' : '') +
+          '<button type="button" class="small secondary" data-del="' + l.id + '">消す</button>' +
+        '</td>' +
+      '</tr>').join('') + '</tbody>';
 }
 
-// 1枚だけ描き直す（ほかの馬の入力を消さないため）
-function refreshPlan(planId) {
-  const plan = DATA.plans.filter((p) => p.id === planId)[0];
-  if (!plan) return;
-  const card = document.querySelector('[data-card="' + planId + '"]');
-  const msg = card ? card.querySelector('[data-msg="' + planId + '"]') : null;
-  const 残す = msg ? msg.innerHTML : '';
-  if (card) card.outerHTML = renderPlan(plan);
-  const 新 = document.querySelector('[data-msg="' + planId + '"]');
-  if (新 && 残す) 新.innerHTML = 残す;
-}
-
-$('plans').addEventListener('click', async (e) => {
-  const t = e.target.closest ? e.target : null;
-  if (!t) return;
-
-  // 曜日方式の◎○×
-  const mk = e.target.closest('[data-mark][data-key]');
-  if (mk) {
-    const p = mk.dataset.plan;
-    (MARKS[p] = MARKS[p] || {})[mk.dataset.key] = mk.dataset.mark;
-    return refreshPlan(p);
-  }
-
-  // カレンダーの日付（押すたびに ◎→○→× と回る）
-  const cal = e.target.closest('[data-cycle]');
-  if (cal) {
-    const p = cal.dataset.plan;
-    const k = cal.dataset.key;
-    const 今 = (MARKS[p] || {})[k] || '';
-    const i = 記号.indexOf(今);
-    (MARKS[p] = MARKS[p] || {})[k] = 記号[(i + 1) % 記号.length];
-    return refreshPlan(p);
-  }
-
-  // まとめて入れる
-  const all = e.target.closest('[data-all]');
-  if (all) {
-    const p = all.dataset.all;
-    const plan = DATA.plans.filter((x) => x.id === p)[0];
-    MARKS[p] = {};
-    plan.keys.forEach((k) => { MARKS[p][k.key] = all.dataset.mark; });
-    return refreshPlan(p);
-  }
-  const rest = e.target.closest('[data-rest]');
-  if (rest) {
-    const p = rest.dataset.rest;
-    const plan = DATA.plans.filter((x) => x.id === p)[0];
-    MARKS[p] = MARKS[p] || {};
-    plan.keys.forEach((k) => { if (!MARKS[p][k.key]) MARKS[p][k.key] = '○'; });
-    return refreshPlan(p);
-  }
-
-  // 送信
-  const send = e.target.closest('[data-send]');
-  if (send) {
-    const p = send.dataset.send;
-    const memberId = $('memberSelect').value;
-    if (!memberId) return void show(p, 'error', '先にあなたの名前を選んでください。');
-
-    const plan = DATA.plans.filter((x) => x.id === p)[0];
-    const 未入力 = plan.keys.filter((k) => !(MARKS[p] || {})[k.key]);
-    if (未入力.length) {
-      return show(p, 'error', 'まだ送信できません。あと' + 未入力.length + '日ぶん、◎○×のどれかを入れてください（' +
-        未入力.slice(0, 8).map((k) => k.label).join('、') + (未入力.length > 8 ? ' ほか' : '') + '）。' +
-        '全部おなじでよければ「全部◎」や「未入力を○に」が使えます。');
+$('applyTable').addEventListener('click', async (e) => {
+  const 決 = e.target.closest('[data-do]');
+  const 消 = e.target.closest('[data-del]');
+  try {
+    if (決) {
+      const memo = document.querySelector('[data-memo="' + 決.dataset.id + '"]');
+      await call('yasumiDecide', TOKEN, 決.dataset.id, 決.dataset.do, memo ? memo.value : '');
+      await 読み直す(D.year);
+      知らせ('applyMsg', 'success', 決.dataset.do === '承認' ? '了承しました。' : (決.dataset.do + 'にしました。'));
+      return;
     }
-
-    send.disabled = true;
-    try {
-      const r = await call('submitCareVote', p, memberId, MARKS[p] || {});
-      show(p, 'success', '送信しました（' + r.count + '日ぶん）。ありがとうございます。');
-    } catch (err) {
-      show(p, 'error', '送信に失敗しました：' + ((err && err.message) || err));
-    } finally {
-      send.disabled = false;
+    if (消) {
+      if (!confirm('この休みを消します。記録ごと消えて元には戻せません。よろしいですか？')) return;
+      await call('yasumiDeleteLeave', TOKEN, 消.dataset.del);
+      await 読み直す(D.year);
+      知らせ('applyMsg', 'success', '消しました。');
     }
+  } catch (err) {
+    知らせ('applyMsg', 'error', ((err && err.message) || err));
   }
 });
 
-async function onMemberChange() {
-  const memberId = $('memberSelect').value;
-  段を塗る(!!memberId);
-  if (!memberId) { $('plans').innerHTML = ''; return; }
-  localStorage.setItem('memberId', memberId);
-  $('plans').innerHTML = '<div class="card muted">読み込んでいます…</div>';
-  try {
-    const r = await call('getCareMemberData', memberId);
-    DATA.plans = r.plans || [];
-    MARKS = {};
-    DATA.plans.forEach((p) => { MARKS[p.id] = Object.assign({}, p.votes || {}); });
-    renderPlans();
-  } catch (e) {
-    $('plans').innerHTML = '<div class="card"><div class="msg error">' + esc((e && e.message) || e) + '</div></div>';
+// ===== ② カレンダー =====
+function 月を進める(delta) {
+  const m = 表示月.split('-');
+  const d = new Date(Number(m[0]), Number(m[1]) - 1 + delta, 1);
+  表示月 = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  カレンダーを出す();
+}
+$('prevMonth').addEventListener('click', () => 月を進める(-1));
+$('nextMonth').addEventListener('click', () => 月を進める(1));
+
+function カレンダーを出す() {
+  const [y, m] = 表示月.split('-').map(Number);
+  $('monthNow').textContent = y + '年' + m + '月';
+
+  const 日ごと = {};
+  D.leaves.filter((l) => l.state === '申請中' || l.state === '承認').forEach((l) => {
+    const 端b = new Date(l.to + 'T00:00:00');
+    for (const d = new Date(l.from + 'T00:00:00'); d <= 端b; d.setDate(d.getDate() + 1)) {
+      const key = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+      (日ごと[key] = 日ごと[key] || []).push(l);
+    }
+  });
+
+  const 曜日 = ['月', '火', '水', '木', '金', '土', '日'];
+  let html = 曜日.map((w, i) =>
+    '<div class="dow' + (i === 5 ? ' sat' : (i === 6 ? ' sun' : '')) + '">' + w + '</div>').join('');
+  const 先頭 = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+  const 末日 = new Date(y, m, 0).getDate();
+  for (let i = 0; i < 先頭; i++) html += '<div class="cell blank"></div>';
+  for (let d = 1; d <= 末日; d++) {
+    const key = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+    const 面々 = 日ごと[key] || [];
+    html += '<div class="cell' + (key === 今日() ? ' today' : '') + '">' +
+      '<span class="d">' + d + '</span>' +
+      面々.map((l) =>
+        '<span class="who ' + (種類クラス[l.kind] || '') + (l.state === '申請中' ? ' matteiru' : '') + '">' +
+          '<span class="m">' + esc(印[l.kind] || '') + '</span>' + esc(l.name) +
+          (l.state === '申請中' ? '（待ち）' : '') +
+        '</span>').join('') +
+      '</div>';
   }
+  $('calGrid').innerHTML = html;
 }
 
-(async () => {
+// ===== ③ 入れる =====
+$('addFrom').addEventListener('change', () => {
+  if (!$('addTo').value || $('addTo').value < $('addFrom').value) $('addTo').value = $('addFrom').value;
+});
+$('addBtn').addEventListener('click', async () => {
+  if (!$('addMember').value) return 知らせ('addMsg', 'warning', 'だれの休みかを選んでください。');
+  if (!$('addFrom').value) return 知らせ('addMsg', 'warning', 'はじめの日を入れてください。');
   try {
-    const r = await call('getCareMemberData', null);
-    DATA.members = r.members || [];
-    $('loading').style.display = 'none';
-    $('pickCard').style.display = 'block';
-    $('stepStrip').style.display = 'flex';
-    段を塗る(false);
-    $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
-      DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
-    $('memberSelect').addEventListener('change', onMemberChange);
-
-    const saved = localStorage.getItem('memberId');
-    if (saved && DATA.members.some((m) => m.id === saved)) {
-      $('memberSelect').value = saved;
-      onMemberChange();
-    }
+    const r = await call('yasumiSaveLeave', TOKEN, {
+      kind: $('addKind').value,
+      memberId: $('addMember').value,
+      from: $('addFrom').value,
+      to: $('addTo').value || $('addFrom').value,
+      reason: $('addReason').value,
+    });
+    $('addReason').value = '';
+    await 読み直す(D.year);
+    知らせ('addMsg', 'success', '入れました（' + r.days + '日ぶん）。その場で承認になっています。');
   } catch (e) {
-    $('loading').innerHTML = '<div class="msg error">読み込みに失敗しました：' + esc((e && e.message) || e) + '</div>';
+    知らせ('addMsg', 'error', ((e && e.message) || e));
   }
-})();
+});
+
+// ===== ④ 有給 =====
+function 有給を出す() {
+  $('paidTable').innerHTML =
+    '<thead><tr><th>名前</th><th class="num">付与</th><th class="num">使った</th><th class="num">了承待ち</th><th class="num">残り</th><th>付与を変える</th></tr></thead><tbody>' +
+    D.members.map((m) => {
+      const p = D.paid[m.id] || { 付与: 0, 使った: 0, 待ち: 0, 残り: 0 };
+      const g = (D.grants || []).filter((x) => x.memberId === m.id)[0];
+      return '<tr>' +
+        '<td>' + esc(m.name) + (m.grade ? '<span class="muted">（' + m.grade + '年）</span>' : '') + '</td>' +
+        '<td class="num">' + p.付与 + '</td>' +
+        '<td class="num">' + p.使った + '</td>' +
+        '<td class="num">' + p.待ち + '</td>' +
+        '<td class="num nokori' + (p.残り < 0 ? ' ng' : '') + '">' + p.残り + '</td>' +
+        '<td><input type="number" min="0" step="1" data-grant="' + m.id + '" value="' + (g ? g.days : '') + '" placeholder="既定">' +
+          ' <button type="button" class="small secondary" data-savegrant="' + m.id + '">この人の付与を保存</button></td>' +
+      '</tr>';
+    }).join('') + '</tbody>';
+}
+
+$('paidTable').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-savegrant]');
+  if (!b) return;
+  const box = document.querySelector('[data-grant="' + b.dataset.savegrant + '"]');
+  try {
+    const r = await call('yasumiSaveGrant', TOKEN, D.year, b.dataset.savegrant, box.value === '' ? '' : Number(box.value));
+    await 読み直す(D.year);
+    知らせ('paidMsg', 'success', r.既定に戻した ? '空にしたので、決まりの年間日数に戻しました。' : '付与を保存しました。');
+  } catch (err) {
+    知らせ('paidMsg', 'error', ((err && err.message) || err));
+  }
+});
+
+// ===== ⑤ 決まり =====
+$('confBtn').addEventListener('click', async () => {
+  try {
+    await call('yasumiSaveConfig', TOKEN, {
+      有給日数: Number($('confDays').value),
+      年度始まり月: Number($('confMonth').value),
+      休みを外す: $('confHazusu').checked,
+    });
+    await 読み直す(D.year);
+    知らせ('confMsg', 'success', '保存しました。');
+  } catch (e) {
+    知らせ('confMsg', 'error', ((e && e.message) || e));
+  }
+});
 </script>
 </body>
 </html>

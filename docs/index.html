@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
 <base target="_top">
+<meta name="robots" content="noindex, nofollow">
 <!--
   Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
   pre-emit critique: P5 H5 E5 S5 R4 V4
@@ -663,6 +664,16 @@ ol.fix li { font-size: var(--text-base); line-height: 1.8; margin-bottom: var(--
     <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
     <path d="M8.5 4.5v15M8.5 9.5h13M8.5 14.5h13M15 9.5v10"/>
   </g>
+  <!-- 休み＝三日月。当番（表）・手入れ（馬・カレンダー）・大会（旗・表）のどれとも似ていない形にしてある -->
+  <g id="i-yasumi-vote" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5 8.6 8.6 0 1 0 20.5 14.8z"/>
+  </g>
+  <!-- 休みをまとめる＝申し込みの一覧に丸を付ける -->
+  <g id="i-yasumi-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+    <path d="M6 9.5h7M6 13h7M6 16.5h4"/>
+    <circle cx="17.6" cy="12" r="2.6"/>
+  </g>
   <g id="i-go" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M1.5 1.5l7 6.5-7 6.5"/>
   </g>
@@ -739,7 +750,7 @@ const HUB = {
     "groups": [
       {
         "題": "自分の希望を出す",
-        "説明": "この3つは部員みんなが使います。パスワードは要りません。",
+        "説明": "この4つは部員みんなが使います。パスワードは要りません。",
         "links": [
           {
             "url": "touban.html",
@@ -752,6 +763,12 @@ const HUB = {
             "題": "手入れの希望を出す",
             "説明": "自分がサブに入っている馬に ◎○× を出します。",
             "印": "care-vote"
+          },
+          {
+            "url": "yasumi.html",
+            "題": "休みを申し込む",
+            "説明": "有給休暇と季節休みを申し込みます。みんなの休みとバイトもここで見られます。",
+            "印": "yasumi-vote"
           },
           {
             "url": "taikai.html",
@@ -769,7 +786,7 @@ const HUB = {
     "groups": [
       {
         "題": "自分の希望を出す",
-        "説明": "この3つは部員みんなが使います。パスワードは要りません。",
+        "説明": "この4つは部員みんなが使います。パスワードは要りません。",
         "links": [
           {
             "url": "touban.html",
@@ -782,6 +799,12 @@ const HUB = {
             "題": "手入れの希望を出す",
             "説明": "自分がサブに入っている馬に ◎○× を出します。",
             "印": "care-vote"
+          },
+          {
+            "url": "yasumi.html",
+            "題": "休みを申し込む",
+            "説明": "有給休暇と季節休みを申し込みます。みんなの休みとバイトもここで見られます。",
+            "印": "yasumi-vote"
           },
           {
             "url": "taikai.html",
@@ -812,7 +835,7 @@ const HUB = {
     "groups": [
       {
         "題": "自分の希望を出す",
-        "説明": "この3つは部員みんなが使います。パスワードは要りません。",
+        "説明": "この4つは部員みんなが使います。パスワードは要りません。",
         "links": [
           {
             "url": "touban.html",
@@ -825,6 +848,12 @@ const HUB = {
             "題": "手入れの希望を出す",
             "説明": "自分がサブに入っている馬に ◎○× を出します。",
             "印": "care-vote"
+          },
+          {
+            "url": "yasumi.html",
+            "題": "休みを申し込む",
+            "説明": "有給休暇と季節休みを申し込みます。みんなの休みとバイトもここで見られます。",
+            "印": "yasumi-vote"
           },
           {
             "url": "taikai.html",
@@ -851,6 +880,13 @@ const HUB = {
             "説明": "担当する馬のサブと期間を決めて、手入れ表を作ります。",
             "印": "care-make",
             "鍵": "チーフパスワード"
+          },
+          {
+            "url": "yasumi-admin.html",
+            "題": "休みをまとめる",
+            "説明": "申し込みを先着順に了承する・バイトを入れる・有給の残りを見る。",
+            "印": "yasumi-make",
+            "鍵": "副将パスワード"
           },
           {
             "url": "taikai-admin.html",
