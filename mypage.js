@@ -7,10 +7,20 @@
 
   覚えるのは「名前」。当番・手入れ（m_xxxxxxxxxx）と大会人員表（m_001）で部員IDの体系が違い、
   画面が全部おなじドメインに並んでいるので、IDのまま覚えると画面を移るたびに当てが外れる。
+
+  真ん中は**直近1週間のカレンダー**（2026-09-12に変更）。
+  前は決まった予定を日付順に並べていたが、大会は競技の数だけ行が出るので、
+  1つの大会だけで画面が埋まり、手入れや当番が押し出されていた。いまは
+    ・大会中の仕事は日ごとに「大会」1行にまとめる（仕事の名前は重複を消して添えるだけ）
+    ・選手として出場する競技だけは別の行にする（馬場の出番と障害の下付きの取り違え防止）
+    ・何も無い日も枠として出す
+  ようにして、同じ日に手入れや当番が重なっていればその場で気づけるようにしてある。
 */
 (function () {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const 一週間 = 7;
 
   async function 呼ぶ(api, fn, args) {
     const res = await fetch(api, {
@@ -27,32 +37,157 @@
   const 覚えた名前 = () => { try { return localStorage.getItem('me') || ''; } catch (e) { return ''; } };
   const 名前を覚える = (n) => { try { localStorage.setItem('me', n); } catch (e) { /* 保存できない設定でも動かす */ } };
 
-  // 2026-09-15 → 9/15（月）
-  function 和風(d) {
-    const p = String(d || '').split('-');
-    if (p.length !== 3) return String(d || '');
-    const dt = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
-    return Number(p[1]) + '/' + Number(p[2]) + '（' + '日月火水木金土'[dt.getDay()] + '）';
+  // ----- 日付。シートと同じ 2026-09-15 の文字列のまま足し引きする -----
+  const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
+
+  function 日付に(s) {
+    const p = String(s || '').split('-');
+    if (p.length !== 3) return null;
+    const d = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    return isNaN(d.getTime()) ? null : d;
   }
+  function 文字に(d) {
+    const z = (n) => (n < 10 ? '0' + n : '' + n);
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+  }
+  function 足す(s, 日数) {
+    const d = 日付に(s);
+    if (!d) return s;
+    d.setDate(d.getDate() + 日数);
+    return 文字に(d);
+  }
+  // 2026-09-15 → 9/15（月）
+  function 和風(s) {
+    const d = 日付に(s);
+    return d ? (d.getMonth() + 1) + '/' + d.getDate() + '（' + 曜日名[d.getDay()] + '）' : String(s || '');
+  }
+  const 曜日 = (s) => { const d = 日付に(s); return d ? 曜日名[d.getDay()] : ''; };
 
   const 節 = (題, 中身) => '<section class="me-sec"><h2>' + 題 + '</h2>' + 中身 + '</section>';
-  const 行 = (いつ, なに, 印) =>
-    '<div class="me-row"><span class="when">' + esc(いつ) + '</span>' +
-    '<span class="what">' + esc(なに) + '</span>' +
-    (印 ? '<span class="tag">' + esc(印) + '</span>' : '') + '</div>';
 
-  function 予定を集める(t, j) {
-    const out = [];
+  // ----- 1週間ぶんを日ごとに集める -----
+  /**
+   * 日付 → その日にあること、の表を作る。
+   * 種類は 出場／大会／手入れ／当番／休み の5つ。並べる順もこの順で、
+   * 間違えると事故になるもの（出場・大会）を上に置く。
+   */
+  function 一週間を組む(t, j, 今日) {
+    const 日々 = [];
+    const 表 = {};
+    for (let i = 0; i < 一週間; i++) {
+      const d = 足す(今日, i);
+      表[d] = [];
+      日々.push(d);
+    }
+    const 入れる = (date, x) => { if (表[date]) 表[date].push(x); };
+
+    // 手入れ（日付で組んだぶん）
     ((t && t.予定) || []).forEach((x) => {
-      out.push({ date: x.date, なに: '手入れ　' + x.馬 + (x.記号 ? '（' + x.記号 + '）' : ''), 印: '手入れ' });
+      入れる(x.date, { 種類: '手入れ', 本文: x.馬 + (x.記号 ? '（' + x.記号 + '）' : '') });
     });
-    ((j && j.大会) || []).forEach((ev) => {
-      (ev.予定 || []).forEach((x) => {
-        const 中 = [x.競技, x.仕事 || (x.馬 ? x.馬 + 'に付く' : '')].filter((v) => v).join('　');
-        out.push({ date: x.date, なに: ev.name + '　' + 中, 印: '大会' });
+    // 手入れ・当番（曜日で組んだぶん）は、その曜日に当たる日に置く
+    日々.forEach((d) => {
+      const w = 曜日(d);
+      ((t && t.毎週の手入れ) || []).forEach((c) => {
+        if (c.曜日 === w) 入れる(d, { 種類: '手入れ', 本文: c.馬 + (c.記号 ? '（' + c.記号 + '）' : '') });
+      });
+      ((((t || {}).当番) || {}).決まったぶん || []).forEach((c) => {
+        if (c.曜日 === w) 入れる(d, { 種類: '当番', 本文: c.当番 });
       });
     });
-    return out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    // 休み。期間なので、またぐ日すべてに置く
+    ((t && t.休み) || []).forEach((l) => {
+      日々.forEach((d) => {
+        if (d >= l.from && d <= (l.to || l.from)) {
+          入れる(d, { 種類: '休み', 本文: l.kind + (l.state === '申請中' ? '（了承待ち）' : '') });
+        }
+      });
+    });
+    // 大会。仕事はその日ぶんを1行にまとめ、出場する競技だけ別の行にする
+    ((j && j.大会) || []).forEach((ev) => {
+      (ev.日 || []).forEach((day) => {
+        if (!day.date || !表[day.date] || day.行けない) return;
+        (day.出場 || []).forEach((x) => {
+          入れる(day.date, {
+            種類: '出場',
+            本文: (x.競技 || '出場') + (x.馬 ? '　' + x.馬 + 'で出ます' : ''),
+            添え: ev.name,
+          });
+        });
+        const 仕事 = (day.仕事 || []).join('・');
+        入れる(day.date, {
+          種類: '大会',
+          本文: ev.name,
+          添え: 仕事 || ((day.出場 || []).length ? '' : '仕事はまだ決まっていません'),
+        });
+      });
+    });
+
+    const 順 = { 出場: 0, 大会: 1, 手入れ: 2, 当番: 3, 休み: 4 };
+    日々.forEach((d) => { 表[d].sort((a, b) => 順[a.種類] - 順[b.種類]); });
+    return { 日々: 日々, 表: 表 };
+  }
+
+  /**
+   * 同じ日に別ものが入っていたら教える。
+   * 出場と大会は同じ大会の話なので、まとめて1つとして数える。
+   */
+  function 重なり(items) {
+    const ある = {};
+    items.forEach((x) => { ある[x.種類 === '出場' ? '大会' : x.種類] = true; });
+    const 組 = ['大会', '手入れ', '当番', '休み'].filter((k) => ある[k]);
+    return 組.length >= 2 ? 組.join('と') + 'が重なっています' : '';
+  }
+
+  const 印 = { 出場: 'run', 大会: 'meet', 手入れ: 'care', 当番: 'duty', 休み: 'off' };
+
+  function 週の見た目(t, j, 今日) {
+    const 組 = 一週間を組む(t, j, 今日);
+    const 中身 = 組.日々.map((d) => {
+      const items = 組.表[d];
+      const 注意 = 重なり(items);
+      const 行 = items.length
+        ? items.map((x) =>
+            '<div class="ev ev-' + 印[x.種類] + '">' +
+              '<span class="k">' + esc(x.種類) + '</span>' +
+              '<span class="b">' + esc(x.本文) + '</span>' +
+              (x.添え ? '<span class="s">' + esc(x.添え) + '</span>' : '') +
+            '</div>').join('')
+        : '<div class="ev none">予定なし</div>';
+      return '<div class="me-day' + (d === 今日 ? ' today' : '') + '">' +
+        '<div class="d"><span class="dd">' + esc(和風(d)) + '</span>' +
+          (d === 今日 ? '<span class="now">今日</span>' : '') + '</div>' +
+        '<div class="x">' + 行 +
+          (注意 ? '<p class="warn">' + esc(注意) + '</p>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="me-week">' + 中身 + '</div>';
+  }
+
+  // ----- 1週間より先。いつ何があるかだけ分かればよいので1行ずつ -----
+  function 先の予定(t, j, 今日) {
+    const 週末 = 足す(今日, 一週間 - 1);
+    const out = [];
+    ((t && t.予定) || []).forEach((x) => {
+      if (x.date > 週末) out.push({ date: x.date, いつ: 和風(x.date), なに: '手入れ　' + x.馬, 印: '手入れ' });
+    });
+    ((j && j.大会) || []).forEach((ev) => {
+      if (ev.終わった) return;
+      const 日 = (ev.日 || []).map((x) => x.date).filter((x) => x && x > 週末).sort();
+      if (!日.length) return;
+      out.push({
+        date: 日[0],
+        いつ: 和風(日[0]) + (日.length > 1 ? '〜' + 和風(日[日.length - 1]) : ''),
+        なに: ev.name,
+        印: '大会',
+      });
+    });
+    out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    return out.slice(0, 6).map((x) =>
+      '<div class="me-row"><span class="when">' + esc(x.いつ) + '</span>' +
+      '<span class="what">' + esc(x.なに) + '</span>' +
+      '<span class="tag">' + esc(x.印) + '</span></div>').join('');
   }
 
   function まだのものを集める(t, j) {
@@ -83,11 +218,13 @@
       return '<p class="me-msg">その名前が名簿にありません。副将に伝えてください。</p>';
     }
 
-    // これからの予定
-    const 予定 = 予定を集める(t, j);
-    章.push(節('これから', 予定.length
-      ? '<div class="me-list">' + 予定.slice(0, 8).map((x) => 行(和風(x.date), x.なに, x.印)).join('') + '</div>'
-      : '<div class="me-done">決まっている予定はまだありません。</div>'));
+    // これからの1週間
+    const 今日 = (t && t.今日) || 文字に(new Date());
+    章.push(節('これからの1週間', 週の見た目(t, j, 今日)));
+
+    // 1週間より先
+    const 先 = 先の予定(t, j, 今日);
+    if (先) 章.push(節('1週間より先', '<div class="me-list">' + 先 + '</div>'));
 
     // まだ出していないもの
     const まだ = まだのものを集める(t, j);
@@ -99,14 +236,10 @@
           '</a>').join('') + '</div>'
       : '<div class="me-done">ぜんぶ出してあります。</div>'));
 
-    // 毎週決まっているもの
-    const 毎週 = []
-      .concat((((t && t.当番) || {}).決まったぶん || []).map((c) => 行(c.曜日 + '曜', '当番　' + c.当番, '当番')))
-      .concat(((t && t.毎週の手入れ) || []).map((c) => 行(c.曜日 + '曜', '手入れ　' + c.馬 + (c.記号 ? '（' + c.記号 + '）' : ''), '手入れ')));
-    if (毎週.length) 章.push(節('毎週', '<div class="me-list">' + 毎週.join('') + '</div>'));
-
-    // サブの馬と有給
+    // 毎週決まっているもの・サブの馬・有給
     const 事実 = [];
+    const 当番 = ((((t || {}).当番) || {}).決まったぶん) || [];
+    if (当番.length) 事実.push('<div>毎週の当番　' + esc(当番.map((c) => c.曜日 + '曜 ' + c.当番).join('／')) + '</div>');
     const 馬 = ((t && t.手入れ) || []).map((p) => p.horse + (p.chief ? '（チーフ ' + p.chief + '）' : ''));
     if (馬.length) 事実.push('<div>サブの馬　' + esc(馬.join('／')) + '</div>');
     if (t && t.有給) {

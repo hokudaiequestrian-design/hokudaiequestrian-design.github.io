@@ -11,6 +11,61 @@
   font-size: var(--text-sm); font-weight: 700; letter-spacing: 0.08em;
   color: var(--muted); margin: 0 0 var(--space-2xs);
 }
+/* ===== これからの1週間（カレンダー） =====
+   1日1行。何も無い日も枠を出して、日付の並びが途切れないようにする。
+   大会・手入れ・当番が同じ日に来ていることに気づけるのがこの形の目的なので、
+   色だけで分けず、種類の字（出場／大会／手入れ／当番／休み）を必ず添える。 */
+.me-week { border-top: 1px solid var(--rule-strong); }
+.me-day {
+  display: flex; gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-2xs); border-bottom: 1px solid var(--rule);
+}
+.me-day:last-child { border-bottom: 1px solid var(--rule-strong); }
+.me-day.today { background: var(--accent-soft); }
+.me-day > .d {
+  flex: 0 0 auto; min-width: 7.5em; padding-top: 6px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs);
+}
+.me-day > .d .dd { font-family: var(--font-num); font-size: var(--text-base); }
+.me-day.today > .d .dd { font-weight: 700; }
+.me-day > .d .now {
+  font-size: var(--text-xs); font-weight: 700; color: var(--accent-dark);
+  border: 1px solid var(--accent); border-radius: var(--radius-pill); padding: 0 8px;
+}
+.me-day > .x { flex: 1 1 auto; min-width: 0; }
+
+.ev {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-xs);
+  padding: 5px 0; font-size: var(--text-base); line-height: 1.6;
+}
+.ev .k {
+  flex: 0 0 auto; font-size: var(--text-xs); font-weight: 700;
+  border: 1px solid currentColor; border-radius: var(--radius-pill); padding: 1px 10px;
+}
+.ev .b { flex: 1 1 auto; min-width: 0; }
+.ev .s { flex: 0 0 auto; font-size: var(--text-xs); color: var(--muted); }
+.ev.none { color: var(--muted); font-size: var(--text-sm); }
+
+/* 出場だけは太字。馬場の出番があるのに障害の下付き、という取り違えが事故になるため */
+.ev-run .k { color: var(--danger-dark); }
+.ev-run .b { font-weight: 700; }
+.ev-meet .k { color: var(--accent-dark); }
+.ev-care .k { color: var(--care-dark); }
+.ev-duty .k { color: var(--ink); }
+.ev-off .k { color: var(--muted); }
+
+.me-day .warn {
+  margin: var(--space-2xs) 0 var(--space-3xs); padding: var(--space-2xs) var(--space-xs);
+  background: var(--warning-soft); border-left: 3px solid var(--warning);
+  color: var(--ink); font-size: var(--text-sm); line-height: 1.5;
+}
+
+/* 幅が狭いときは日付を上に置く（横に並べると予定が1〜2文字ずつになる） */
+@media (max-width: 30rem) {
+  .me-day { display: block; padding: var(--space-sm) var(--space-2xs); }
+  .me-day > .d { padding-top: 0; margin-bottom: var(--space-3xs); }
+}
+
 .me-list { border-top: 1px solid var(--rule-strong); }
 .me-row {
   display: flex; align-items: baseline; gap: var(--space-sm);

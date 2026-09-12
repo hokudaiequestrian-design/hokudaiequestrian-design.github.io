@@ -1,0 +1,387 @@
+/**
+ * マイページ（入口）の中身を確かめる。
+ *
+ *   1. 人員表システムの getMyPage が「日ごと」に返すこと
+ *      （大会中の仕事は1日1つにまとめ、出場する競技だけは別に返す）
+ *   2. mypage.js が、それと当番・手入れのぶんを1週間のカレンダーに並べること
+ *
+ * 人員表の コード.gs は Node の模擬スプレッドシートで動かす（toubantest.js と同じやり方）。
+ * mypage.js は画面の中のIIFEなので、末尾に中の関数を外へ出す1行を足してから読み込む。
+ *
+ *   node mypagetest.js
+ */
+const fs = require('fs');
+const vm = require('vm');
+const path = require('path');
+
+const 人員表 = path.join('C:', 'Users', 'minuu', 'Documents', '人員表システム_GAS', 'コード.gs');
+const 入口 = path.join(__dirname, '..', 'mypage.js');
+
+// ===================== 模擬スプレッドシート =====================
+
+function makeSheet(name) { return { name: name, rows: [[]] }; }
+
+function ensure(sheet, r, c) {
+  while (sheet.rows.length < r) sheet.rows.push([]);
+  for (let i = 0; i < sheet.rows.length; i++) {
+    while (sheet.rows[i].length < c) sheet.rows[i].push('');
+  }
+}
+
+function rangeOf(sheet, row, col, numRows, numCols) {
+  return {
+    setValues(vals) {
+      ensure(sheet, row + vals.length - 1, col + (vals[0] ? vals[0].length : 0) - 1);
+      vals.forEach((r, i) => r.forEach((v, j) => { sheet.rows[row - 1 + i][col - 1 + j] = v; }));
+      return this;
+    },
+    setFormulas(vals) { return this.setValues(vals); },
+    getValues() {
+      ensure(sheet, row + numRows - 1, col + numCols - 1);
+      const out = [];
+      for (let i = 0; i < numRows; i++) out.push(sheet.rows[row - 1 + i].slice(col - 1, col - 1 + numCols));
+      return out;
+    },
+    clearContent() {
+      ensure(sheet, row + numRows - 1, col + numCols - 1);
+      for (let i = 0; i < numRows; i++) {
+        for (let j = 0; j < numCols; j++) sheet.rows[row - 1 + i][col - 1 + j] = '';
+      }
+      return this;
+    },
+    setFontWeight() { return this; },
+    setFontColor() { return this; },
+    setBackground() { return this; },
+    setBackgrounds() { return this; },
+    setNote() { return this; },
+    clearNote() { return this; },
+    setHorizontalAlignment() { return this; },
+    setVerticalAlignment() { return this; },
+    setWrap() { return this; },
+    setBorder() { return this; },
+    setNumberFormat() { return this; },
+    merge() { return this; },
+    setDataValidation() { return this; },
+    clearDataValidations() { return this; },
+  };
+}
+
+function wrapSheet(sheet) {
+  const api = {
+    _raw: sheet,
+    getName: () => sheet.name,
+    setFrozenRows: () => api,
+    setFrozenColumns: () => api,
+    setColumnWidth: () => api,
+    setColumnWidths: () => api,
+    setRowHeight: () => api,
+    autoResizeColumn: () => api,
+    getMaxRows: () => Math.max(sheet.rows.length, 200),
+    getMaxColumns: () => Math.max.apply(null, sheet.rows.map((r) => r.length).concat([26])),
+    getLastRow() {
+      let last = 0;
+      sheet.rows.forEach((r, i) => { if (r.some((c) => c !== '' && c !== null && c !== undefined)) last = i + 1; });
+      return last;
+    },
+    getLastColumn() {
+      let last = 0;
+      sheet.rows.forEach((r) => {
+        for (let j = r.length - 1; j >= 0; j--) {
+          if (r[j] !== '' && r[j] !== null && r[j] !== undefined) { last = Math.max(last, j + 1); break; }
+        }
+      });
+      return last;
+    },
+    getRange: (r, c, nr, nc) => rangeOf(sheet, r, c, nr === undefined ? 1 : nr, nc === undefined ? 1 : nc),
+    getDataRange() {
+      return rangeOf(sheet, 1, 1, Math.max(api.getLastRow(), 1), Math.max(api.getLastColumn(), 1));
+    },
+    getFilter: () => null,
+    clear: () => { sheet.rows = [[]]; return api; },
+    deleteRows: () => api,
+    insertRowsAfter: () => api,
+    hideColumns: () => api,
+  };
+  return api;
+}
+
+const SHEETS = {};
+const ss = {
+  getName: () => '人員表テスト',
+  getId: () => 'TEST_SHEET_ID',
+  getSheetByName: (n) => (SHEETS[n] ? wrapSheet(SHEETS[n]) : null),
+  insertSheet: (n) => { SHEETS[n] = makeSheet(n); return wrapSheet(SHEETS[n]); },
+  getSheets: () => Object.keys(SHEETS).map((n) => wrapSheet(SHEETS[n])),
+  deleteSheet: (sh) => { delete SHEETS[sh.getName()]; },
+  setActiveSheet: (sh) => sh,
+  moveActiveSheet: () => {},
+};
+
+const PROPS = {};
+let uuidCount = 0;
+
+const sandbox = {
+  console: console,
+  Object: Object, Array: Array, String: String, Number: Number, Math: Math, Date: Date, JSON: JSON,
+  isNaN: isNaN, parseInt: parseInt, parseFloat: parseFloat, Error: Error, RegExp: RegExp,
+
+  SpreadsheetApp: {
+    getActiveSpreadsheet: () => ss,
+    openById: () => { throw new Error('当番・手入れのシートはこのテストでは開かない'); },
+    getUi: () => ({
+      createMenu: () => ({ addItem() { return this; }, addSeparator() { return this; }, addSubMenu() { return this; }, addToUi() {} }),
+      alert: () => {},
+      prompt: () => ({ getSelectedButton: () => 'CANCEL', getResponseText: () => '' }),
+      ButtonSet: { OK_CANCEL: 'OK_CANCEL' },
+      Button: { OK: 'OK' },
+    }),
+    newDataValidation: () => {
+      const b = {
+        requireValueInList() { return b; }, requireCheckbox() { return b; },
+        setAllowInvalid() { return b; }, setHelpText() { return b; }, build() { return {}; },
+      };
+      return b;
+    },
+    flush: () => {},
+  },
+  PropertiesService: {
+    getScriptProperties: () => ({
+      getProperty: (k) => (PROPS[k] === undefined ? null : PROPS[k]),
+      setProperty: (k, v) => { PROPS[k] = v; },
+      deleteProperty: (k) => { delete PROPS[k]; },
+    }),
+  },
+  CacheService: {
+    getScriptCache: () => {
+      const C = sandbox.__cache = sandbox.__cache || {};
+      return { put: (k, v) => { C[k] = v; }, get: (k) => (C[k] === undefined ? null : C[k]), remove: (k) => { delete C[k]; } };
+    },
+  },
+  LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock: () => {}, waitLock: () => {} }) },
+  Utilities: {
+    getUuid: () => { uuidCount++; return ('u' + uuidCount).padStart(8, '0') + '-' + Date.now().toString(36) + '-abcd'; },
+    // JSTのぶんだけ実機と違うが、テストの日付はどれも同じ日の中なのでこれで足りる
+    formatDate: (d, tz, fmt) => {
+      const z = (n) => ('0' + n).slice(-2);
+      const s = d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+      return fmt === 'yyyy-MM-dd' ? s : s + ' ' + z(d.getHours()) + ':' + z(d.getMinutes());
+    },
+  },
+  ScriptApp: { getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/TEST/exec' }) },
+  HtmlService: {},
+  ContentService: { createTextOutput: (s) => ({ setMimeType: () => s }), MimeType: { JSON: 'JSON' } },
+};
+
+const ctx = vm.createContext(sandbox);
+// vm では const で置いた値は文脈の持ちものにならないので、使うものは最後に渡してもらう
+vm.runInContext(
+  fs.readFileSync(人員表, 'utf8') + '\n;this.外から呼べる関数 = 外から呼べる関数; this.終日の枠ID = 終日の枠ID;',
+  ctx, { filename: 'コード.gs' });
+// 実機では呼び出しごとに新しい実行になり、readRows の覚えも消える
+const G = new Proxy(ctx, {
+  get(t, k) {
+    const v = t[k];
+    if (typeof v === 'function') return (...a) => { if (t.覚えを消す) t.覚えを消す(); return v.apply(t, a); };
+    return v;
+  },
+});
+
+// ===================== 確かめる道具 =====================
+
+let ok = 0;
+const 失敗 = [];
+function 確かめる(名, 条件, 補足) {
+  if (条件) { ok++; return; }
+  失敗.push(名 + (補足 ? '　→ ' + 補足 : ''));
+  console.log('  ✗ ' + 名 + (補足 ? '　→ ' + 補足 : ''));
+}
+function 見出し(s) { console.log('\n== ' + s + ' =='); }
+
+// 今日から数えた日付。getMyPage は「今日」で終わった大会を落とすので、日付は毎回作り直す
+const ゼロ埋め = (n) => ('0' + n).slice(-2);
+function 日(ずれ) {
+  const d = new Date();
+  d.setDate(d.getDate() + ずれ);
+  return d.getFullYear() + '-' + ゼロ埋め(d.getMonth() + 1) + '-' + ゼロ埋め(d.getDate());
+}
+
+// ===================== 1. 人員表の getMyPage =====================
+
+見出し('人員表：下ごしらえ');
+G.setupSheets();
+PROPS['ADMIN_PASSWORD'] = 'testtest';
+const T = G.login('testtest');
+G.adminBulkMembers(T, ['美浦,2024,運営', '相棒,2025,馬匹'].join('\n'));
+const 私 = G.loadMembers().filter((m) => m.name === '美浦')[0];
+確かめる('部員が入る', !!私, JSON.stringify(G.loadMembers().map((m) => m.name)));
+
+// 3日間の大会。初日は競技が無く仕事だけ（馬房作りの日）、2日目に競技が3つ
+const 保存 = G.adminSaveEvent(T, {
+  name: '春季大会',
+  startDate: 日(1),
+  endDate: 日(3),
+  competitions: [
+    { name: 'LA', date: 日(2) },
+    { name: '3A', date: 日(2) },
+    { name: 'LB', date: 日(2) },
+    { name: '片付け', date: 日(3) },
+  ],
+  jobs: [
+    { name: '積み下ろし・馬房作り', date: 日(1), min: 1 },
+    { name: '使役', date: 日(2), min: 1 },
+    { name: '運営', date: 日(2), min: 1 },
+    { name: '片付け', date: 日(3), min: 1 },
+  ],
+});
+const 大会ID = 保存.eventId;
+const 競技 = {};
+G.loadCompetitions(大会ID).forEach((c) => { 競技[c.name] = c.id; });
+const 仕事 = {};
+G.loadJobs(大会ID).forEach((j) => { 仕事[j.name] = j.id; });
+確かめる('競技が4つ入る', Object.keys(競技).length === 4, JSON.stringify(Object.keys(競技)));
+
+// 出場：2日目のLAに北叡で出る
+G.adminSaveEntry(T, 大会ID, 私.id, 競技['LA'], '北叡', 1);
+確かめる('出場が1件入る', G.loadEntries(大会ID).length === 1);
+
+// 人員表のマス。初日は競技が無いので「終日」の枠に入る
+const 終日 = G.終日の枠ID(日(1));
+G.saveCells(大会ID, {
+  [私.id + '|' + 終日]: { jobId: 仕事['積み下ろし・馬房作り'], horse: '', locked: false },
+  [私.id + '|' + 競技['3A']]: { jobId: 仕事['使役'], horse: '', locked: false },
+  [私.id + '|' + 競技['LB']]: { jobId: 仕事['使役'], horse: '', locked: false },
+  [私.id + '|' + 競技['片付け']]: { jobId: '', horse: '北冴', locked: false },
+});
+
+見出し('人員表：getMyPage');
+const j = G.getMyPage('美浦');
+確かめる('自分が見つかる', !!(j.me && j.me.name === '美浦'), JSON.stringify(j.me));
+const ev = (j.大会 || [])[0];
+確かめる('大会が1つ返る', !!ev && ev.name === '春季大会', JSON.stringify((j.大会 || []).map((x) => x.name)));
+確かめる('日が3つ返る（競技の数ではなく日の数）', ev.日.length === 3, JSON.stringify(ev.日.map((d) => d.date)));
+
+const 初日 = ev.日[0], 二日目 = ev.日[1], 三日目 = ev.日[2];
+確かめる('競技が無い日の仕事も拾う', JSON.stringify(初日.仕事) === JSON.stringify(['積み下ろし・馬房作り']), JSON.stringify(初日.仕事));
+確かめる('同じ仕事が競技ごとに並ばない（1つにまとまる）',
+  JSON.stringify(二日目.仕事) === JSON.stringify(['使役']), JSON.stringify(二日目.仕事));
+確かめる('出場する競技は仕事と別に返る',
+  二日目.出場.length === 1 && 二日目.出場[0].競技 === 'LA' && 二日目.出場[0].馬 === '北叡',
+  JSON.stringify(二日目.出場));
+確かめる('出場する競技は仕事のほうに混ざらない', 二日目.仕事.indexOf('LA') < 0, JSON.stringify(二日目.仕事));
+確かめる('馬名だけのマスは「◯◯に付く」になる',
+  JSON.stringify(三日目.仕事) === JSON.stringify(['北冴に付く']), JSON.stringify(三日目.仕事));
+確かめる('日には日付と見出しが付く', !!初日.date && !!初日.label, JSON.stringify(初日));
+
+// 行けないと答えた日は、その日だけ印が付く
+G.submitResponse(大会ID, 私.id, [
+  { date: 日(1), attending: true },
+  { date: 日(2), attending: true },
+  { date: 日(3), attending: false },
+], 'バイトのため', [{ competitionId: 競技['LA'], horse: '北叡', helpers: 1 }]);
+const j2 = G.getMyPage('美浦');
+const ev2 = j2.大会[0];
+確かめる('出欠を出したことが分かる', ev2.出した === true);
+確かめる('行けない日に印が付く',
+  ev2.日[0].行けない === false && ev2.日[2].行けない === true,
+  JSON.stringify(ev2.日.map((d) => d.行けない)));
+
+// 名簿に無い人
+const j3 = G.getMyPage('いない人');
+確かめる('名簿に無ければ me が null', j3.me === null && Array.isArray(j3.大会));
+
+// 終わった大会は日を返さない（読みに行かない）
+G.adminSaveEvent(T, { name: '去年の大会', startDate: 日(-30), endDate: 日(-28), competitions: [], jobs: [] });
+const 去年 = G.getMyPage('美浦').大会.filter((x) => x.name === '去年の大会')[0];
+確かめる('終わった大会は終わった印が付いて日が空', 去年.終わった === true && 去年.日.length === 0, JSON.stringify(去年));
+
+// ===================== 2. マイページの組み立て =====================
+
+見出し('入口：1週間のカレンダー');
+
+// IIFE の中の関数を外へ出して読み込む（画面のファイルはそのまま使う）
+const 入口のソース = fs.readFileSync(入口, 'utf8')
+  .replace('  始める();', '  this.__test = { 一週間を組む, 重なり, 週の見た目, 先の予定, 組み立てる, 和風, 足す };');
+const 入口ctx = vm.createContext({ console: console, fetch: () => {}, localStorage: null, document: { getElementById: () => null } });
+vm.runInContext(入口のソース, 入口ctx, { filename: 'mypage.js' });
+const M = 入口ctx.__test;
+確かめる('入口の中の関数を取り出せる', !!(M && M.一週間を組む), Object.keys(入口ctx));
+
+const 今日 = 日(0);
+const t = {
+  me: { id: 'm_x', name: '美浦' },
+  今日: 今日,
+  当番: { 期間: [{ id: 'k1', name: '前期', 出した: true }], 決まったぶん: [{ 曜日: 曜日の(日(2)), 当番: '夕当' }] },
+  手入れ: [{ id: 'p1', horse: '北叡', chief: '相棒', 日数: 7, 入れた: 7, 出した: true }],
+  毎週の手入れ: [],
+  予定: [
+    { date: 日(2), 種類: '手入れ', 馬: '北叡', 記号: '◎' },
+    { date: 日(9), 種類: '手入れ', 馬: '北叡', 記号: '○' },
+  ],
+  休み: [{ id: 'l1', kind: '有給休暇', from: 日(5), to: 日(5), days: 1, state: '申請中' }],
+  有給: { 残り: 8, 待ち: 1 },
+};
+function 曜日の(s) {
+  const p = s.split('-');
+  return ['日', '月', '火', '水', '木', '金', '土'][new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay()];
+}
+
+const jm = {
+  me: { id: 'm_001', name: '美浦' },
+  大会: [{
+    id: 'e1', name: '春季大会', 終わった: false, 出した: true, 行けない日: [],
+    日: [
+      { date: 日(1), label: '1日目', 行けない: false, 仕事: ['積み下ろし・馬房作り'], 出場: [] },
+      { date: 日(2), label: '2日目', 行けない: false, 仕事: ['使役'], 出場: [{ 競技: 'LA', 馬: '北叡' }] },
+      { date: 日(3), label: '3日目', 行けない: true, 仕事: [], 出場: [] },
+    ],
+  }, {
+    id: 'e2', name: '秋季大会', 終わった: false, 出した: false, 行けない日: [],
+    日: [{ date: 日(20), label: '1日目', 行けない: false, 仕事: [], 出場: [] }],
+  }],
+};
+
+const 週 = M.一週間を組む(t, jm, 今日);
+確かめる('1週間ぶんの枠ができる', 週.日々.length === 7 && 週.日々[0] === 今日, JSON.stringify(週.日々));
+確かめる('今日は何も無い', 週.表[今日].length === 0, JSON.stringify(週.表[今日]));
+確かめる('大会の日は「大会」1行になる',
+  週.表[日(1)].length === 1 && 週.表[日(1)][0].種類 === '大会' && 週.表[日(1)][0].本文 === '春季大会',
+  JSON.stringify(週.表[日(1)]));
+確かめる('その日の仕事は添えに入る', 週.表[日(1)][0].添え === '積み下ろし・馬房作り', JSON.stringify(週.表[日(1)][0]));
+
+const 二日目の枠 = 週.表[日(2)];
+確かめる('出場・大会・手入れ・当番がその日に並ぶ',
+  JSON.stringify(二日目の枠.map((x) => x.種類)) === JSON.stringify(['出場', '大会', '手入れ', '当番']),
+  JSON.stringify(二日目の枠.map((x) => x.種類)));
+確かめる('出場が先頭に来る', 二日目の枠[0].種類 === '出場' && 二日目の枠[0].本文.indexOf('LA') === 0, JSON.stringify(二日目の枠[0]));
+確かめる('出場には乗る馬が付く', 二日目の枠[0].本文.indexOf('北叡') > 0, 二日目の枠[0].本文);
+確かめる('重なりを知らせる', M.重なり(二日目の枠) === '大会と手入れと当番が重なっています', M.重なり(二日目の枠));
+確かめる('1つだけの日は知らせない', M.重なり(週.表[日(1)]) === '', M.重なり(週.表[日(1)]));
+
+確かめる('行けないと答えた日には大会を出さない', 週.表[日(3)].length === 0, JSON.stringify(週.表[日(3)]));
+確かめる('休みもカレンダーに出る',
+  週.表[日(5)].length === 1 && 週.表[日(5)][0].種類 === '休み' && 週.表[日(5)][0].本文.indexOf('了承待ち') > 0,
+  JSON.stringify(週.表[日(5)]));
+確かめる('1週間より先の手入れはカレンダーに入らない',
+  Object.keys(週.表).every((d) => d <= 日(6)), JSON.stringify(Object.keys(週.表)));
+
+const html = M.週の見た目(t, jm, 今日);
+確かめる('7日ぶんの枠が出る', (html.match(/class="me-day/g) || []).length === 7);
+確かめる('今日の枠に印が付く', html.indexOf('today') > 0 && html.indexOf('今日</span>') > 0);
+確かめる('何も無い日は「予定なし」', html.indexOf('予定なし') > 0);
+確かめる('種類の字が入る（色だけに頼らない）',
+  html.indexOf('>出場<') > 0 && html.indexOf('>大会<') > 0 && html.indexOf('>手入れ<') > 0 && html.indexOf('>当番<') > 0);
+
+const 先 = M.先の予定(t, jm, 今日);
+確かめる('1週間より先の大会が出る', 先.indexOf('秋季大会') > 0, 先);
+確かめる('1週間より先の手入れが出る', 先.indexOf('手入れ') > 0, 先);
+確かめる('1週間の中の予定は先に出さない', 先.indexOf('春季大会') < 0, 先);
+
+// 通信できなかったときも、できたほうは出す
+const 本文 = M.組み立てる(t, null, ['大会のぶんを読めませんでした：つながりませんでした（500）']);
+確かめる('片方が読めなくてもカレンダーは出る', 本文.indexOf('これからの1週間') > 0 && 本文.indexOf('読めませんでした') > 0);
+確かめる('毎週の当番は下にまとめて書く', 本文.indexOf('毎週の当番') > 0);
+
+// ===================== まとめ =====================
+
+console.log('\n' + (失敗.length ? '✗ ' + 失敗.length + '件失敗' : '✓ ぜんぶ通った') + '（' + ok + '/' + (ok + 失敗.length) + '）');
+if (失敗.length) process.exit(1);
