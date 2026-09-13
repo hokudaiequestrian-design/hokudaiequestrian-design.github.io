@@ -68,6 +68,13 @@ const 模擬 = {
   chiefのBASE: null,
   削除: 'ok',         // ok / 断る
   削除の遅れ: 1500,
+  // 休み（副将）とバイト
+  baito: { jobs: [], 割当: [], 調整: {}, today: '2030-09-18' },
+  yasumiの全部: () => ({
+    members: DATA.members, year: 2030, years: [2030], from: '2030-04-01', to: '2031-03-31',
+    today: 模擬.baito.today, kinds: ['有給休暇', 'バイト', '季節休み'], states: ['申請中', '承認', '却下', '取消'],
+    leaves: [], paid: {}, grants: [], settings: { 有給日数: 10, 年度始まり月: 4, 休みを外す: true }, maxDays: 60,
+  }),
 };
 
 function 答える(req, status, body, 遅れ) {
@@ -104,6 +111,50 @@ function 模擬で答える(req) {
     模擬.返事 = { answers: a[2], comment: a[3], entries: a[4] };
     return 返す({ ok: true });
   }
+  // 休み（副将）とバイト。バイトは「バイト先ごとのカレンダー」なので、模擬も同じ形で持つ
+  if (本文.fn === 'loginAndLoadYasumi') return 返す({ token: 'a_test', all: 模擬.yasumiの全部() });
+  if (本文.fn === 'yasumiLoadAll') return 返す(模擬.yasumiの全部());
+  if (本文.fn === 'baitoLoadAll') {
+    const id = String(本文.args[1] || '');
+    const job = 模擬.baito.jobs.filter((j) => j.id === id)[0] || null;
+    const 割当 = job ? 模擬.baito.割当.filter((x) => x.jobId === job.id) : [];
+    const 自動 = {};
+    割当.forEach((x) => { if (x.date <= 模擬.baito.today) 自動[x.memberId] = (自動[x.memberId] || 0) + 1; });
+    return 返す({
+      jobs: 模擬.baito.jobs, job: job, members: DATA.members, today: 模擬.baito.today,
+      割当: 割当.map((x) => ({ id: x.id, date: x.date, memberId: x.memberId, name: (DATA.members.filter((m) => m.id === x.memberId)[0] || {}).name })),
+      counts: DATA.members.map((m) => ({
+        memberId: m.id, name: m.name,
+        自動: 自動[m.id] || 0,
+        調整: 模擬.baito.調整[m.id] || 0,
+        回数: (自動[m.id] || 0) + (模擬.baito.調整[m.id] || 0),
+      })),
+    });
+  }
+  if (本文.fn === 'baitoSaveJob') {
+    const x = 本文.args[1] || {};
+    if (x.id) 模擬.baito.jobs.forEach((j) => { if (j.id === x.id) j.name = x.name; });
+    else 模擬.baito.jobs.push({ id: 'b' + (模擬.baito.jobs.length + 1), name: x.name, active: true });
+    return 返す({ ok: true, jobs: 模擬.baito.jobs });
+  }
+  if (本文.fn === 'baitoDeleteJob') {
+    模擬.baito.jobs = 模擬.baito.jobs.filter((j) => j.id !== 本文.args[1]);
+    模擬.baito.割当 = 模擬.baito.割当.filter((x) => x.jobId !== 本文.args[1]);
+    return 返す({ ok: true, jobs: 模擬.baito.jobs });
+  }
+  if (本文.fn === 'baitoAssign') {
+    const a = 本文.args;
+    模擬.baito.割当.push({ id: 'y' + (模擬.baito.割当.length + 1), jobId: a[1], date: a[2], memberId: a[3] });
+    return 返す({ ok: true });
+  }
+  if (本文.fn === 'baitoUnassign') {
+    模擬.baito.割当 = 模擬.baito.割当.filter((x) => x.id !== 本文.args[1]);
+    return 返す({ ok: true });
+  }
+  if (本文.fn === 'baitoSaveCount') {
+    模擬.baito.調整[本文.args[2]] = Number(本文.args[3]) || 0;
+    return 返す({ ok: true });
+  }
   if (本文.fn === 'chiefMeta') return 返す({ 要パスワード: false });
   if (本文.fn === 'loginChiefAndLoad') return 返す({ token: 'c_test', base: 模擬.chiefのBASE });
   if (本文.fn === 'chiefLoadAll') return 返す(模擬.chiefのBASE);
@@ -113,6 +164,12 @@ function 模擬で答える(req) {
       plans: 模擬.chiefのBASE.plans.filter((p) => p.id !== 本文.args[1]),
     });
     return 答える(req, 200, { ok: true, value: { ok: true } }, 模擬.削除の遅れ);
+  }
+  if (本文.fn === 'chiefSaveSubsBulk') {
+    模擬.まとめて保存 = 本文.args[1];
+    const subs = Object.assign({}, 模擬.chiefのBASE.subs || {}, 本文.args[1]);
+    模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, { subs: subs });
+    return 返す({ ok: true, 変えた: Object.keys(本文.args[1]).length, 外れた: 1, subs: subs });
   }
   if (本文.fn === 'adminLoadAll') return 返す(模擬.adminの全部);
   if (本文.fn === 'adminShareUrl') return 返す({ memberUrl: 'https://hokudaiequestrian-design.github.io/taikai.html', adminUrl: '', manual: false });
@@ -339,6 +396,115 @@ function 模擬で答える(req) {
   await page.waitForFunction(() => /削除できませんでした/.test(document.getElementById('termMsg').textContent), { timeout: 15000 });
   確かめる('消せなかったら戻ってくる', (await 期間の数()) === 1, String(await 期間の数()));
   確かめる('理由がその場に出る', /その期間はもうありません/.test(await page.$eval('#termMsg', (el) => el.textContent)));
+
+  // ---------- 8.6 手入れ（チーフ）：サブをまとめて直す ----------
+  console.log(String.fromCharCode(10) + '== 手入れチーフ：サブをまとめて直す ==');
+  模擬.chiefのBASE = {
+    horses: [
+      { id: 'h1', name: '北叡', active: true, chief: '美浦' },
+      { id: 'h2', name: '北冴', active: true, chief: '' },
+      { id: 'h3', name: '北翔', active: true, chief: '' },
+    ],
+    plans: [
+      { id: 'p1', horseId: 'h1', term: '後期', mode: '曜日', from: '', to: '', min: 1, max: null },
+      { id: 'p2', horseId: 'h2', term: '後期', mode: '曜日', from: '', to: '', min: 1, max: null },
+      { id: 'p3', horseId: 'h1', term: '前期', mode: '曜日', from: '', to: '', min: 1, max: null },
+    ],
+    members: [{ id: 'm_001', name: '美浦', grade: 2 }, { id: 'm_002', name: '相棒', grade: 1 }],
+    期間名: ['前期', '後期'],
+    subs: { p1: ['m_001', 'm_002'], p3: ['m_002'] },
+    既定のチーフ倍率: 2,
+  };
+  const 付いている = () => page.$$eval('table.subs-grid input:checked',
+    (els) => els.map((e) => e.dataset.plan + '|' + e.dataset.member).sort());
+  const 保存の知らせ = () => page.$eval('#saveMsg', (el) => el.textContent);
+
+  await page.goto(元 + '/teire-subs.html');
+  await page.waitForSelector('table.subs-grid', { timeout: 15000 });
+  const 列の馬 = await page.$$eval('table.subs-grid thead th:not(.rowhead)', (els) => els.map((e) => e.firstChild.textContent));
+  確かめる('いちばん後ろの期間（後期）がある馬だけ並ぶ', JSON.stringify(列の馬) === JSON.stringify(['北叡', '北冴']), JSON.stringify(列の馬));
+  確かめる('その期間が無い馬を知らせる', /北翔/.test(await page.$eval('#termNote', (el) => el.textContent)));
+  確かめる('保存ずみのサブにチェックが付く', JSON.stringify(await 付いている()) === JSON.stringify(['p1|m_001', 'p1|m_002']), JSON.stringify(await 付いている()));
+  確かめる('チーフの印が出る', !!(await page.$('[data-cell="p1|m_001"] .tag')));
+  確かめる('サブが0人の馬を知らせる', /0人/.test(await page.$eval('[data-colinfo="p2"]', (el) => el.textContent)));
+
+  模擬.呼ばれた = [];
+  await page.click('#saveBtn');
+  確かめる('変えていなければ送らずに知らせる',
+    !模擬.呼ばれた.some((x) => /chiefSaveSubsBulk/.test(x)) && /変えたところがありません/.test(await 保存の知らせ()));
+
+  // 北叡から相棒を外し、北冴に美浦を入れる（外すので確かめの窓が出る → 8.5 で付けた dialog が受ける）
+  await page.click('input[data-plan="p1"][data-member="m_002"]');
+  await page.click('input[data-plan="p2"][data-member="m_001"]');
+  確かめる('直したマスに印が付く', (await page.$$('td.changed')).length === 2);
+  確かめる('保存していない馬を知らせる', /北叡、北冴/.test(await page.$eval('#dirtyText', (el) => el.textContent)));
+  await page.click('#saveBtn');
+  await page.waitForFunction(() => /保存しました/.test(document.getElementById('saveMsg').textContent), { timeout: 15000 });
+  確かめる('変えた2頭ぶんを1回で送る',
+    JSON.stringify(模擬.まとめて保存) === JSON.stringify({ p1: ['m_001'], p2: ['m_001'] }), JSON.stringify(模擬.まとめて保存));
+  確かめる('送信は1回', 模擬.呼ばれた.filter((x) => x === '当番 chiefSaveSubsBulk').length === 1, JSON.stringify(模擬.呼ばれた));
+  確かめる('保存したら直した印が消える', (await page.$$('td.changed')).length === 0);
+  確かめる('保存したぶんがチェックに残る', JSON.stringify(await 付いている()) === JSON.stringify(['p1|m_001', 'p2|m_001']), JSON.stringify(await 付いている()));
+
+  await page.select('#termSelect', '前期');
+  確かめる('期間を切り替えると、その期間の馬とサブになる', JSON.stringify(await 付いている()) === JSON.stringify(['p3|m_002']), JSON.stringify(await 付いている()));
+
+  // ---------- 8.7 休み（副将）：バイトはバイト先ごとのカレンダーで入れる ----------
+  console.log('\n== 休み副将：バイトのカレンダー ==');
+  await page.goto(元 + '/yasumi-admin.html');
+  await page.waitForSelector('#pw', { timeout: 15000 });
+  await page.type('#pw', 'testtest');
+  await page.click('#loginBtn');
+  await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 15000 });
+  await page.click('[data-tab="baito"]');
+  確かめる('バイトのタブが開く', await page.$eval('#tab-baito', (el) => el.style.display !== 'none'));
+  確かめる('休みを入れるタブにバイトは出ない',
+    !(await page.$$eval('#addKind option', (els) => els.map((e) => e.textContent))).includes('バイト'),
+    JSON.stringify(await page.$$eval('#addKind option', (els) => els.map((e) => e.textContent))));
+
+  // バイト先を作る（決めるのは名前だけ）
+  await page.type('#baitoNew', 'フロンテア');
+  await page.click('#baitoAddJob');
+  await page.waitForFunction(() => document.getElementById('baitoCalCard').style.display === 'block', { timeout: 15000 });
+  確かめる('名前だけでバイトを作れる', 模擬.baito.jobs.length === 1 && 模擬.baito.jobs[0].name === 'フロンテア',
+    JSON.stringify(模擬.baito.jobs));
+  確かめる('作るとカレンダーと回数が出る',
+    (await page.$eval('#baitoCountCard', (el) => el.style.display)) === 'block');
+
+  // 日を押して、名前を打って入れる
+  await page.click('[data-day="2030-09-20"]');
+  await page.waitForFunction(() => document.getElementById('baitoDay').style.display === 'block', { timeout: 15000 });
+  確かめる('名前は打ち込んで絞り込める（候補つき）',
+    (await page.$eval('#baitoWho', (el) => el.getAttribute('list'))) === 'baitoMembers'
+    && (await page.$$eval('#baitoMembers option', (els) => els.length)) === 2);
+  await page.type('#baitoWho', '美浦');
+  await page.click('#baitoAddWho');
+  await page.waitForFunction(() => /入れました/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
+  確かめる('その日に人が入る', 模擬.baito.割当.length === 1 && 模擬.baito.割当[0].date === '2030-09-20',
+    JSON.stringify(模擬.baito.割当));
+  確かめる('カレンダーの枠に名前が出る',
+    (await page.$eval('[data-day="2030-09-20"]', (el) => el.textContent)).indexOf('美浦') >= 0);
+
+  // 名簿に無い名前は弾く
+  await page.$eval('#baitoWho', (el) => { el.value = 'いない人'; });
+  await page.click('#baitoAddWho');
+  await page.waitForFunction(() => /名簿にありません/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
+  確かめる('名簿に無い名前はその場で断る', 模擬.baito.割当.length === 1);
+
+  // 回数（副将だけが見る）
+  確かめる('過ぎた日のぶんが回数に出る',
+    (await page.$eval('#baitoCountTable', (el) => el.textContent)).indexOf('相棒') >= 0);
+  await page.$eval('.baito-adj[data-who="m_001"]', (el) => { el.value = '5'; });
+  await page.click('[data-savecount="m_001"]');
+  await page.waitForFunction(() => /直しました/.test(document.getElementById('baitoCountMsg').textContent), { timeout: 15000 });
+  確かめる('手で足したぶんが保存される', 模擬.baito.調整.m_001 === 5, JSON.stringify(模擬.baito.調整));
+  確かめる('回数は 入っているぶん＋手で足したぶん',
+    (await page.$eval('#baitoCountTable tr:nth-child(2)', (el) => el.textContent)).indexOf('5') >= 0);
+
+  // 外す
+  await page.click('[data-off]');
+  await page.waitForFunction(() => document.querySelectorAll('#baitoDayList [data-off]').length === 0, { timeout: 15000 });
+  確かめる('その日のその人を外せる', 模擬.baito.割当.length === 0);
 
   確かめる('画面でエラーが起きていない', 画面のエラー.length === 0, 画面のエラー.join(' / '));
 

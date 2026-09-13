@@ -377,7 +377,7 @@ $('calGrid').addEventListener('click', (e) => {
     (l.state === '申請中' || l.state === '承認') && l.from <= key && key <= l.to)[0];
   if (出してある) {
     return 知らせ('formMsg', 'warning',
-      和風(key) + ' は、すでに「' + 出してある.kind + '」で出してあります（' + 出してある.state + '）。'
+      和風(key) + ' は、すでに「' + (出してある.label || 出してある.kind) + '」で出してあります（' + 出してある.state + '）。'
       + '取り消すときは下の「出したもの」から。');
   }
 
@@ -436,7 +436,7 @@ function 自分のぶんを出す() {
     return '<div class="mine-item">' +
       '<span class="when">' + 和風(l.from) + (l.to !== l.from ? '〜' + 和風(l.to) : '') +
         ' <span class="muted">' + l.days + '日</span></span>' +
-      '<span>' + esc(l.kind) + '</span>' +
+      '<span>' + esc(l.label || l.kind) + '</span>' +   // バイトはバイト先の名前で出す
       '<span class="state ' + (状態クラス[l.state] || '') + '">' + esc(l.state) + '</span>' +
       (l.memo ? '<span class="muted">副将より：' + esc(l.memo) + '</span>' : '') +
       (消せる ? '<button type="button" class="secondary small" data-cancel="' + l.id + '">取り消す</button>' : '') +

@@ -776,7 +776,13 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
     <path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>
     <path d="M8.2 14.6l2 2 4-4.4"/>
   </g>
-  <g id="i-duty-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <!-- サブをまとめて直す＝縦横のマスに印。手入れをまとめる（カレンダー）と見分けがつく -->
+  <g id="i-care-subs" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="3.5" width="19" height="17" rx="2"/>
+    <path d="M2.5 9h19M2.5 14.5h19M8.5 3.5v17"/>
+    <path d="M11.5 12l1.4 1.4 2.6-2.8M11.5 17.6l1.4 1.4 2.6-2.8"/>
+  </g>
+  <g id="i-duty-make"fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
     <path d="M2.5 9.5h19M2.5 14.5h19M12 9.5v10"/>
     <path d="M6 2.5v4M18 2.5v4"/>
@@ -960,6 +966,13 @@ const HUB = {
             "説明": "担当する馬のサブと期間を決めて、手入れ表を作ります。",
             "印": "care-make",
             "鍵": "チーフパスワード"
+          },
+          {
+            "url": "teire-subs.html",
+            "題": "手入れのサブをまとめて直す",
+            "説明": "期間を1つ選んで、全部の馬のサブを1つの表で入れ替えます。",
+            "印": "care-subs",
+            "鍵": "チーフパスワード"
           }
         ]
       }
@@ -1015,6 +1028,13 @@ const HUB = {
             "題": "手入れをまとめる",
             "説明": "担当する馬のサブと期間を決めて、手入れ表を作ります。",
             "印": "care-make",
+            "鍵": "チーフパスワード"
+          },
+          {
+            "url": "teire-subs.html",
+            "題": "手入れのサブをまとめて直す",
+            "説明": "期間を1つ選んで、全部の馬のサブを1つの表で入れ替えます。",
+            "印": "care-subs",
             "鍵": "チーフパスワード"
           },
           {
@@ -1232,7 +1252,8 @@ const API = {
     ((t && t.休み) || []).forEach((l) => {
       日々.forEach((d) => {
         if (d >= l.from && d <= (l.to || l.from)) {
-          入れる(d, { 種類: '休み', 本文: l.kind + (l.state === '申請中' ? '（了承待ち）' : '') });
+          // バイトはバイト先の名前で出す（部員には「バイト」と書かない）
+          入れる(d, { 種類: '休み', 本文: (l.label || l.kind) + (l.state === '申請中' ? '（了承待ち）' : '') });
         }
       });
     });
@@ -1460,8 +1481,8 @@ const API = {
   */
   const カレンダーの節 = 節('カレンダー',
     '<div class="me-cal">' +
-      '<a class="care" href="calendar.html?tab=teire">手入れカレンダー<span class="d">どの日に誰がどの馬の手入れか</span></a>' +
-      '<a class="off" href="calendar.html?tab=yasumi">休みカレンダー<span class="d">みんなの有給・季節休み・バイト</span></a>' +
+      '<a class="off" href="calendar.html?tab=cal">カレンダー<span class="d">みんなの休み・バイト・大会</span></a>' +
+      '<a class="care" href="calendar.html?tab=teire">手入れ予定<span class="d">どの日に誰がどの馬の手入れか</span></a>' +
     '</div>');
 
   // 検査用。画面では使わない（画面は 描く のほうを通る）

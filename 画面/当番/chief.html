@@ -114,6 +114,10 @@
       <div class="card">
         <h2>3. サブ</h2>
         <div id="subSummary"></div>
+        <p class="hint">
+          ほかの馬もいっしょに入れ替えるときは
+          <a id="bulkSubsLink" href="teire-subs.html">全部の馬のサブを1つの表で直す</a>。
+        </p>
         <details class="fold" id="subFold">
           <summary>サブを変更する</summary>
           <div class="fold-body">
@@ -219,16 +223,30 @@ function call(fn) {
 
 const 名 = (id) => { const m = BASE.members.filter((x) => x.id === id)[0]; return m ? m.name : '（消えた人）'; };
 
+// サブをまとめて直す画面と行き来するたびにパスワードを聞かないよう、同じタブのあいだだけ覚えておく
+const トークンの鍵 = 'teire:chiefToken';
+const 覚える = (t) => { try { sessionStorage.setItem(トークンの鍵, t); } catch (e) { /* 覚えられなくても入り直せば使える */ } };
+const 思い出す = () => { try { return sessionStorage.getItem(トークンの鍵) || ''; } catch (e) { return ''; } };
+
 // ===================== ログイン =====================
 
 (async () => {
   try {
     const meta = await call('chiefMeta');
     if (meta.要パスワード) {
+      const t = 思い出す();
+      if (t) {
+        try {
+          const base = await call('chiefLoadAll', t);
+          TOKEN = t;
+          return void await 始める(base);
+        } catch (e) { /* 期限が切れていたら、パスワードを入れ直してもらう */ }
+      }
       $('loginCard').style.display = 'block';
     } else {
       const 入った = await call('loginChiefAndLoad', '');
       TOKEN = 入った.token;
+      覚える(TOKEN);
       await 始める(入った.base);
     }
   } catch (e) {
@@ -242,6 +260,7 @@ $('loginBtn').addEventListener('click', async () => {
     // ログインと最初の読み込みを1往復で済ませる
     const 入った = await call('loginChiefAndLoad', $('pw').value);
     TOKEN = 入った.token;
+    覚える(TOKEN);
     $('loginCard').style.display = 'none';
     await 始める(入った.base);
   } catch (e) { msgIn('loginMsg', 'error', (e && e.message) || e); }
@@ -449,6 +468,7 @@ async function openPlan(planId) {
 
 function renderPlanSettings() {
   $('planTitle').textContent = (P.horse ? P.horse.name : '?') + '　' + P.plan.term;
+  $('bulkSubsLink').href = 'teire-subs.html?term=' + encodeURIComponent(P.plan.term);
   $('planPeriod').textContent = P.plan.mode === 'カレンダー'
     ? P.plan.from + ' 〜 ' + P.plan.to + '（' + P.keys.length + '日）'
     : '曜日ごと（毎週おなじ担当）';

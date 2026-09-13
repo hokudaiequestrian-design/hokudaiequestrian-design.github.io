@@ -155,7 +155,8 @@
     ((t && t.休み) || []).forEach((l) => {
       日々.forEach((d) => {
         if (d >= l.from && d <= (l.to || l.from)) {
-          入れる(d, { 種類: '休み', 本文: l.kind + (l.state === '申請中' ? '（了承待ち）' : '') });
+          // バイトはバイト先の名前で出す（部員には「バイト」と書かない）
+          入れる(d, { 種類: '休み', 本文: (l.label || l.kind) + (l.state === '申請中' ? '（了承待ち）' : '') });
         }
       });
     });
@@ -383,8 +384,8 @@
   */
   const カレンダーの節 = 節('カレンダー',
     '<div class="me-cal">' +
-      '<a class="care" href="calendar.html?tab=teire">手入れカレンダー<span class="d">どの日に誰がどの馬の手入れか</span></a>' +
-      '<a class="off" href="calendar.html?tab=yasumi">休みカレンダー<span class="d">みんなの有給・季節休み・バイト</span></a>' +
+      '<a class="off" href="calendar.html?tab=cal">カレンダー<span class="d">みんなの休み・バイト・大会</span></a>' +
+      '<a class="care" href="calendar.html?tab=teire">手入れ予定<span class="d">どの日に誰がどの馬の手入れか</span></a>' +
     '</div>');
 
   // 検査用。画面では使わない（画面は 描く のほうを通る）

@@ -550,7 +550,9 @@ const 節 = M.節々(t, jm, [], false);
 // みんなのカレンダーの枠（2026-09-13）
 const カレンダー枠 = 節.filter((s) => s.id === 'meCal')[0].html;
 確かめる('カレンダーの枠に手入れと休みの入口がある',
-  カレンダー枠.indexOf('calendar.html?tab=teire') > 0 && カレンダー枠.indexOf('calendar.html?tab=yasumi') > 0 && カレンダー枠.indexOf('>カレンダー<') > 0,
+  // 2026-09-13 「休みカレンダー」を「カレンダー」（tab=cal）、「手入れカレンダー」を「手入れ予定」に名前を変えた
+  カレンダー枠.indexOf('calendar.html?tab=teire') > 0 && カレンダー枠.indexOf('calendar.html?tab=cal') > 0 &&
+    カレンダー枠.indexOf('>カレンダー<') > 0 && カレンダー枠.indexOf('手入れ予定') > 0,
   カレンダー枠.slice(0, 120));
 
 M.描く(t, jm, [], false);
@@ -593,7 +595,7 @@ delete 覚え箱['mypage:出したところ'];
 見出し('組み立てたページ：マイページに戻る');
 const docs = path.join(__dirname, '..', 'docs');
 const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
-確かめる('中のページが9つある（カレンダーを足した）', 中のページ.length === 9, 中のページ.join(','));
+確かめる('中のページが10ある（カレンダーと、サブをまとめて直すを足した）', 中のページ.length === 10, 中のページ.join(','));
 中のページ.forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];

@@ -5,9 +5,11 @@
 <?!= include('style') ?>
 <style>
 /*
-  みんなのカレンダー（2026-09-13）。できた手入れ表と、みんなの休みを月ごとに見るだけの画面。
-  1か月を「日ごとの行」で縦に並べる。手入れは1日に馬の数だけ名前が並ぶので、
-  7列のマス目にするとスマホでは読めない。マイページの「これからの1週間」と同じ並べ方にそろえた。
+  みんなのカレンダー（2026-09-13）。月ごとに見るだけの画面で、タブが2つ。
+    カレンダー … 左に部員の名前、横に日付の表。休み（有給・季節休み・バイト）と大会（出る日）を入れる
+                 （2026-09-13 ユーザーの指示で「休みカレンダー」から表の形・名前を変えた）
+    手入れ予定 … チーフが組んだ手入れ表を、日ごとの行で縦に並べる（1日に馬の数だけ名前が並ぶため）
+  大会がある日は、どちらのタブでも枠の色を少し変える（2026-09-13 ユーザーの指示）。
 */
 .cal-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin: var(--space-sm) 0; }
 .cal-head h2 { margin: 0; font-size: var(--text-md); min-width: 8em; text-align: center; font-variant-numeric: tabular-nums; }
@@ -16,20 +18,49 @@
 .cal-filter select { width: auto; min-width: 10em; }
 .cal-filter label.inline { display: inline-flex; align-items: center; gap: var(--space-2xs); min-height: var(--tap); margin: 0; }
 
+/* 大会がある日の色。休みの札（白地に枠）とぶつからない、うすい緑 */
+:root { --meet-soft: var(--care-soft); --meet-rule: var(--care); }
+
+/* ----- カレンダー（部員×日付の表） ----- */
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-md); font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-sm); }
+.legend .sw { display: inline-block; width: 1.1em; height: 1.1em; vertical-align: -0.15em; border: 1px solid var(--meet-rule); background: var(--meet-soft); border-radius: 3px; margin-right: 4px; }
+.grid-wrap { overflow: auto; max-height: 75vh; border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); }
+table.grid { border-collapse: separate; border-spacing: 0; font-size: var(--text-sm); }
+table.grid th, table.grid td { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 0; text-align: center; }
+table.grid thead th { position: sticky; top: 0; z-index: 2; background: var(--paper-sunken); font-weight: 700; min-width: 2.4em; padding: 2px 0; line-height: 1.25; font-variant-numeric: tabular-nums; }
+table.grid thead th .w { display: block; font-size: var(--text-xs); font-weight: 400; }
+table.grid thead th.sat { color: var(--accent-dark); }
+table.grid thead th.sun { color: var(--danger); }
+table.grid th.name { position: sticky; left: 0; z-index: 1; background: var(--paper-2); text-align: left; padding: 0 var(--space-xs); white-space: nowrap; font-weight: 400; min-width: 6em; }
+table.grid thead th.name { z-index: 3; background: var(--paper-sunken); }
+table.grid td { height: 2.2em; min-width: 2.4em; }
+table.grid .meet { background: var(--meet-soft); }
+table.grid thead th.meet { background: var(--meet-soft); box-shadow: inset 0 -3px 0 var(--meet-rule); }
+table.grid .today { box-shadow: inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+table.grid tr.me th.name { font-weight: 700; background: var(--warning-soft); }
+table.grid tr.me td { background-image: linear-gradient(var(--warning-soft), var(--warning-soft)); }
+table.grid tr.me td.meet { background-image: none; }
+.tag { display: inline-block; min-width: 1.6em; padding: 0 3px; border: 1px solid var(--rule-strong); border-radius: 4px; background: var(--paper-2); font-weight: 700; line-height: 1.5; }
+.tag.off { color: var(--warning); border-color: var(--warning); }
+.tag.job { color: var(--danger); border-color: var(--danger); }
+.tag.meet { color: var(--care-dark); border-color: var(--care); }
+.tag.wait { border-style: dashed; font-weight: 400; }
+
+/* ----- 手入れ予定（日ごとの行） ----- */
 .cal-days { border-top: 1px solid var(--rule-strong); }
-.cal-day { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--rule); }
+.cal-day { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-xs) var(--space-2xs); border-bottom: 1px solid var(--rule); }
 .cal-day .d { font-weight: 700; font-variant-numeric: tabular-nums; }
 .cal-day .d .now { display: inline-block; margin-left: var(--space-2xs); padding: 0 var(--space-xs); border-radius: var(--radius-pill); background: var(--accent); color: #fff; font-size: var(--text-xs); }
+.cal-day .d .ev { display: block; font-weight: 400; font-size: var(--text-xs); color: var(--care-dark); }
 .cal-day.sat .d { color: var(--accent-dark); }
 .cal-day.sun .d { color: var(--danger); }
-.cal-day.today { background: var(--accent-soft); }
+.cal-day.meet { background: var(--meet-soft); border-left: 4px solid var(--meet-rule); }
+.cal-day.today { box-shadow: inset 0 0 0 2px var(--accent); }
 .cal-day .x { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-sm); align-items: baseline; }
 .cal-day .none { color: var(--muted); font-size: var(--text-sm); }
 .cal-item { display: inline-flex; gap: var(--space-2xs); align-items: baseline; }
 .cal-item .h { font-weight: 700; }
-.cal-item .k { font-size: var(--text-xs); border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); padding: 0 var(--space-xs); color: var(--muted); }
 .cal-item.mine { background: var(--warning-soft); outline: 2px solid var(--warning); border-radius: 4px; padding: 0 var(--space-2xs); }
-.cal-item.wait .k { border-style: dashed; }
 
 .week-wrap { overflow-x: auto; }
 table.week { border-collapse: collapse; min-width: 36rem; width: 100%; font-size: var(--text-sm); }
@@ -41,11 +72,11 @@ table.week th { background: var(--paper-sunken); }
 <div id="busy">通信中です…</div>
 <header class="appbar"><span>カレンダー</span></header>
 
-<main>
+<main class="wide">
   <div class="card">
-    <div class="tabs" role="tablist" aria-label="見るカレンダー">
-      <button type="button" data-tab="teire" class="active" role="tab" aria-selected="true">手入れカレンダー</button>
-      <button type="button" data-tab="yasumi" role="tab" aria-selected="false">休みカレンダー</button>
+    <div class="tabs" role="tablist" aria-label="見るもの">
+      <button type="button" data-tab="cal" class="active" role="tab" aria-selected="true">カレンダー</button>
+      <button type="button" data-tab="teire" role="tab" aria-selected="false">手入れ予定</button>
     </div>
 
     <div class="cal-head">
@@ -56,21 +87,24 @@ table.week th { background: var(--paper-sunken); }
       <button type="button" class="secondary small" id="thisMonth">今月</button>
     </div>
 
-    <div class="cal-filter" id="teireFilter">
+    <div class="cal-filter" id="calFilter">
+      <label class="inline"><input type="checkbox" id="onlyBusy"> 予定がある人だけ</label>
+    </div>
+    <div class="cal-filter" id="teireFilter" style="display:none;">
       <label for="horseSelect" class="inline">馬
         <select id="horseSelect"><option value="">すべての馬</option></select>
       </label>
       <label class="inline"><input type="checkbox" id="onlyMe"> 自分のぶんだけ</label>
     </div>
-    <p class="hint" id="tabHint"></p>
+    <p class="legend" id="legend"></p>
 
     <div id="msg" role="status" aria-live="polite"></div>
-    <div class="cal-days" id="days"></div>
+    <div id="view"></div>
   </div>
 
   <div class="card" id="weeklyCard" style="display:none;">
     <h2>毎週決まっている手入れ</h2>
-    <p class="hint">曜日で組んだ手入れ表です。日付が無いので、上のカレンダーには出ません。</p>
+    <p class="hint">曜日で組んだ手入れ表です。日付が無いので、上の手入れ予定には出ません。</p>
     <div id="weekly"></div>
   </div>
 </main>
@@ -97,6 +131,8 @@ function call(fn) {
 }
 
 const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
+// 表のマスは狭いので1文字の札にする（凡例と、マスの title で正式な名前を出す）
+const 札 = { 有給休暇: '有', 季節休み: '季', バイト: 'バ' };
 const 覚え = {
   取る(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
   置く(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* いっぱいなら諦める */ } },
@@ -104,18 +140,14 @@ const 覚え = {
 const 私の名前 = () => { try { return localStorage.getItem('me') || ''; } catch (e) { return ''; } };
 function URLの(名) { try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; } }
 
-// 日本の今月（端末の時計で）。サーバから届いたら、その「今日」に合わせ直す
-function 今月() {
-  const d = new Date(Date.now() + 9 * 3600 * 1000);
-  return d.toISOString().slice(0, 7);
-}
+function 今月() { return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7); }
 function 月をずらす(月, n) {
   const p = 月.split('-').map(Number);
-  const d = new Date(Date.UTC(p[0], p[1] - 1 + n, 1));
-  return d.toISOString().slice(0, 7);
+  return new Date(Date.UTC(p[0], p[1] - 1 + n, 1)).toISOString().slice(0, 7);
 }
 
-let 見ている = { tab: URLの('tab') === 'yasumi' ? 'yasumi' : 'teire', 月: /^\d{4}-\d{2}$/.test(URLの('month')) ? URLの('month') : 今月() };
+// tab=teire なら手入れ予定。それ以外（cal・前の名前の yasumi）はカレンダー
+let 見ている = { tab: URLの('tab') === 'teire' ? 'teire' : 'cal', 月: /^\d{4}-\d{2}$/.test(URLの('month')) ? URLの('month') : 今月() };
 let 中身 = null;
 let 読む番 = 0;
 
@@ -126,13 +158,23 @@ function 日の並び(d) {
   for (let i = 1; i <= 末; i++) {
     const key = p[0] + '-' + String(p[1]).padStart(2, '0') + '-' + String(i).padStart(2, '0');
     const 曜 = new Date(Date.UTC(p[0], p[1] - 1, i)).getUTCDay();
-    out.push({ key: key, label: p[1] + '/' + i + '（' + 曜日名[曜] + '）', 曜: 曜 });
+    out.push({ key: key, 日: i, label: p[1] + '/' + i + '（' + 曜日名[曜] + '）', 曜: 曜 });
   }
   return out;
 }
 
-function 描く() {
-  const d = 中身;
+// 大会がある日 → その日の大会の名前
+// 大会の日はサーバが「期間、無ければ競技と仕事の日付」で数えて 日 に入れて返す（期間の無い大会もあるため）
+function 大会の日(d) {
+  const 表 = {};
+  (d.大会 || []).forEach((ev) => {
+    const 日 = ev.日 && ev.日.length ? ev.日 : 日の並び(d).map((day) => day.key).filter((k) => ev.from && k >= ev.from && k <= (ev.to || ev.from));
+    日.forEach((k) => { (表[k] = 表[k] || []).push(ev.name); });
+  });
+  return 表;
+}
+
+function タブを描く() {
   document.querySelectorAll('.tabs button').forEach((b) => {
     const on = b.dataset.tab === 見ている.tab;
     b.classList.toggle('active', on);
@@ -141,71 +183,133 @@ function 描く() {
   const p = 見ている.月.split('-');
   $('monthTitle').textContent = p[0] + '年' + Number(p[1]) + '月';
   const 手入れ = 見ている.tab === 'teire';
+  $('calFilter').style.display = 手入れ ? 'none' : 'flex';
   $('teireFilter').style.display = 手入れ ? 'flex' : 'none';
-  $('tabHint').textContent = 手入れ
-    ? 'チーフが組んだ手入れ表です。黄色の枠が自分のぶんです（マイページで選んだ名前）。'
-    : '了承ずみと了承待ちの休みです。点線の札は了承待ち。黄色の枠が自分のぶんです。';
-  if (!d) { $('days').innerHTML = '<p class="muted" style="padding:var(--space-sm) 0;">読み込んでいます…</p>'; $('weeklyCard').style.display = 'none'; return; }
+  $('legend').innerHTML = 手入れ
+    ? '<span>チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span><span><i class="sw"></i>大会がある日</span>'
+    : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span><span><b class="tag job">バ</b> バイト</span>' +
+      '<span><b class="tag meet">大</b> 大会に出る</span><span><b class="tag off wait">有</b> 点線は了承待ち</span><span><i class="sw"></i>大会がある日</span>';
+}
 
-  // 馬の選ぶ欄。選んでいた馬は残す
+function 描く() {
+  タブを描く();
+  const d = 中身;
+  if (!d) {
+    $('view').innerHTML = '<p class="muted" style="padding:var(--space-sm) 0;">読み込んでいます…</p>';
+    $('weeklyCard').style.display = 'none';
+    return;
+  }
+  if (見ている.tab === 'teire') 手入れ予定を描く(d);
+  else カレンダーを描く(d);
+
+  const 困った = [];
+  if (見ている.tab === 'cal' && d.休みを読めた === false) 困った.push('休みを読めませんでした。');
+  if (見ている.tab === 'cal' && d.大会を読めた === false) 困った.push('大会を読めませんでした。');
+  $('msg').innerHTML = 困った.length ? '<div class="msg warning">' + esc(困った.join(' ')) + '</div>' : '';
+}
+
+/* ---------- カレンダー：左に名前、横に日付 ---------- */
+function カレンダーを描く(d) {
+  $('weeklyCard').style.display = 'none';
+  const 日々 = 日の並び(d);
+  const 大会 = 大会の日(d);
+  const 私 = 私の名前();
+
+  // 名前ごと・日ごとのマス。休みは期間なので、またぐ日すべてに置く
+  const マス = {};
+  const 置く = (名前, key, html, 題) => {
+    const 行 = (マス[名前] = マス[名前] || {});
+    (行[key] = 行[key] || []).push({ html: html, 題: 題 });
+  };
+  (d.休み || []).forEach((l) => {
+    日々.forEach((day) => {
+      if (day.key < l.from || day.key > (l.to || l.from)) return;
+      const 待ち = l.state === '申請中';
+      置く(l.名前, day.key,
+        '<b class="tag ' + (l.kind === 'バイト' ? 'job' : 'off') + (待ち ? ' wait' : '') + '">' + esc(札[l.kind] || l.kind.slice(0, 1)) + '</b>',
+        (l.label || l.kind) + (待ち ? '（了承待ち）' : ''));   // バイトはバイト先の名前で出す
+    });
+  });
+  (d.大会に出る || []).forEach((x) => {
+    置く(x.名前, x.date, '<b class="tag meet">大</b>', x.大会 + 'に出る');
+  });
+
+  // 行の並び：当番・手入れの名簿の順。名簿に無いが予定がある人（4年生など）は後ろに足す
+  const 名前たち = (d.部員 || []).map((m) => m.name);
+  Object.keys(マス).forEach((n) => { if (名前たち.indexOf(n) < 0) 名前たち.push(n); });
+  const 並べる = $('onlyBusy').checked ? 名前たち.filter((n) => マス[n]) : 名前たち;
+
+  const 列の印 = (day) => (大会[day.key] ? ' meet' : '') + (day.key === d.今日 ? ' today' : '');
+  const 見出し = '<tr><th class="name" scope="col">名前</th>' + 日々.map((day) =>
+    '<th scope="col" class="' + (day.曜 === 6 ? 'sat' : day.曜 === 0 ? 'sun' : '') + 列の印(day) + '"' +
+    (大会[day.key] ? ' title="' + esc(大会[day.key].join('・')) + '"' : '') + '>' +
+    day.日 + '<span class="w">' + 曜日名[day.曜] + '</span></th>').join('') + '</tr>';
+
+  const 行 = 並べる.map((名前) => '<tr' + (名前 === 私 ? ' class="me"' : '') + '><th class="name" scope="row">' + esc(名前) + '</th>' +
+    日々.map((day) => {
+      const 中 = ((マス[名前] || {})[day.key]) || [];
+      return '<td class="' + 列の印(day).trim() + '"' +
+        (中.length ? ' title="' + esc(名前 + ' ' + day.label + ' ' + 中.map((x) => x.題).join('・')) + '"' : '') + '>' +
+        中.map((x) => x.html).join('') + '</td>';
+    }).join('') + '</tr>').join('');
+
+  $('view').innerHTML = 並べる.length
+    ? '<div class="grid-wrap"><table class="grid"><thead>' + 見出し + '</thead><tbody>' + 行 + '</tbody></table></div>'
+    : '<p class="muted" style="padding:var(--space-sm) 0;">この月に予定がある人はいません。</p>';
+
+  // 今日の列が見えるところまで横に送る（月のなかばを開いたとき、1日から探さなくて済むように）
+  const 今日の列 = document.querySelector('table.grid thead th.today');
+  const 枠 = document.querySelector('.grid-wrap');
+  if (今日の列 && 枠) 枠.scrollLeft = Math.max(0, 今日の列.offsetLeft - 枠.clientWidth / 2);
+}
+
+/* ---------- 手入れ予定：日ごとの行 ---------- */
+function 手入れ予定を描く(d) {
+  const 大会 = 大会の日(d);
   const 選んだ馬 = $('horseSelect').value;
-  const 馬たち = d.馬.slice();
-  d.手入れ.concat(d.毎週).forEach((x) => { if (馬たち.indexOf(x.馬) < 0) 馬たち.push(x.馬); });
+  const 馬たち = (d.馬 || []).slice();
+  (d.手入れ || []).concat(d.毎週 || []).forEach((x) => { if (馬たち.indexOf(x.馬) < 0) 馬たち.push(x.馬); });
   $('horseSelect').innerHTML = '<option value="">すべての馬</option>' + 馬たち.map((h) => '<option' + (h === 選んだ馬 ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
 
   const 私 = 私の名前();
   const 自分だけ = $('onlyMe').checked && !!私;
   const 表 = {};
-  if (手入れ) {
-    d.手入れ.forEach((x) => {
-      if (選んだ馬 && x.馬 !== 選んだ馬) return;
-      if (自分だけ && x.名前 !== 私) return;
-      (表[x.date] = 表[x.date] || []).push(
-        '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '"><span class="h">' + esc(x.馬) + '</span>' + esc(x.名前) + '</span>');
-    });
-  } else {
-    d.休み.forEach((l) => {
-      日の並び(d).forEach((day) => {
-        if (day.key < l.from || day.key > (l.to || l.from)) return;
-        (表[day.key] = 表[day.key] || []).push(
-          '<span class="cal-item' + (l.名前 === 私 ? ' mine' : '') + (l.state === '申請中' ? ' wait' : '') + '">' + esc(l.名前) +
-          '<span class="k">' + esc(l.kind) + (l.state === '申請中' ? '・了承待ち' : '') + '</span></span>');
-      });
-    });
-  }
+  (d.手入れ || []).forEach((x) => {
+    if (選んだ馬 && x.馬 !== 選んだ馬) return;
+    if (自分だけ && x.名前 !== 私) return;
+    (表[x.date] = 表[x.date] || []).push(
+      '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '"><span class="h">' + esc(x.馬) + '</span>' + esc(x.名前) + '</span>');
+  });
 
-  $('days').innerHTML = 日の並び(d).map((day) => {
+  $('view').innerHTML = '<div class="cal-days">' + 日の並び(d).map((day) => {
     const 今日 = day.key === d.今日;
-    return '<div class="cal-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') + (今日 ? ' today' : '') + '">' +
-      '<div class="d">' + esc(day.label) + (今日 ? '<span class="now">今日</span>' : '') + '</div>' +
+    return '<div class="cal-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') + (大会[day.key] ? ' meet' : '') + (今日 ? ' today' : '') + '">' +
+      '<div class="d">' + esc(day.label) + (今日 ? '<span class="now">今日</span>' : '') +
+        (大会[day.key] ? '<span class="ev">' + esc(大会[day.key].join('・')) + '</span>' : '') + '</div>' +
       '<div class="x">' + ((表[day.key] || []).join('') || '<span class="none">なし</span>') + '</div></div>';
-  }).join('');
-
-  if (!手入れ && !d.休みを読めた) $('msg').innerHTML = '<div class="msg warning">休みを読めませんでした。</div>';
-  else if ($('msg').dataset.keep !== '1') $('msg').innerHTML = '';
+  }).join('') + '</div>';
 
   // 毎週決まっている手入れ（曜日方式）。期間の名前ごとに、馬×曜日の表にする
-  const 毎週 = d.毎週.filter((x) => (!選んだ馬 || x.馬 === 選んだ馬) && (!自分だけ || x.名前 === 私));
-  $('weeklyCard').style.display = 手入れ && 毎週.length ? 'block' : 'none';
-  if (手入れ && 毎週.length) {
-    const 週の曜日 = ['月', '火', '水', '木', '金', '土', '日'];
-    const 期間たち = [];
-    毎週.forEach((x) => { if (期間たち.indexOf(x.期間) < 0) 期間たち.push(x.期間); });
-    $('weekly').innerHTML = 期間たち.map((期間) => {
-      const 行 = 毎週.filter((x) => x.期間 === 期間);
-      const 馬ごと = [];
-      行.forEach((x) => { if (馬ごと.indexOf(x.馬) < 0) 馬ごと.push(x.馬); });
-      return '<h3>' + esc(期間 || '期間の名前なし') + '</h3><div class="week-wrap"><table class="week"><thead><tr><th>馬</th>' +
-        週の曜日.map((w) => '<th>' + w + '</th>').join('') + '</tr></thead><tbody>' +
-        馬ごと.map((h) => '<tr><th>' + esc(h) + '</th>' + 週の曜日.map((w) => '<td>' +
-          行.filter((x) => x.馬 === h && x.曜日 === w).map((x) => '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '">' + esc(x.名前) + '</span>').join('<br>') +
-          '</td>').join('') + '</tr>').join('') +
-        '</tbody></table></div>';
-    }).join('');
-  }
+  const 毎週 = (d.毎週 || []).filter((x) => (!選んだ馬 || x.馬 === 選んだ馬) && (!自分だけ || x.名前 === 私));
+  $('weeklyCard').style.display = 毎週.length ? 'block' : 'none';
+  if (!毎週.length) return;
+  const 週の曜日 = ['月', '火', '水', '木', '金', '土', '日'];
+  const 期間たち = [];
+  毎週.forEach((x) => { if (期間たち.indexOf(x.期間) < 0) 期間たち.push(x.期間); });
+  $('weekly').innerHTML = 期間たち.map((期間) => {
+    const 行 = 毎週.filter((x) => x.期間 === 期間);
+    const 馬ごと = [];
+    行.forEach((x) => { if (馬ごと.indexOf(x.馬) < 0) 馬ごと.push(x.馬); });
+    return '<h3>' + esc(期間 || '期間の名前なし') + '</h3><div class="week-wrap"><table class="week"><thead><tr><th>馬</th>' +
+      週の曜日.map((w) => '<th>' + w + '</th>').join('') + '</tr></thead><tbody>' +
+      馬ごと.map((h) => '<tr><th>' + esc(h) + '</th>' + 週の曜日.map((w) => '<td>' +
+        行.filter((x) => x.馬 === h && x.曜日 === w).map((x) => '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '">' + esc(x.名前) + '</span>').join('<br>') +
+        '</td>').join('') + '</tr>').join('') +
+      '</tbody></table></div>';
+  }).join('');
 }
 
-// 前に見た月の中身を先に出し、届いたら差し替える（Apps Script のころからの待たせない作り）
+// 前に見た月の中身を先に出し、届いたら差し替える
 async function 読む() {
   const 番 = ++読む番;
   const 月 = 見ている.月;
@@ -224,23 +328,23 @@ async function 読む() {
   }
 }
 
-function 月を変える(月) {
-  見ている.月 = 月;
-  try { history.replaceState(null, '', '?tab=' + 見ている.tab + '&month=' + 月); } catch (e) { /* GAS の枠の中では変えられない */ }
-  読む();
+function URLを合わせる() {
+  try { history.replaceState(null, '', '?tab=' + 見ている.tab + '&month=' + 見ている.月); } catch (e) { /* GAS の枠の中では変えられない */ }
 }
+function 月を変える(月) { 見ている.月 = 月; URLを合わせる(); 読む(); }
 
 document.querySelector('.tabs').addEventListener('click', (e) => {
   const b = e.target.closest ? e.target.closest('[data-tab]') : null;
   if (!b) return;
   見ている.tab = b.dataset.tab;
-  try { history.replaceState(null, '', '?tab=' + 見ている.tab + '&month=' + 見ている.月); } catch (err) { /* そのまま */ }
+  URLを合わせる();
   描く();
 });
 $('prevMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, -1)));
 $('nextMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, 1)));
 $('thisMonth').addEventListener('click', () => 月を変える(今月()));
 $('horseSelect').addEventListener('change', 描く);
+$('onlyBusy').addEventListener('change', 描く);
 $('onlyMe').addEventListener('change', () => {
   if ($('onlyMe').checked && !私の名前()) {
     $('onlyMe').checked = false;

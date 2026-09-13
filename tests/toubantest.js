@@ -494,7 +494,7 @@ G.chiefSaveSubs(C, plan1.id, サブ達.map((m) => m.id));
 
 // 1年1：月火が◎、あとは×
 G.submitCareVote(plan1.id, サブ達[0].id, { 月: '◎', 火: '◎', 水: '×', 木: '×', 金: '×', 土: '×', 日: '×' });
-// 1年2：全部○
+// 1年2：全部まる
 G.submitCareVote(plan1.id, サブ達[1].id, { 月: '○', 火: '○', 水: '○', 木: '○', 金: '○', 土: '○', 日: '○' });
 // 2年1：全部×（絶対に入ってはいけない）
 G.submitCareVote(plan1.id, サブ達[2].id, { 月: '×', 火: '×', 水: '×', 木: '×', 金: '×', 土: '×', 日: '×' });
@@ -850,9 +850,14 @@ G.chiefDeletePlan(C, plan1.id);
     JSON.stringify(全リンク(部員).map((l) => l.題)));
 
   確かめる('チーフ用は投票とまとめるで分かれている',
-    チーフ.groups.length === 2 && チーフ.groups[1].links.length === 1,
+    チーフ.groups.length === 2 && チーフ.groups[1].links.length === 2,
     JSON.stringify(チーフ.groups.map((g) => g.links.length)));
-  確かめる('チーフ用のまとめるは手入れだけ', チーフ.groups[1].links[0].url === V.手入れ_チーフ);
+  確かめる('チーフ用のまとめるは手入れと、サブをまとめて直す',
+    チーフ.groups[1].links[0].url === V.手入れ_チーフ && チーフ.groups[1].links[1].url === V.手入れ_サブ,
+    JSON.stringify(チーフ.groups[1].links.map((l) => l.url)));
+  確かめる('サブをまとめて直すのURLが出る', V.手入れ_サブ === 'https://hokudaiequestrian-design.github.io/teire-subs.html', V.手入れ_サブ);
+  確かめる('副将用にもサブをまとめて直すが入る', 副将.groups[1].links.some((l) => l.url === V.手入れ_サブ));
+  確かめる('部員用にサブをまとめて直すは入らない', URLたち(部員).indexOf(V.手入れ_サブ) < 0);
 
   確かめる('副将用も投票とまとめるで分かれている', 副将.groups.length === 2);
   確かめる('副将用のまとめるに当番・手入れ・休みが入る',
@@ -1007,7 +1012,7 @@ const 休_先 = (n) => { const d = new Date(); d.setDate(d.getDate() + n); retur
 
 確かめる('休みのシートができている', !!SHEETS['休み'] && !!SHEETS['有給付与']);
 確かめる('休みの列がそろっている',
-  G.SCHEMA['休み'].join(',') === 'ID,種類,部員ID,開始日,終了日,日数,状態,理由,申請日時,決めた日時,副将メモ',
+  G.SCHEMA['休み'].join(',') === 'ID,種類,部員ID,開始日,終了日,日数,状態,理由,申請日時,決めた日時,副将メモ,バイトID',
   G.SCHEMA['休み'].join(','));
 {
   const s = G.設定を読む();
@@ -1231,6 +1236,58 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
     一覧.length === 3 && 一覧.every((l) => l.at === 一覧[0].at), JSON.stringify(一覧.map((l) => l.at)));
 }
 
+// ----- サブをまとめて直す（2026-09-13） -----
+見出し('サブをまとめて直す');
+{
+  const 馬たち = G.loadHorses().filter((h) => h.active).slice(0, 3);
+  G.chiefSavePlanForHorses(C, 馬たち.map((h) => h.id), { term: 'まとめ試し', mode: '曜日', min: 1, max: 1 });
+  const 計画 = 馬たち.map((h) => G.loadPlans().filter((p) => p.horseId === h.id && p.term === 'まとめ試し')[0]);
+  確かめる('3頭ぶんの期間ができる', 計画.length === 3 && 計画.every((p) => !!p));
+  const [p1, p2, p3] = 計画.map((p) => p.id);
+  const [A, B, D] = G.loadMembers().slice(0, 3).map((m) => m.id);
+  const サブ = (pid) => G.loadSubs(pid).map((s) => s.memberId);
+  const 並べ = (a) => JSON.stringify((a || []).slice().sort());
+
+  // 新しく作った期間は、同じ馬の前の期間のサブを引き継いでいる。まず空にしてから始める
+  const r0 = G.chiefSaveSubsBulk(C, { [p1]: [], [p2]: [], [p3]: [] });
+  確かめる('空にすると、引き継いでいたぶんを外した数が返る', r0.外れた >= 0 && 計画.every((p) => サブ(p.id).length === 0), JSON.stringify(r0.外れた));
+  const r1 = G.chiefSaveSubsBulk(C, { [p1]: [A, B, A, 'だれでもない'], [p2]: [A], [p3]: [D] });
+  確かめる('3頭ぶんを1回で保存できる',
+    並べ(サブ(p1)) === 並べ([A, B]) && 並べ(サブ(p2)) === 並べ([A]) && 並べ(サブ(p3)) === 並べ([D]),
+    JSON.stringify([サブ(p1), サブ(p2), サブ(p3)]));
+  確かめる('同じ人を二重に入れず、名簿にない人は入れない', サブ(p1).length === 2, JSON.stringify(サブ(p1)));
+  確かめる('返りに期間ごとのサブが入る',
+    並べ(r1.subs[p1]) === 並べ([A, B]) && r1.変えた === 3 && r1.外れた === 0, JSON.stringify(r1));
+  確かめる('チーフの読み込みにもサブが入る', 並べ(G.chiefLoadAll(C).subs[p2]) === 並べ([A]));
+
+  // B が p1 に◎○×を出して手入れ表にも入っている。A は p1 と p2 に出している
+  const 全部まる = { 月: '○', 火: '○', 水: '○', 木: '○', 金: '○', 土: '○', 日: '○' };
+  G.submitCareVote(p1, B, 全部まる);
+  G.submitCareVote(p1, A, 全部まる);
+  G.submitCareVote(p2, A, 全部まる);
+  G.chiefSaveTable(C, p1, [{ key: '月', memberId: B }, { key: '火', memberId: A }]);
+  const ほかの期間のサブ = () => G.loadSubs(null).filter((s) => [p1, p2, p3].indexOf(s.planId) < 0).length;
+  const 前のほか = ほかの期間のサブ();
+
+  const r2 = G.chiefSaveSubsBulk(C, { [p1]: [A], [p2]: [A, D] });
+  確かめる('外した人だけ数える', r2.外れた === 1 && r2.変えた === 2, JSON.stringify({ 外れた: r2.外れた, 変えた: r2.変えた }));
+  確かめる('外した人のその馬の◎○×が消える', G.loadCareVotes(p1).every((v) => v.memberId !== B));
+  確かめる('外した人の手入れ表のぶんが消える',
+    G.loadCareTable(p1).every((c) => c.memberId !== B) && G.loadCareTable(p1).some((c) => c.memberId === A));
+  確かめる('残った人の◎○×は残る',
+    G.loadCareVotes(p1).some((v) => v.memberId === A) && G.loadCareVotes(p2).some((v) => v.memberId === A));
+  確かめる('送らなかった期間には触らない', 並べ(サブ(p3)) === 並べ([D]));
+  確かめる('ほかの期間のサブもそのまま', ほかの期間のサブ() === 前のほか);
+
+  投げるはず('何も送らなければ止まる', () => G.chiefSaveSubsBulk(C, {}), '変えたところ');
+  投げるはず('無い期間が混ざれば止まる', () => G.chiefSaveSubsBulk(C, { [p1]: [], でたらめ: [A] }), 'もうありません');
+  確かめる('止まったときは何も書かない', 並べ(サブ(p1)) === 並べ([A]), JSON.stringify(サブ(p1)));
+  投げるはず('チーフのトークンが要る', () => G.chiefSaveSubsBulk('でたらめ', { [p1]: [] }), '有効期限');
+  確かめる('外から呼べる', G.外から呼べる関数.indexOf('chiefSaveSubsBulk') >= 0);
+
+  計画.forEach((p) => G.chiefDeletePlan(C, p.id));
+}
+
 // ----- 画面とURL -----
 {
   const u = G.配るURL一覧();
@@ -1246,6 +1303,103 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   確かめる('休みで外から呼べるのは8つだけ',
     G.外から呼べる関数.filter((n) => n.indexOf('yasumi') === 0 || n === 'submitLeaveDays' || n === 'cancelLeave').length === 8,
     JSON.stringify(G.外から呼べる関数.filter((n) => n.indexOf('yasumi') === 0 || n.indexOf('Leave') > 0)));
+}
+
+// ===================== 11. バイト =====================
+
+見出し('バイト');
+{
+  const T2 = G.login('testtest');
+  const 名簿 = G.loadMembers();
+  const 甲 = 名簿.filter((m) => m.name === '1年3')[0];
+  const 乙 = 名簿.filter((m) => m.name === '2年3')[0];
+
+  確かめる('バイトのシートができている', !!SHEETS['バイト'] && !!SHEETS['バイト回数']);
+  確かめる('バイトの列は名前だけで作れる形',
+    G.SCHEMA['バイト'].join(',') === 'ID,バイト名,使用中,備考', G.SCHEMA['バイト'].join(','));
+
+  // ----- バイト先を作る -----
+  G.baitoSaveJob(T2, { name: 'フロンテア' });
+  G.baitoSaveJob(T2, { name: '牧場' });
+  const 一覧 = G.baitoLoadAll(T2).jobs;
+  確かめる('バイトを名前だけで作れる', 一覧.length === 2 && 一覧[0].name === 'フロンテア', JSON.stringify(一覧.map((j) => j.name)));
+  投げるはず('名前が無いと作れない', () => G.baitoSaveJob(T2, { name: '  ' }), '名前を入れて');
+  投げるはず('同じ名前は作れない', () => G.baitoSaveJob(T2, { name: 'フロンテア' }), 'もうあります');
+  const フロンテア = 一覧.filter((j) => j.name === 'フロンテア')[0];
+  const 牧場 = 一覧.filter((j) => j.name === '牧場')[0];
+
+  // ----- 日ごとに人を入れる -----
+  G.baitoAssign(T2, フロンテア.id, 休_先(3), 甲.id);
+  G.baitoAssign(T2, フロンテア.id, 休_先(3), 乙.id);      // 同じ日に何人でも入れられる
+  G.baitoAssign(T2, フロンテア.id, 休_先(-5), 甲.id);     // 過ぎた日＝行ったぶん
+  {
+    const d = G.baitoLoadAll(T2, フロンテア.id);
+    確かめる('その日に何人でも入る', d.割当.filter((x) => x.date === 休_先(3)).length === 2, JSON.stringify(d.割当));
+    確かめる('割当に名前が付く', d.割当.every((x) => !!x.name), JSON.stringify(d.割当));
+  }
+  投げるはず('同じ人を同じ日に2度は入れない', () => G.baitoAssign(T2, フロンテア.id, 休_先(3), 甲.id), 'もう入っています');
+  投げるはず('ほかの休みと重なる日は入れない', () => G.baitoAssign(T2, 牧場.id, 休_先(3), 甲.id), 'すでに');
+  投げるはず('日が無いと入れない', () => G.baitoAssign(T2, フロンテア.id, '', 甲.id), '日を選んで');
+  投げるはず('知らないバイトには入れられない', () => G.baitoAssign(T2, 'b_ない', 休_先(4), 甲.id), 'もうありません');
+
+  // ----- 回数 -----
+  {
+    const d = G.baitoLoadAll(T2, フロンテア.id);
+    const 甲の = d.counts.filter((c) => c.memberId === 甲.id)[0];
+    確かめる('回数は今日までのぶんだけ数える（先の予定は数えない）',
+      甲の.自動 === 1 && 甲の.回数 === 1, JSON.stringify(甲の));
+    const 乙の = d.counts.filter((c) => c.memberId === 乙.id)[0];
+    確かめる('先の予定しか無い人は0回', 乙の.自動 === 0 && 乙の.回数 === 0, JSON.stringify(乙の));
+  }
+  G.baitoSaveCount(T2, フロンテア.id, 甲.id, 5);   // システムに入れる前のぶんを足す
+  {
+    const 甲の = G.baitoLoadAll(T2, フロンテア.id).counts.filter((c) => c.memberId === 甲.id)[0];
+    確かめる('手で足したぶんが乗る', 甲の.自動 === 1 && 甲の.調整 === 5 && 甲の.回数 === 6, JSON.stringify(甲の));
+  }
+  G.baitoSaveCount(T2, フロンテア.id, 甲.id, 0);
+  確かめる('0にすると調整が消える',
+    G.baitoLoadAll(T2, フロンテア.id).counts.filter((c) => c.memberId === 甲.id)[0].回数 === 1);
+  確かめる('回数はバイトごとに分かれている',
+    G.baitoLoadAll(T2, 牧場.id).counts.every((c) => c.回数 === 0));
+
+  // ----- 部員の画面ではバイト先の名前で出る（回数は出さない） -----
+  {
+    const d = G.getYasumiMemberData(甲.id);
+    // 前の作りで入れたバイト（バイト先の無い行）も混じっているので、自分のぶんで見る
+    const バ = d.all.filter((x) => x.kind === 'バイト' && x.memberId === 甲.id)[0];
+    確かめる('部員にはバイト先の名前で見せる', バ && バ.label === 'フロンテア', JSON.stringify(バ));
+    確かめる('部員の返りに回数は入っていない',
+      JSON.stringify(d).indexOf('counts') < 0 && JSON.stringify(d).indexOf('調整') < 0);
+  }
+  {
+    const p = G.getMyPage('1年3');
+    const バ = (p.休み || []).filter((x) => x.kind === 'バイト')[0];
+    確かめる('マイページでもバイト先の名前で出る', バ && バ.label === 'フロンテア', JSON.stringify(バ));
+  }
+
+  // ----- 外す・消す -----
+  {
+    const one = G.baitoLoadAll(T2, フロンテア.id).割当.filter((x) => x.date === 休_先(3))[0];
+    G.baitoUnassign(T2, one.id);
+    確かめる('その日のその人だけ外せる',
+      G.baitoLoadAll(T2, フロンテア.id).割当.filter((x) => x.date === 休_先(3)).length === 1);
+  }
+  投げるはず('もう無いものは外せない', () => G.baitoUnassign(T2, 'y_ない'), 'もうありません');
+  G.baitoSaveCount(T2, フロンテア.id, 乙.id, 3);
+  G.baitoDeleteJob(T2, フロンテア.id);
+  確かめる('消すと入っていた日も一緒に消える',
+    G.loadLeaves().every((l) => l.jobId !== フロンテア.id) && G.baitoLoadAll(T2).jobs.length === 1);
+  確かめる('消すと回数の調整も消える',
+    G.readRows('バイト回数').every((r) => String(r['バイトID']) !== フロンテア.id));
+
+  // ----- 合鍵が要る -----
+  投げるはず('合鍵なしでは見られない', () => G.baitoLoadAll('でたらめ'), '有効期限');
+  投げるはず('合鍵なしでは入れられない', () => G.baitoAssign('でたらめ', 牧場.id, 休_先(6), 甲.id), '有効期限');
+  投げるはず('合鍵なしでは回数を直せない', () => G.baitoSaveCount('でたらめ', 牧場.id, 甲.id, 1), '有効期限');
+  確かめる('外から呼べるのは6つ',
+    ['baitoLoadAll', 'baitoSaveJob', 'baitoDeleteJob', 'baitoAssign', 'baitoUnassign', 'baitoSaveCount']
+      .every((n) => G.外から呼べる関数.indexOf(n) >= 0)
+    && G.外から呼べる関数.filter((n) => n.indexOf('baito') === 0).length === 6);
 }
 
 // ===================== まとめ =====================

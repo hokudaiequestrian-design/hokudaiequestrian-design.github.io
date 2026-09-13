@@ -606,6 +606,13 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 .cal-grid .cell:nth-child(7n + 1) { border-left: 0; }
 .cal-grid .cell.blank { background: var(--paper); }
 .cal-grid .cell.today { background: var(--accent-soft); }
+/* バイトのカレンダーは日を押して人を入れる。押せることが分かるようにする（2026-09-13） */
+.cal-grid .cell.baito-cell { cursor: pointer; }
+.cal-grid .cell.baito-cell:hover { background: var(--accent-soft); }
+.cal-grid .cell.baito-cell.picked { outline: 3px solid var(--accent); outline-offset: -3px; }
+.baito-day-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-bottom: var(--space-xs); }
+.baito-day-list .who { display: inline-flex; align-items: center; gap: 6px; }
+.baito-adj { width: 6rem; }
 .cal-grid .cell .d { display: block; font-family: var(--font-num); font-size: var(--text-sm); color: var(--muted); }
 .who { display: block; font-size: var(--text-xs); line-height: 1.5; margin-top: var(--space-3xs); border-left: 3px solid var(--rule-strong); padding-left: var(--space-2xs); overflow-wrap: anywhere; }
 .who .m { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-3xs); }
@@ -662,6 +669,7 @@ a.donehome:hover { background: var(--accent-dark); }
       <button type="button" class="active" data-tab="apply">申し込み</button>
       <button type="button" data-tab="cal">カレンダー</button>
       <button type="button" data-tab="add">休み・バイトを入れる</button>
+      <button type="button" data-tab="baito">バイト</button>
       <button type="button" data-tab="paid">有給の残り</button>
       <button type="button" data-tab="conf">決まり</button>
     </div>
@@ -732,7 +740,71 @@ a.donehome:hover { background: var(--accent-dark); }
       </div>
     </section>
 
-    <!-- ④ 有給 -->
+    <!-- ④ バイト -->
+    <section id="tab-baito" style="display:none;">
+      <div class="card">
+        <h2>バイト</h2>
+        <p class="hint">
+          <b>バイト先ごと</b>にカレンダーを作り、日ごとに人を入れます。入れた日は、その人の休み（バイト）になります。
+          <b>回数は副将だけが見られます</b>（部員の画面には出ません）。
+        </p>
+        <div class="row">
+          <div>
+            <label for="baitoSelect">どのバイト</label>
+            <select id="baitoSelect"></select>
+          </div>
+          <div>
+            <label for="baitoNew">バイトを作る（決めるのは名前だけ）</label>
+            <div class="row tight">
+              <input type="text" id="baitoNew" maxlength="30" placeholder="例：フロンテア">
+              <button type="button" class="small" id="baitoAddJob">作る</button>
+            </div>
+          </div>
+        </div>
+        <div class="row tight" id="baitoJobTools" style="display:none;margin-top:8px;">
+          <button type="button" class="small secondary" id="baitoRenameJob">名前を変える</button>
+          <button type="button" class="small danger" id="baitoDeleteJob">このバイトを消す</button>
+        </div>
+        <div id="baitoJobMsg" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="card" id="baitoCalCard" style="display:none;">
+        <div class="month-head">
+          <button type="button" class="secondary small" id="baitoPrev">前の月</button>
+          <span class="now" id="baitoMonth"></span>
+          <button type="button" class="secondary small" id="baitoNext">次の月</button>
+        </div>
+        <div class="cal-grid" id="baitoGrid"></div>
+        <p class="hint">日を押すと、その日に人を入れられます。</p>
+
+        <div id="baitoDay" style="display:none;margin-top:16px;">
+          <h3 id="baitoDayTitle"></h3>
+          <div id="baitoDayList"></div>
+          <label for="baitoWho">入れる人（名前を打つと絞り込めます）</label>
+          <div class="row tight">
+            <input type="text" id="baitoWho" list="baitoMembers" maxlength="20" placeholder="名前">
+            <datalist id="baitoMembers"></datalist>
+            <button type="button" class="small" id="baitoAddWho">この日に入れる</button>
+          </div>
+          <div id="baitoMsg" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+
+      <div class="card" id="baitoCountCard" style="display:none;">
+        <h2>今まで行った回数</h2>
+        <p class="hint">
+          カレンダーに入っている日のうち<b>今日まで</b>のぶんを数えます。
+          システムに入れる前に行ったぶんは「手で足す」に入れてください（マイナスにもできます）。
+          <b>この数は部員には見えません。</b>
+        </p>
+        <div id="baitoCountMsg" role="status" aria-live="polite"></div>
+        <div class="grid-wrap">
+          <table class="paid-grid" id="baitoCountTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ⑤ 有給 -->
     <section id="tab-paid" style="display:none;">
       <div class="card">
         <h2>有給の残り（<span id="paidYear"></span>年度）</h2>
@@ -871,7 +943,7 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]');
   if (!b) return;
   Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), (x) => { x.className = x === b ? 'active' : ''; });
-  ['apply', 'cal', 'add', 'paid', 'conf'].forEach((t) => {
+  ['apply', 'cal', 'add', 'baito', 'paid', 'conf'].forEach((t) => {
     $('tab-' + t).style.display = (t === b.dataset.tab) ? 'block' : 'none';
   });
 });
@@ -893,7 +965,9 @@ async function 読み直す(年度, 読んだぶん) {
 
   $('addMember').innerHTML = '<option value="">選択してください</option>' +
     D.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
-  $('addKind').innerHTML = D.kinds.map((k) => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
+  // バイトはバイトのタブ（バイト先ごとのカレンダー）から入れるので、ここには出さない
+  $('addKind').innerHTML = D.kinds.filter((k) => k !== 'バイト')
+    .map((k) => '<option value="' + esc(k) + '">' + esc(k) + '</option>').join('');
 
   $('confDays').value = D.settings.有給日数;
   $('confMonth').value = D.settings.年度始まり月;
@@ -1025,7 +1099,213 @@ $('addBtn').addEventListener('click', async () => {
   }
 });
 
-// ===== ④ 有給 =====
+// ===== ④ バイト =====
+/*
+  バイトは**バイト先ごとにカレンダーを持ち、日ごとに人を入れる**（2026-09-13にユーザーが決めた）。
+  入れたものは、その人の「休み（バイト）」として入る（その日は手入れの担当から外れる）。
+  回数は副将だけが見る。部員の画面にはバイト先の名前しか出さない。
+*/
+let BAITO = null;       // baitoLoadAll の返り
+let バイト月 = '';
+let 選んだ日 = '';
+
+const バイトの人 = () => (BAITO && BAITO.members) || [];
+const 人を名前で引く = (名) => バイトの人().filter((m) => m.name === String(名 || '').trim())[0] || null;
+
+async function バイトを読む(jobId) {
+  BAITO = await call('baitoLoadAll', TOKEN, jobId || '');
+  バイトを描く();
+  return BAITO;
+}
+
+function バイトを描く() {
+  const jobs = (BAITO && BAITO.jobs) || [];
+  const 今の = BAITO && BAITO.job ? BAITO.job.id : '';
+  $('baitoSelect').innerHTML = jobs.length
+    ? '<option value="">選んでください</option>' +
+      jobs.map((j) => '<option value="' + esc(j.id) + '"' + (j.id === 今の ? ' selected' : '') + '>' + esc(j.name) + '</option>').join('')
+    : '<option value="">まだありません</option>';
+  $('baitoJobTools').style.display = 今の ? 'flex' : 'none';
+  $('baitoCalCard').style.display = 今の ? 'block' : 'none';
+  $('baitoCountCard').style.display = 今の ? 'block' : 'none';
+  if (!今の) return;
+
+  // 名前を打つと絞り込める（候補からも選べる）
+  $('baitoMembers').innerHTML = バイトの人()
+    .map((m) => '<option value="' + esc(m.name) + '">' + (m.grade ? m.grade + '年' : '') + '</option>').join('');
+
+  if (!バイト月) バイト月 = (BAITO.today || 今日()).slice(0, 7);
+  バイトのカレンダーを出す();
+  バイトの回数を出す();
+  if (選んだ日) その日を出す(選んだ日);
+}
+
+function バイトの月を進める(delta) {
+  const m = バイト月.split('-');
+  const d = new Date(Number(m[0]), Number(m[1]) - 1 + delta, 1);
+  バイト月 = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+  バイトのカレンダーを出す();
+}
+$('baitoPrev').addEventListener('click', () => バイトの月を進める(-1));
+$('baitoNext').addEventListener('click', () => バイトの月を進める(1));
+
+function バイトのカレンダーを出す() {
+  const 月 = バイト月.split('-');
+  const y = Number(月[0]);
+  const m = Number(月[1]);
+  $('baitoMonth').textContent = y + '年' + m + '月';
+
+  const 日ごと = {};
+  ((BAITO && BAITO.割当) || []).forEach((x) => { (日ごと[x.date] = 日ごと[x.date] || []).push(x); });
+
+  const 曜日 = ['月', '火', '水', '木', '金', '土', '日'];
+  let html = 曜日.map((w, i) =>
+    '<div class="dow' + (i === 5 ? ' sat' : (i === 6 ? ' sun' : '')) + '">' + w + '</div>').join('');
+  const 先頭 = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+  const 末日 = new Date(y, m, 0).getDate();
+  for (let i = 0; i < 先頭; i++) html += '<div class="cell blank"></div>';
+  for (let d = 1; d <= 末日; d++) {
+    const key = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+    const 面々 = 日ごと[key] || [];
+    html += '<div class="cell baito-cell' + (key === (BAITO.today || '') ? ' today' : '') +
+      (key === 選んだ日 ? ' picked' : '') + '" data-day="' + key + '" role="button" tabindex="0">' +
+      '<span class="d">' + d + '</span>' +
+      面々.map((x) => '<span class="who k-baito">' + esc(x.name) + '</span>').join('') +
+      '</div>';
+  }
+  $('baitoGrid').innerHTML = html;
+}
+
+$('baitoGrid').addEventListener('click', (e) => {
+  const c = e.target.closest('[data-day]');
+  if (c) その日を出す(c.dataset.day);
+});
+$('baitoGrid').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const c = e.target.closest('[data-day]');
+  if (c) { e.preventDefault(); その日を出す(c.dataset.day); }
+});
+
+function その日を出す(day) {
+  選んだ日 = day;
+  const 面々 = ((BAITO && BAITO.割当) || []).filter((x) => x.date === day);
+  const d = new Date(day + 'T00:00:00');
+  $('baitoDayTitle').textContent =
+    (d.getMonth() + 1) + '月' + d.getDate() + '日（' + ['日', '月', '火', '水', '木', '金', '土'][d.getDay()] + '）';
+  $('baitoDayList').innerHTML = 面々.length
+    ? '<div class="baito-day-list">' + 面々.map((x) =>
+        '<span class="who k-baito">' + esc(x.name) +
+        '<button type="button" class="small danger" data-off="' + esc(x.id) + '">外す</button></span>').join('') + '</div>'
+    : '<p class="hint">まだ誰も入っていません。</p>';
+  $('baitoDay').style.display = 'block';
+  バイトのカレンダーを出す();
+  $('baitoWho').value = '';
+}
+
+$('baitoDayList').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-off]');
+  if (!b) return;
+  const id = b.dataset.off;
+  // 押した瞬間に消す。戻すのは失敗したときだけ（返事を待たせない）
+  const 元 = BAITO.割当;
+  BAITO.割当 = BAITO.割当.filter((x) => x.id !== id);
+  その日を出す(選んだ日);
+  try {
+    await call('baitoUnassign', TOKEN, id);
+    await バイトを読む(BAITO.job.id);
+    その日を出す(選んだ日);
+  } catch (err) {
+    BAITO.割当 = 元;
+    その日を出す(選んだ日);
+    知らせ('baitoMsg', 'error', (err && err.message) || err);
+  }
+});
+
+$('baitoAddWho').addEventListener('click', async () => {
+  if (!選んだ日) return 知らせ('baitoMsg', 'warning', 'カレンダーの日を押してください。');
+  const 名 = $('baitoWho').value;
+  const m = 人を名前で引く(名);
+  if (!m) return 知らせ('baitoMsg', 'warning', '「' + 名 + '」は名簿にありません。名前を打つと候補が出ます。');
+  try {
+    await call('baitoAssign', TOKEN, BAITO.job.id, 選んだ日, m.id, '');
+    await バイトを読む(BAITO.job.id);
+    その日を出す(選んだ日);
+    知らせ('baitoMsg', 'success', m.name + 'さんを入れました。');
+  } catch (err) {
+    知らせ('baitoMsg', 'error', (err && err.message) || err);
+  }
+});
+$('baitoWho').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('baitoAddWho').click(); });
+
+$('baitoSelect').addEventListener('change', async () => {
+  選んだ日 = '';
+  $('baitoDay').style.display = 'none';
+  try { await バイトを読む($('baitoSelect').value); }
+  catch (e) { 知らせ('baitoJobMsg', 'error', (e && e.message) || e); }
+});
+
+$('baitoAddJob').addEventListener('click', async () => {
+  const name = $('baitoNew').value.trim();
+  if (!name) return 知らせ('baitoJobMsg', 'warning', 'バイトの名前を入れてください。');
+  try {
+    const r = await call('baitoSaveJob', TOKEN, { name: name });
+    $('baitoNew').value = '';
+    const 新しいの = (r.jobs || []).filter((j) => j.name === name)[0];
+    await バイトを読む(新しいの ? 新しいの.id : '');
+    知らせ('baitoJobMsg', 'success', '「' + name + '」を作りました。カレンダーの日を押して人を入れてください。');
+  } catch (e) { 知らせ('baitoJobMsg', 'error', (e && e.message) || e); }
+});
+$('baitoNew').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('baitoAddJob').click(); });
+
+$('baitoRenameJob').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  const name = prompt('新しい名前', BAITO.job.name);
+  if (name === null || !name.trim()) return;
+  try {
+    await call('baitoSaveJob', TOKEN, { id: BAITO.job.id, name: name.trim(), active: true });
+    await バイトを読む(BAITO.job.id);
+    知らせ('baitoJobMsg', 'success', '名前を変えました。');
+  } catch (e) { 知らせ('baitoJobMsg', 'error', (e && e.message) || e); }
+});
+
+$('baitoDeleteJob').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  if (!confirm('「' + BAITO.job.name + '」を消します。入っている日と回数の手直しも消えます。よろしいですか？')) return;
+  try {
+    await call('baitoDeleteJob', TOKEN, BAITO.job.id);
+    選んだ日 = '';
+    $('baitoDay').style.display = 'none';
+    await バイトを読む('');
+    知らせ('baitoJobMsg', 'success', '消しました。');
+  } catch (e) { 知らせ('baitoJobMsg', 'error', (e && e.message) || e); }
+});
+
+function バイトの回数を出す() {
+  const counts = (BAITO && BAITO.counts) || [];
+  // 多い順。同じなら名前の順にして、開くたびに並びが変わらないようにする
+  const 並び = counts.slice().sort((a, b) => b.回数 - a.回数 || String(a.name).localeCompare(String(b.name)));
+  $('baitoCountTable').innerHTML =
+    '<tr><th>部員</th><th>行った回数</th><th>入っているぶん</th><th>手で足す</th><th></th></tr>' +
+    並び.map((c) =>
+      '<tr><th>' + esc(c.name) + '</th>' +
+      '<td class="num"><b>' + c.回数 + '</b></td>' +
+      '<td class="num">' + c.自動 + '</td>' +
+      '<td><input type="number" class="baito-adj" data-who="' + esc(c.memberId) + '" value="' + c.調整 + '" step="1"></td>' +
+      '<td><button type="button" class="small secondary" data-savecount="' + esc(c.memberId) + '">保存</button></td></tr>').join('');
+}
+
+$('baitoCountTable').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-savecount]');
+  if (!b || !BAITO || !BAITO.job) return;
+  const box = $('baitoCountTable').querySelector('.baito-adj[data-who="' + b.dataset.savecount + '"]');
+  try {
+    await call('baitoSaveCount', TOKEN, BAITO.job.id, b.dataset.savecount, box.value === '' ? 0 : Number(box.value));
+    await バイトを読む(BAITO.job.id);
+    知らせ('baitoCountMsg', 'success', '回数を直しました。');
+  } catch (err) { 知らせ('baitoCountMsg', 'error', (err && err.message) || err); }
+});
+
+// ===== ⑤ 有給 =====
 function 有給を出す() {
   $('paidTable').innerHTML =
     '<thead><tr><th>名前</th><th class="num">付与</th><th class="num">使った</th><th class="num">了承待ち</th><th class="num">残り</th><th>付与を変える</th></tr></thead><tbody>' +
