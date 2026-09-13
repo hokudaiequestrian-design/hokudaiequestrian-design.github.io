@@ -912,6 +912,10 @@ $('horseSelect').addEventListener('change', () => {
 
 // ===================== 2. 期間 =====================
 
+// 馬のIDから名前を引く。消すときの念押しに出す。
+// （これが無いまま削除を押すと、その場で止まって何も起きなかった。2026-09-13に直した）
+const 馬名 = (id) => ((BASE.horses || []).filter((h) => h.id === id)[0] || {}).name || 'この馬';
+
 function renderPlanList() {
   const horseId = $('horseSelect').value;
   const list = BASE.plans.filter((p) => p.horseId === horseId);
@@ -1000,14 +1004,29 @@ $('planList').addEventListener('click', async (e) => {
   if (d) {
     const p = BASE.plans.filter((x) => x.id === d.dataset.delp)[0];
     if (!confirm(馬名(p.horseId) + ' の「' + p.term + '」を削除します。\nサブ・投票・手入れ表も消えます。よろしいですか？')) return;
-    try {
-      await call('chiefDeletePlan', TOKEN, p.id);
-      BASE = await call('chiefLoadAll', TOKEN);
+
+    /* 押した瞬間に一覧から消す（2026-09-13にユーザーが指示）。
+       サーバの返事を待ってから消すと、消えるまで数秒そのまま残って、
+       押せていないのかと思ってもう一度押すことになる。
+       消せなかったときは戻して、理由をその場に出す。 */
+    const 元の一覧 = BASE.plans;
+    BASE.plans = BASE.plans.filter((x) => x.id !== p.id);
+    if (P && P.plan && P.plan.id === p.id) {
       P = null;
       $('planPane').style.display = 'none';
-      renderPlanList();
+    }
+    renderPlanList();
+    msgIn('termMsg', 'success', '削除しています…');
+    try {
+      await call('chiefDeletePlan', TOKEN, p.id);
       msgIn('termMsg', 'success', '削除しました。');
-    } catch (err) { msgIn('termMsg', 'error', (err && err.message) || err); }
+      // 期間名の候補など、ほかにも変わるものがあるので取り直す。画面はもう消えているので待たせない
+      call('chiefLoadAll', TOKEN).then((r) => { BASE = r; renderPlanList(); }).catch(() => {});
+    } catch (err) {
+      BASE.plans = 元の一覧;   // 消せなかったので戻す
+      renderPlanList();
+      msgIn('termMsg', 'error', '削除できませんでした：' + ((err && err.message) || err));
+    }
   }
 });
 

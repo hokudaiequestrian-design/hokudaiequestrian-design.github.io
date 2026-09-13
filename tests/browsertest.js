@@ -64,6 +64,10 @@ const 模擬 = {
   送信: 'ok',          // ok / 断る / 切れる
   呼ばれた: [],
   adminの全部: null,
+  // 手入れ（チーフ画面）。期間の削除を押したとき、返事を待たずに消えるかを見る
+  chiefのBASE: null,
+  削除: 'ok',         // ok / 断る
+  削除の遅れ: 1500,
 };
 
 function 答える(req, status, body, 遅れ) {
@@ -99,6 +103,16 @@ function 模擬で答える(req) {
     const a = 本文.args;
     模擬.返事 = { answers: a[2], comment: a[3], entries: a[4] };
     return 返す({ ok: true });
+  }
+  if (本文.fn === 'chiefMeta') return 返す({ 要パスワード: false });
+  if (本文.fn === 'loginChiefAndLoad') return 返す({ token: 'c_test', base: 模擬.chiefのBASE });
+  if (本文.fn === 'chiefLoadAll') return 返す(模擬.chiefのBASE);
+  if (本文.fn === 'chiefDeletePlan') {
+    if (模擬.削除 === '断る') return 答える(req, 200, { ok: false, error: 'その期間はもうありません。' }, 模擬.削除の遅れ);
+    模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, {
+      plans: 模擬.chiefのBASE.plans.filter((p) => p.id !== 本文.args[1]),
+    });
+    return 答える(req, 200, { ok: true, value: { ok: true } }, 模擬.削除の遅れ);
   }
   if (本文.fn === 'adminLoadAll') return 返す(模擬.adminの全部);
   if (本文.fn === 'adminShareUrl') return 返す({ memberUrl: 'https://hokudaiequestrian-design.github.io/taikai.html', adminUrl: '', manual: false });
@@ -284,6 +298,47 @@ function 模擬で答える(req) {
     確かめる('プルダウンが付く', (ws.getCell(3, 3).dataValidation || {}).type === 'list', JSON.stringify(ws.getCell(3, 3).dataValidation));
     確かめる('列幅が付く', ws.getColumn(3).width > 7, String(ws.getColumn(3).width));
   }
+
+  // ---------- 8.5 手入れ（チーフ）：期間の削除 ----------
+  console.log(String.fromCharCode(10) + '== 手入れチーフ：期間の削除 ==');
+  模擬.chiefのBASE = {
+    horses: [{ id: 'h1', name: '北叡', active: true, chief: '美浦' }],
+    plans: [
+      { id: 'p1', horseId: 'h1', term: '前期', mode: '曜日', from: '', to: '', min: 1, max: null },
+      { id: 'p2', horseId: 'h1', term: '後期', mode: '曜日', from: '', to: '', min: 1, max: null },
+    ],
+    members: [{ id: 'm_001', name: '美浦', grade: 2 }],
+    期間名: ['前期', '後期'],
+    既定のチーフ倍率: 2,
+  };
+  const 期間の数 = () => page.$$eval('#planList [data-delp]', (els) => els.length);
+  page.on('dialog', (d) => d.accept());
+
+  await page.goto(元 + '/teire-chief.html');
+  await page.waitForSelector('#horseSelect option[value="h1"]', { timeout: 15000 });
+  await page.select('#horseSelect', 'h1');
+  await page.waitForSelector('#planList [data-delp]', { timeout: 15000 });
+  確かめる('期間が2つ出る', (await 期間の数()) === 2, String(await 期間の数()));
+
+  // 押した「その時」に消えること（サーバの返事は 模擬.削除の遅れ ミリ秒あと）
+  模擬.削除 = 'ok';
+  let 始め2 = Date.now();
+  // 画面の中のエラーも拾う（削除が押せていない、のような取りこぼしを見つけるため）
+  page.on('console', (m) => { if (m.type() === 'error') 画面のエラー.push('console: ' + m.text()); });
+  await page.click('[data-delp="p1"]');
+  await page.waitForFunction(() => document.querySelectorAll('#planList [data-delp]').length === 1, { timeout: 5000 });
+  const 消えるまで = Date.now() - 始め2;
+  確かめる('返事を待たずに消える（' + 消えるまで + 'ms、模擬の往復 ' + 模擬.削除の遅れ + 'ms）', 消えるまで < 模擬.削除の遅れ / 2, 消えるまで + 'ms');
+  await page.waitForFunction(() => /削除しました/.test(document.getElementById('termMsg').textContent), { timeout: 15000 });
+  確かめる('消えたままになる', (await 期間の数()) === 1, String(await 期間の数()));
+
+  // 消せなかったときは戻す
+  模擬.削除 = '断る';
+  await page.click('[data-delp="p2"]');
+  await page.waitForFunction(() => document.querySelectorAll('#planList [data-delp]').length === 0, { timeout: 5000 });
+  await page.waitForFunction(() => /削除できませんでした/.test(document.getElementById('termMsg').textContent), { timeout: 15000 });
+  確かめる('消せなかったら戻ってくる', (await 期間の数()) === 1, String(await 期間の数()));
+  確かめる('理由がその場に出る', /その期間はもうありません/.test(await page.$eval('#termMsg', (el) => el.textContent)));
 
   確かめる('画面でエラーが起きていない', 画面のエラー.length === 0, 画面のエラー.join(' / '));
 
