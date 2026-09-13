@@ -837,10 +837,28 @@ function タブを描く() {
   const 手入れ = 見ている.tab === 'teire';
   $('calFilter').style.display = 手入れ ? 'none' : 'flex';
   $('teireFilter').style.display = 手入れ ? 'flex' : 'none';
+  // バイトは、その月に出てくるバイト先ごとに「1文字目＝名前」を並べる（無い月は「バ」で説明だけ）
+  const バイト先 = [];
+  ((中身 && 中身.休み) || []).forEach((l) => {
+    if (l.kind === 'バイト' && l.label && バイト先.indexOf(l.label) < 0) バイト先.push(l.label);
+  });
+  const バイトの凡例 = バイト先.length
+    ? バイト先.map((n) => '<span><b class="tag job">' + esc(Array.from(n)[0]) + '</b> ' + esc(n) + '</span>').join('')
+    : '<span><b class="tag job">バ</b> バイト（バイトの名前の1文字目で出ます）</span>';
   $('legend').innerHTML = 手入れ
     ? '<span>チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span><span><i class="sw"></i>大会がある日</span>'
-    : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span><span><b class="tag job">バ</b> バイト</span>' +
+    : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span>' + バイトの凡例 +
       '<span><b class="tag meet">大</b> 大会に出る</span><span><b class="tag off wait">有</b> 点線は了承待ち</span><span><i class="sw"></i>大会がある日</span>';
+}
+
+/*
+  マスに入れる1文字（2026-09-13 ユーザーの指示）。
+  有給休暇・季節休みは決まった字。**バイトは副将が付けたバイトの名前の1文字目**（名前が無いときだけ「バ」）。
+  1文字目が同じバイトが2つあると見分けにくいので、マスを押す／ポイントすると名前が出るようにしてある（title）。
+*/
+function 札の字(l) {
+  if (l.kind === 'バイト') return l.label && l.label !== 'バイト' ? Array.from(l.label)[0] : 'バ';
+  return 札[l.kind] || Array.from(l.kind || '？')[0];
 }
 
 function 描く() {
@@ -878,7 +896,7 @@ function カレンダーを描く(d) {
       if (day.key < l.from || day.key > (l.to || l.from)) return;
       const 待ち = l.state === '申請中';
       置く(l.名前, day.key,
-        '<b class="tag ' + (l.kind === 'バイト' ? 'job' : 'off') + (待ち ? ' wait' : '') + '">' + esc(札[l.kind] || l.kind.slice(0, 1)) + '</b>',
+        '<b class="tag ' + (l.kind === 'バイト' ? 'job' : 'off') + (待ち ? ' wait' : '') + '">' + esc(札の字(l)) + '</b>',
         (l.label || l.kind) + (待ち ? '（了承待ち）' : ''));   // バイトはバイト先の名前で出す
     });
   });
