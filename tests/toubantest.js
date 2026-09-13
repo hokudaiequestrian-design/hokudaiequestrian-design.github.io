@@ -8,7 +8,8 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 
-const SRC = path.join('C:', 'Users', 'minuu', 'Documents', '当番・手入れシステム_GAS', 'コード.gs');
+// 2026-09-13 Cloudflare に移すときから、サーバの原本は 馬術部API/src にある
+const SRC = path.join('C:', 'Users', 'minuu', 'Documents', '馬術部API', 'src', 'touban.gs');
 
 // ===================== 模擬スプレッドシート =====================
 
@@ -875,10 +876,11 @@ G.chiefDeletePlan(C, plan1.id);
     副将.groups[1].links.every((l) => !!l.鍵) && 副将.groups[0].links.every((l) => !l.鍵),
     JSON.stringify(副将.groups[1].links.map((l) => l.鍵)));
 
+  // 2026-09-13 Cloudflare に移してからは、入口は馬術部サイト（?role= で立場を切り替える）
   確かめる('入口のURLが3本できる',
-    u.入口_部員.indexOf('page=links') > 0 &&
-    u.入口_チーフ.indexOf('page=chieflinks') > 0 &&
-    u.入口_副将.indexOf('page=admlinks') > 0,
+    u.入口_部員 === 'https://hokudaiequestrian-design.github.io/' &&
+    u.入口_チーフ === 'https://hokudaiequestrian-design.github.io/?role=chieflinks' &&
+    u.入口_副将 === 'https://hokudaiequestrian-design.github.io/?role=admlinks',
     [u.入口_部員, u.入口_チーフ, u.入口_副将].join(' / '));
 }
 
@@ -987,10 +989,13 @@ G.chiefDeletePlan(C, plan1.id);
 
 見出し('配るURL');
 const U = G.配るURL一覧();
-確かめる('部員用はそのまま', U.当番_部員.indexOf('page=') < 0, U.当番_部員);
-確かめる('副将用に page=admin が付く', U.当番_副将.indexOf('page=admin') > 0, U.当番_副将);
-確かめる('手入れ部員用に page=teire が付く', U.手入れ_部員.indexOf('page=teire') > 0, U.手入れ_部員);
-確かめる('チーフ用に page=chief が付く', U.手入れ_チーフ.indexOf('page=chief') > 0, U.手入れ_チーフ);
+// 2026-09-13 Cloudflare に移してからは、配るURLは馬術部サイトのページ（Apps Script の ?page= ではない）
+const サイト = 'https://hokudaiequestrian-design.github.io/';
+確かめる('部員用は当番のページ', U.当番_部員 === サイト + 'touban.html', U.当番_部員);
+確かめる('副将用は当番をまとめるページ', U.当番_副将 === サイト + 'touban-admin.html', U.当番_副将);
+確かめる('手入れ部員用は手入れのページ', U.手入れ_部員 === サイト + 'teire.html', U.手入れ_部員);
+確かめる('チーフ用は手入れをまとめるページ', U.手入れ_チーフ === サイト + 'teire-chief.html', U.手入れ_チーフ);
+確かめる('Apps Script のURLは出てこない', JSON.stringify(U).indexOf('script.google.com') < 0, JSON.stringify(U));
 
 // ===================== 10. 休みカレンダー =====================
 
@@ -1229,8 +1234,8 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
 // ----- 画面とURL -----
 {
   const u = G.配るURL一覧();
-  確かめる('休み・部員用のURLが出る', u.休み_部員.indexOf('page=yasumi') > 0, u.休み_部員);
-  確かめる('休み・副将用のURLが出る', u.休み_副将.indexOf('page=yasumiadmin') > 0, u.休み_副将);
+  確かめる('休み・部員用のURLが出る', u.休み_部員 === 'https://hokudaiequestrian-design.github.io/yasumi.html', u.休み_部員);
+  確かめる('休み・副将用のURLが出る', u.休み_副将 === 'https://hokudaiequestrian-design.github.io/yasumi-admin.html', u.休み_副将);
   確かめる('外から呼べる関数に部員用が入っている',
     ['getYasumiMemberData', 'submitLeaveDays', 'cancelLeave'].every((n) => G.外から呼べる関数.indexOf(n) >= 0));
   確かめる('範囲で出すほう（submitLeave）は外から呼ばせない',

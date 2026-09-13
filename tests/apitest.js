@@ -3,15 +3,18 @@
 const fs = require('fs');
 const NL = String.fromCharCode(10);
 
+// 2026-09-13 Cloudflare に移すときから、画面の原本はこのリポジトリの 画面/、サーバの原本は 馬術部API/src/ にある
+const サイト = __dirname.split(String.fromCharCode(92)).join('/').replace(/[/]tests$/, '');
 const プロジェクト = [
-  { 名: '当番・手入れ', dir: 'C:/Users/minuu/Documents/当番・手入れシステム_GAS' },
-  { 名: '人員表', dir: 'C:/Users/minuu/Documents/人員表システム_GAS' },
+  { 名: '当番・手入れ', dir: サイト + '/画面/当番', code: 'C:/Users/minuu/Documents/馬術部API/src/touban.gs' },
+  { 名: '人員表', dir: サイト + '/画面/人員表', code: 'C:/Users/minuu/Documents/馬術部API/src/jinin.gs' },
 ];
 
 // 入口（マイページ）はGASプロジェクトの外、馬術部サイトの mypage.js にあって、
 // 当番・手入れと人員表の両方を呼ぶ。ここだけ別に拾い、呼び先（API.当番／API.人員表）ごとに分ける。
 // 人員表だけに送り直し（submitResponse）があるので、まとめて数えると当番・手入れ側で足りないと出てしまう。
-const 入口 = __dirname.split(String.fromCharCode(92)).join('/').replace(/[/]tests$/, '') + '/mypage.js';
+const 入口 = サイトの場所() + '/mypage.js';
+function サイトの場所() { return __dirname.split(String.fromCharCode(92)).join('/').replace(/[/]tests$/, ''); }
 const 呼び先の名 = { 当番: '当番・手入れ', 人員表: '人員表' };
 const 入口が呼ぶ = { '当番・手入れ': new Set(), '人員表': new Set() };
 if (fs.existsSync(入口)) {
@@ -38,7 +41,7 @@ const 確認 = (名, 実, 期待) => {
 };
 
 プロジェクト.forEach((p) => {
-  const src = fs.readFileSync(p.dir + '/コード.gs', 'utf8');
+  const src = fs.readFileSync(p.code, 'utf8');
 
   // 一覧を取り出す
   const i = src.indexOf('const 外から呼べる関数 = [');

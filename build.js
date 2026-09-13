@@ -18,17 +18,25 @@ const fs = require('fs');
 const path = require('path');
 const NL = String.fromCharCode(10);
 
-const 当番 = 'C:/Users/minuu/Documents/当番・手入れシステム_GAS';
-const 人員表 = 'C:/Users/minuu/Documents/人員表システム_GAS';
+/*
+  画面の原本は、このリポジトリの 画面/ にある（2026-09-13、Apps Script から Cloudflare へ移すときに写した）。
+  前は2つの GAS プロジェクトの HTML を直に読んでいた。GAS 側は切り替えまでの控えとしてもう触らない。
+  入口の中身（入口の中身()）は、API の原本 馬術部API/src/touban.gs から読む。
+*/
+const 当番 = path.join(__dirname, '画面', '当番');
+const 人員表 = path.join(__dirname, '画面', '人員表');
+const 当番のコード = 'C:/Users/minuu/Documents/馬術部API/src/touban.gs';
 const 出す先 = path.join(__dirname, 'docs');
 
-// それぞれのウェブアプリ。fetch で叩くだけなので a/gmail.com は要らない
-// （Cookieを送らないので、アカウントの振り分けがそもそも起きない）。
+/*
+  呼び先は Cloudflare の API（馬術部API/worker）。呼び方は Apps Script のときと同じ
+  （POST・text/plain・{fn,args}）なので、画面の call() から先はそのまま動く。
+  前は表示を速くするための「写し」（bajutsubu-cache）も読んでいたが、API そのものが速くなったので使わない。
+*/
+const API元 = 'https://bajutsubu-api.hokudai-equestrian.workers.dev';
 const API = {
-  当番: 'https://script.google.com/macros/s/AKfycbxRymAf5iGuZfmZE-CK2fwicbnj1tE6UZKywZ3cNDTkqxZp0aBAKIb67jYWfOzYorK2Yw/exec',
-  人員表: 'https://script.google.com/macros/s/AKfycbxUWCdZAA0-JIhl2Pr10KbAIZSKY4hcn7MfFwRWODjd0WQBWmmA25A-GdtVb5mcK38MTQ/exec',
-  // 人員表の「表示用の写し」を読む窓口（Cloudflare。worker/ にある）。読むだけ。2026-09-13
-  写し: 'https://bajutsubu-cache.hokudai-equestrian.workers.dev',
+  当番: API元 + '/touban',
+  人員表: API元 + '/jinin',
 };
 
 // 出す先のファイル名。入口ページからは、この名前で相対リンクを張る。
@@ -39,7 +47,7 @@ const ページ = [
   { 出す: 'teire-chief.html', 元: 当番 + '/chief.html', api: API.当番, 題: '手入れをまとめる' },
   { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
   { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: '休みをまとめる' },
-  { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す', 写し: true },
+  { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
   { 出す: 'taikai-admin.html', 元: 人員表 + '/admin.html', api: API.人員表, 題: '人員表をまとめる' },
 ];
 
@@ -253,7 +261,7 @@ function 戻るを足す(html) {
 // コード.gs の 入口の中身() をそのまま動かして、題や説明を焼き込む。
 // URLだけは、同じフォルダに並ぶ静的ページへの相対リンクに差し替える。
 function 入口の中身たち() {
-  const src = fs.readFileSync(当番 + '/コード.gs', 'utf8');
+  const src = fs.readFileSync(当番のコード, 'utf8');
   const lines = src.split(NL);
   const grab = (name) => {
     const head = 'function ' + name + '(';
@@ -399,7 +407,7 @@ let 件 = 0;
 });
 
 fs.writeFileSync(path.join(出す先, 'index.html'), 入口を作る(), 'utf8');
-console.log('  index.html  ← 当番・手入れシステム_GAS/hub.html（?role=chieflinks / admlinks で切り替え）');
+console.log('  index.html  ← 当番/hub.html（?role=chieflinks / admlinks で切り替え）');
 件++;
 
 // 検索避け。noindex は各ページにも入れてあるが、そもそもクロールさせない。

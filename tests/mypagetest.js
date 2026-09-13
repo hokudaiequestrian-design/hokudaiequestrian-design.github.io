@@ -14,7 +14,8 @@ const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
 
-const 人員表 = path.join('C:', 'Users', 'minuu', 'Documents', '人員表システム_GAS', 'コード.gs');
+// 2026-09-13 Cloudflare に移すときから、サーバの原本は 馬術部API/src にある
+const 人員表 = path.join('C:', 'Users', 'minuu', 'Documents', '馬術部API', 'src', 'jinin.gs');
 const 入口 = path.join(__dirname, '..', 'mypage.js');
 
 // ===================== 模擬スプレッドシート =====================
@@ -665,7 +666,7 @@ const 失敗の知らせ = 要素('msg error', '送信に失敗しました：�
 // ===================== 5. 高速化（写し・待たせない送信） =====================
 
 見出し('出欠の画面：どちらの返事を出すか');
-const 出欠の原本 = fs.readFileSync(path.join('C:', 'Users', 'minuu', 'Documents', '人員表システム_GAS', 'member.html'), 'utf8');
+const 出欠の原本 = fs.readFileSync(path.join(__dirname, '..', '画面', '人員表', 'member.html'), 'utf8');
 const 選ぶソース = (出欠の原本.match(/const 版の時刻 = [^\n]*\n/) || [''])[0] +
   (出欠の原本.match(/function どちらの返事\([\s\S]*?\n}\n/) || [''])[0];
 確かめる('原本から どちらの返事 を取り出せる', 選ぶソース.indexOf('function どちらの返事') > 0 && 選ぶソース.indexOf('const 版の時刻') === 0);
@@ -688,15 +689,18 @@ const 手元で = 選ぶ(null, '1000.1', 手元の返事, false).返事;
 
 見出し('組み立てたページ：写しと送信');
 const 出欠HTML = fs.readFileSync(path.join(docs, 'taikai.html'), 'utf8');
-確かめる('出欠の画面に写しの読み口が入る',
-  出欠HTML.indexOf('function 写しから読む') > 0 && 出欠HTML.indexOf('https://bajutsubu-cache.hokudai-equestrian.workers.dev') > 0);
-確かめる('写しの読み口は本体より先に読まれる（<head> の中）', 出欠HTML.indexOf('function 写しから読む') < 出欠HTML.indexOf('</head>'));
+// 2026-09-13 Cloudflare の API に移してからは、API そのものが速いので「写し」は使わない
+確かめる('出欠の画面に写しの読み口は入らない（API に直に聞く）',
+  出欠HTML.indexOf('function 写しから読む') < 0 && 出欠HTML.indexOf('bajutsubu-cache') < 0);
+確かめる('出欠の画面は Cloudflare の API を呼ぶ', 出欠HTML.indexOf("const API = 'https://bajutsubu-api.hokudai-equestrian.workers.dev/jinin'") >= 0);
 確かめる('keepalive は出欠の送信だけ', 出欠HTML.indexOf("const 閉じても届ける = ['submitResponse'];") > 0);
 確かめる('通信の失敗に印を付ける', 出欠HTML.indexOf('err.通信 = true;') > 0);
 ['touban.html', 'teire.html', 'yasumi.html', 'taikai-admin.html', 'touban-admin.html'].forEach((f) => {
   確かめる(f + '：写しの読み口は入らない', fs.readFileSync(path.join(docs, f), 'utf8').indexOf('function 写しから読む') < 0);
 });
-確かめる('入口に写しの窓口のURLが渡る', 入口HTML.indexOf('"写し": "https://bajutsubu-cache.hokudai-equestrian.workers.dev"') > 0);
+確かめる('入口には写しの窓口を渡さない（人員表も API に直に聞く）', 入口HTML.indexOf('bajutsubu-cache') < 0);
+確かめる('入口は Cloudflare の API を呼ぶ', 入口HTML.indexOf('"人員表": "https://bajutsubu-api.hokudai-equestrian.workers.dev/jinin"') > 0 &&
+  入口HTML.indexOf('"当番": "https://bajutsubu-api.hokudai-equestrian.workers.dev/touban"') > 0);
 確かめる('写しの窓口に鍵が入っていない（public のリポジトリ）',
   [出欠HTML, 入口HTML].every((s) => s.indexOf('WRITE_KEY') < 0 && s.indexOf('Bearer') < 0));
 

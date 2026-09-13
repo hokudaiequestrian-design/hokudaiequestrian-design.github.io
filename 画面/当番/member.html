@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar"><span>当番の希望を出す</span></header>
+
+<main>
+  <div id="loading" class="card muted">読み込んでいます…</div>
+
+  <!-- 進み方。いまどこにいるかを常に上に出す（Narrative Workflow） -->
+  <ol class="steps duty" id="stepStrip" style="display:none;" aria-label="進み方">
+    <li class="s" data-step="1"><span class="no">1</span>名前と期間</li>
+    <li class="s" data-step="2"><span class="no">2</span>マスを押す</li>
+    <li class="s" data-step="3"><span class="no">3</span>出す</li>
+  </ol>
+
+  <section class="card stage-card" id="pickCard" style="display:none;">
+    <p class="stage"><span class="n">1</span><span class="h">だれの希望か</span></p>
+    <label for="memberSelect">あなたの名前</label>
+    <select id="memberSelect"></select>
+    <div id="termBox" style="display:none;">
+      <label for="termSelect">どの期間の希望か</label>
+      <select id="termSelect"></select>
+    </div>
+  </section>
+
+  <section class="card stage-card" id="formCard" style="display:none;">
+    <p class="stage"><span class="n">2</span><span class="h">入りたいマスを<span id="need"></span>つ押す</span></p>
+    <p class="hint">
+      入りたいマスを <b>希望の高い順に押していく</b>と、第1希望から順に番号が付きます。
+      もう一度押すと取り消せます。ちょうど<span class="needN"></span>つ選ぶまで送信できません。
+    </p>
+
+    <div id="progress" class="msg warning" role="status" aria-live="polite"></div>
+
+    <div class="grid-wrap">
+      <table class="duty-grid" id="grid"></table>
+    </div>
+  </section>
+
+  <section class="card stage-card" id="sendCard" style="display:none;">
+    <p class="stage"><span class="n">3</span><span class="h">順番をたしかめて出す</span></p>
+    <div id="picked" class="picked-list"></div>
+
+    <div class="row tight" style="margin-top:var(--space-md);">
+      <button id="submitBtn">この希望で出す</button>
+      <button id="clearBtn" class="secondary">選び直す</button>
+    </div>
+    <div id="msg" role="status" aria-live="polite"></div>
+  </section>
+
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* 選んだ人は「名前」で覚える。
+   当番・手入れと大会人員表では部員IDの体系が違い（m_xxxxxxxxxx と m_001）、
+   両方にいる人でも一致しない。画面が全部おなじドメインに並んでいるので、
+   IDのまま覚えると画面を移るたびに当てが外れて選び直しになる。
+   名簿は「名簿をそろえる」で同期していて、名前は揃っている。 */
+function 名前を覚える(members, memberId) {
+  const m = (members || []).filter((x) => x.id === memberId)[0];
+  if (!m) return;
+  try { localStorage.setItem('me', m.name); } catch (e) { /* 保存できない設定でも画面は動かす */ }
+}
+function 覚えた人のID(members) {
+  let 名 = '';
+  try { 名 = localStorage.getItem('me') || ''; } catch (e) {}
+  const m = (members || []).filter((x) => x.name === 名)[0];
+  if (m) return m.id;
+  // 名前で覚える前に使っていた人のぶん（同じシステムの中でだけ当たる）
+  let 旧 = '';
+  try { 旧 = localStorage.getItem('memberId') || ''; } catch (e) {}
+  return (members || []).some((x) => x.id === 旧) ? 旧 : '';
+}
+/* マイページからは「どれの話か」を付けて飛んでくる（?term= ?event= ?plan=）。
+   GASの画面は枠の中で動くので location.search は拾えない。そのときは今までどおり選ぶ。 */
+function URLの(名) {
+  try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; }
+}
+
+/**
+ * 入口（マイページ）で名前を選んでからここへ来るので、**名前は聞き直さない**（2026-09-13）。
+ * 選ぶところを隠して「◯◯ さんとして出します」に置き換える。
+ * 別の人のぶんを出すときは入口で名前を選び直す（2026-09-13にユーザーが決めた。
+ * ここに「ちがう人」を置くと、押す前に確かめる手間が画面ごとに戻ってしまう）。
+ */
+function 名前は聞かない(名) {
+  const sel = $('memberSelect');
+  if (!sel || !名) return;
+  const lab = document.querySelector('label[for="memberSelect"]');
+  const 行 = document.createElement('p');
+  行.className = 'wholine';
+  行.innerHTML = '<b>' + esc(名) + '</b> さんとして出します' +
+    '<span class="hint">ちがう人のときは、左上の「← マイページ」で名前を選び直してください。</span>';
+  sel.parentNode.insertBefore(行, lab || sel);
+  sel.style.display = 'none';
+  if (lab) lab.style.display = 'none';
+}
+
+const show = (cls, text) => { $('msg').innerHTML = '<div class="msg ' + cls + '">' + esc(text) + '</div>'; };
+
+let DATA = { members: [], terms: [], days: [], 希望の数: 4 };
+let TERM = null;      // 選んでいる期間
+let PICKS = [];      // [{dutyId, day}] 押した順がそのまま希望順位
+let ME = null;       // 選んでいる部員
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+
+// google.script.run をPromiseで扱えるようにする
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler((r) => { busy(false); resolve(r); })
+      .withFailureHandler((e) => { busy(false); reject(e); })[fn].apply(null, args);
+  });
+}
+
+// 当番の中身は期間ごとに違う（人数も学年しばりも期間で変えられる）
+const 当番たち = () => (TERM ? TERM.duties : []);
+const 枠を引く = (dutyId, day) => {
+  const d = 当番たち().filter((x) => x.id === dutyId)[0];
+  if (!d) return null;
+  return d.slots.filter((s) => s.day === day)[0] || null;
+};
+const 当番名 = (dutyId) => {
+  const d = 当番たち().filter((x) => x.id === dutyId)[0];
+  return d ? d.name : '?';
+};
+
+// 学年しばりのあるマスは、その学年の人しか押せない
+function 押せるか(dutyId, day) {
+  const s = 枠を引く(dutyId, day);
+  if (!s) return false;
+  if (!s.grades || !s.grades.length) return true;
+  if (!ME || !ME.grade) return true;   // 学年が分からない人は止めない（副将が直す）
+  return s.grades.indexOf(Number(ME.grade)) >= 0;
+}
+
+const 順位 = (dutyId, day) => {
+  for (let i = 0; i < PICKS.length; i++) {
+    if (PICKS[i].dutyId === dutyId && PICKS[i].day === day) return i + 1;
+  }
+  return 0;
+};
+
+function renderGrid() {
+  const days = DATA.days;
+  const 曜日クラス = (w) => (w === '土' ? ' class="sat"' : (w === '日' ? ' class="sun"' : ''));
+
+  let html = '<thead><tr><th class="rowhead">当番</th>' +
+    days.map((w) => '<th' + 曜日クラス(w) + '>' + esc(w) + '</th>').join('') + '</tr></thead><tbody>';
+
+  当番たち().forEach((d) => {
+    html += '<tr><th class="rowhead">' + esc(d.name) + '</th>';
+    days.forEach((w) => {
+      const r = 順位(d.id, w);
+      const s = 枠を引く(d.id, w);
+      const ok = 押せるか(d.id, w);
+      // 人数の下限・上限は部員には出さない（決めるのは副将で、選ぶときの判断には要らない）
+      const 学年 = s && s.grades && s.grades.length ? s.grades.join('・') + '年' : '';
+      const cls = 'pickcell' + (r ? ' picked' : '') + (ok ? '' : ' disabled');
+      const 中身 = r
+        ? '<span class="rank r' + r + '">' + r + '</span>'
+        : (ok ? (学年 ? '<span class="cap">' + esc(学年) + '</span>' : '')
+              : '<span class="cap">' + esc(学年 || '入れません') + '</span>');
+      // 読み上げ用の説明。マスの中は数字だけなので、何の当番の何曜日かをここで補う。
+      const 説明 = w + '曜日の' + d.name + (ok ? (r ? '、第' + r + '希望に選択中' : '') : '、あなたの学年では選べません');
+      // DADSは disabled を勧めていない（なぜ押せないか伝わらないため）。
+      // 押せる状態のまま aria-disabled にして、押したら理由を出す。
+      html += '<td><button type="button" class="' + cls + '" data-duty="' + esc(d.id) + '" data-day="' + esc(w) + '"' +
+        ' aria-pressed="' + (r ? 'true' : 'false') + '"' +
+        (ok ? '' : ' aria-disabled="true"') +
+        ' aria-label="' + esc(説明) + '">' + 中身 + '</button></td>';
+    });
+    html += '</tr>';
+  });
+  $('grid').innerHTML = html + '</tbody>';
+
+  renderPicked();
+  renderProgress();
+}
+
+function renderPicked() {
+  const n = DATA.希望の数;
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    const p = PICKS[i];
+    if (p) {
+      items.push('<div class="item"><span class="n">第' + (i + 1) + '希望</span>' +
+        '<span class="what">' + esc(p.day) + '曜　' + esc(当番名(p.dutyId)) + '</span>' +
+        '<button type="button" class="small secondary" data-remove="' + i + '"' +
+        ' aria-label="第' + (i + 1) + '希望の' + esc(p.day) + '曜' + esc(当番名(p.dutyId)) + 'を取り消す">取り消す</button></div>');
+    } else {
+      items.push('<div class="item empty"><span class="n">第' + (i + 1) + '希望</span>' +
+        '<span class="what">まだ選んでいません</span></div>');
+    }
+  }
+  $('picked').innerHTML = items.join('');
+  段を塗る();
+}
+
+// いまどの段にいるかを帯に塗る。押した数で自動的に進む。
+function 段を塗る() {
+  const 段 = (!ME || !TERM) ? 1 : (PICKS.length >= DATA.希望の数 ? 3 : 2);
+  Array.prototype.forEach.call(document.querySelectorAll("#stepStrip .s"), (el) => {
+    const n = Number(el.dataset.step);
+    el.className = "s" + (n === 段 ? " on" : (n < 段 ? " done" : ""));
+    if (n === 段) el.setAttribute("aria-current", "step"); else el.removeAttribute("aria-current");
+  });
+  // 3段目は、名前と期間が決まってから出す（最初から全部見せない）
+  $("sendCard").style.display = (ME && TERM) ? "block" : "none";
+}
+
+function renderProgress() {
+  const 残り = DATA.希望の数 - PICKS.length;
+  const box = $('progress');
+  if (残り > 0) {
+    box.className = 'msg warning';
+    box.textContent = 'あと' + 残り + 'つ選んでください。' + DATA.希望の数 + 'つそろうと送信できます。';
+  } else {
+    box.className = 'msg success';
+    box.textContent = DATA.希望の数 + 'つ選べました。送信できます。';
+  }
+  // 送信ボタンは押せるままにしておく（押せない理由が伝わらないため）。
+  // 足りないときは押した時点で何が足りないかを出す。
+}
+
+$('grid').addEventListener('click', (e) => {
+  const btn = e.target.closest ? e.target.closest('[data-duty]') : null;
+  if (!btn) return;
+  const dutyId = btn.dataset.duty;
+  const day = btn.dataset.day;
+
+  // 学年で入れないマス。押せなくするのではなく、理由を出す。
+  if (btn.getAttribute('aria-disabled') === 'true') {
+    const s = 枠を引く(dutyId, day);
+    const 学年 = s && s.grades.length ? s.grades.join('・') + '年' : '';
+    show('error', day + '曜の' + 当番名(dutyId) + 'は' + (学年 ? 学年 + 'だけが入れる当番です' : '選べません') +
+      '。ほかのマスを選んでください。');
+    return;
+  }
+  const r = 順位(dutyId, day);
+  if (r) {
+    PICKS.splice(r - 1, 1);          // 押し直しで取り消し。あとの番号は繰り上がる。
+  } else {
+    if (PICKS.length >= DATA.希望の数) {
+      show('error', 'すでに' + DATA.希望の数 + 'つ選んでいます。どれかを取り消してから選んでください。');
+      return;
+    }
+    PICKS.push({ dutyId: dutyId, day: day });
+  }
+  $('msg').innerHTML = '';
+  renderGrid();
+});
+
+$('picked').addEventListener('click', (e) => {
+  const btn = e.target.closest ? e.target.closest('[data-remove]') : null;
+  if (!btn) return;
+  PICKS.splice(Number(btn.dataset.remove), 1);
+  $('msg').innerHTML = '';
+  renderGrid();
+});
+
+$('clearBtn').addEventListener('click', () => {
+  PICKS = [];
+  $('msg').innerHTML = '';
+  renderGrid();
+});
+
+async function onMemberChange() {
+  const memberId = $('memberSelect').value;
+  const termId = $('termSelect').value;
+  TERM = DATA.terms.filter((t) => t.id === termId)[0] || null;
+  if (!memberId || !TERM) { $('formCard').style.display = 'none'; return; }
+  名前を覚える(DATA.members, memberId);
+  localStorage.setItem('termId', termId);
+  ME = DATA.members.filter((m) => m.id === memberId)[0] || null;
+
+  PICKS = [];
+  $('msg').innerHTML = '';
+  $('formCard').style.display = 'block';
+  renderGrid();
+
+  try {
+    const mine = await call('getMyDutyVote', TERM.id, memberId);
+    if (mine) {
+      PICKS = mine.choices
+        .slice()
+        .sort((a, b) => a.rank - b.rank)
+        .map((c) => ({ dutyId: c.dutyId, day: c.day }))
+        .filter((c) => 枠を引く(c.dutyId, c.day));
+      show('success', '前回の希望を読み込みました' + (mine.byAdmin ? '（副将が代わりに入れたものです）' : '') + '。押し直して送信すると更新されます。');
+    }
+    renderGrid();
+  } catch (e) {
+    show('error', (e && e.message) || e);
+  }
+}
+
+$('submitBtn').addEventListener('click', async () => {
+  const memberId = $('memberSelect').value;
+  if (!memberId) return void show('error', '先にあなたの名前を選んでください。');
+  if (!TERM) return void show('error', '先に期間を選んでください。');
+  if (PICKS.length !== DATA.希望の数) {
+    const 残り = DATA.希望の数 - PICKS.length;
+    show('error', 残り > 0
+      ? 'まだ送信できません。あと' + 残り + 'つ、表のマスを押して選んでください（ちょうど' + DATA.希望の数 + 'つ必要です）。'
+      : DATA.希望の数 + 'つを超えています。「取り消す」でどれかを外してください。');
+    const 表 = document.querySelector('.grid-wrap');
+    if (表) 表.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  $('submitBtn').disabled = true;
+  try {
+    await call('submitDutyVote', TERM.id, memberId, PICKS);
+    show('success', '「' + TERM.name + '」の希望を送信しました。ありがとうございます。');
+  } catch (e) {
+    show('error', '送信に失敗しました：' + ((e && e.message) || e));
+  } finally {
+    $('submitBtn').disabled = false;
+  }
+});
+
+(async () => {
+  try {
+    DATA = await call('getDutyMemberData');
+    if (DATA.期間なし) {
+      $('loading').innerHTML = '<div class="msg warning">当番の期間がまだ作られていません。副将に連絡してください。</div>';
+      return;
+    }
+    if (DATA.受付中なし) {
+      $('loading').innerHTML = '<div class="msg warning">いま希望を受け付けている期間はありません。副将に連絡してください。</div>';
+      return;
+    }
+    if (!DATA.terms.length || !DATA.terms[0].duties.length) {
+      $('loading').innerHTML = '<div class="msg warning">当番がまだ登録されていません。副将に連絡してください。</div>';
+      return;
+    }
+    $('need').textContent = DATA.希望の数;
+    Array.prototype.forEach.call(document.querySelectorAll('.needN'), (el) => { el.textContent = DATA.希望の数; });
+
+    $('loading').style.display = 'none';
+    $('pickCard').style.display = 'block';
+    $('stepStrip').style.display = 'flex';
+    段を塗る();
+    $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
+      DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
+    // 期間が1つだけなら選ばせない（毎回おなじものを選ばせても意味がない）
+    $('termSelect').innerHTML = DATA.terms.map((t) => '<option value="' + t.id + '">' + esc(t.name) + '</option>').join('');
+    if (DATA.terms.length > 1) {
+      $('termBox').style.display = 'block';
+      const 前の期間 = localStorage.getItem('termId');
+      if (前の期間 && DATA.terms.some((t) => t.id === 前の期間)) $('termSelect').value = 前の期間;
+    }
+    // マイページの「まだ出していないもの」から来たときは、その期間を開く
+    const 指定 = URLの('term');
+    if (指定 && DATA.terms.some((t) => t.id === 指定)) $('termSelect').value = 指定;
+
+    $('memberSelect').addEventListener('change', onMemberChange);
+    $('termSelect').addEventListener('change', onMemberChange);
+
+    const saved = 覚えた人のID(DATA.members);
+    if (saved) {
+      $('memberSelect').value = saved;
+      名前は聞かない((DATA.members.filter((m) => m.id === saved)[0] || {}).name);
+      onMemberChange();
+    }
+  } catch (e) {
+    $('loading').innerHTML = '<div class="msg error">読み込みに失敗しました：' + esc((e && e.message) || e) + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

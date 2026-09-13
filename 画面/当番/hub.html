@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  Hallmark · macrostructure: 13 Index-First · genre: playful · design-system: design.md
+  入口ページ。飾りは置かない。「行が並んでいて、行そのものが押せる」だけの画面にする。
+  前は大きな枠のカードを並べていたが、Index-First は 罫線で区切った一覧 が正しい形。
+  出てくる動きも置かない（Index-First は reveal なし）。
+*/
+.hub-head {
+  background: <?= 中身.色 ?>;
+  color: #fff;
+  padding: var(--space-lg) var(--space-md);
+}
+.hub-head h1 { margin: 0; font-size: var(--text-md); line-height: 1.35; letter-spacing: -0.01em; }
+.hub-head p { margin: var(--space-2xs) 0 0; font-size: var(--text-sm); opacity: .92; }
+
+/* 束の見出し。行の上に小さく置くだけで、箱にはしない */
+.hub-group { margin-bottom: var(--space-xl); }
+.hub-group > h2 {
+  font-size: var(--text-sm); font-weight: 700; letter-spacing: 0.08em;
+  color: var(--muted); margin: 0 0 var(--space-2xs); text-transform: none;
+}
+.hub-group > p.note { margin: 0 0 var(--space-xs); }
+
+/* 一覧そのもの。上下の細い罫線で区切る（カードにしない） */
+.hub-list { border-top: 1px solid var(--rule-strong); }
+
+a.hub-link {
+  display: flex; align-items: center; gap: var(--space-sm);
+  padding: var(--space-md) var(--space-2xs);
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none; color: var(--ink);
+  min-height: 72px;   /* 44px の当たり判定は余裕で超える */
+  background: transparent;
+}
+a.hub-link:last-child { border-bottom: 1px solid var(--rule-strong); }
+a.hub-link:hover { background: var(--accent-soft); }
+/* 一覧の行なので、持ち上げずに 印だけを少し寄せる。動きは1つに絞る */
+@media (hover: hover) and (pointer: fine) {
+  a.hub-link:hover { transform: none; box-shadow: none; }
+  a.hub-link:hover .mark { transform: translateX(2px); }
+}
+
+a.hub-link .mark {
+  flex: 0 0 auto; width: 28px; height: 28px; color: var(--accent);
+  transition: transform var(--dur-short) var(--ease-out);
+}
+a.hub-link .mark svg { display: block; width: 100%; height: 100%; }
+a.hub-link .body { flex: 1 1 auto; min-width: 0; }
+a.hub-link .t { display: block; font-weight: 700; font-size: 1.0625rem; line-height: 1.4; }
+a.hub-link .d { display: block; font-size: var(--text-sm); color: var(--muted); line-height: 1.6; margin-top: var(--space-3xs); }
+a.hub-link .key {
+  display: inline-block; margin-top: var(--space-2xs); font-size: var(--text-xs);
+  border: 1px solid var(--warning); color: var(--warning);
+  border-radius: var(--radius-pill); padding: 0 10px;
+}
+/* 行末の矢印。文字ではなく引いた線にする */
+a.hub-link .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-strong); }
+
+/* 「開かないときは」の中。原因を1つずつ切って読ませる */
+.trouble { border-left: 4px solid var(--warning); background: var(--warning-soft); padding: 10px 14px; margin: var(--space-sm) 0; border-radius: 0 var(--radius-input) var(--radius-input) 0; }
+.trouble h3 { margin: 0 0 var(--space-2xs); font-size: var(--text-base); }
+.trouble p { margin: 0; font-size: var(--text-sm); line-height: 1.7; }
+.mono { font-family: var(--font-num); font-size: var(--text-xs); }
+ol.fix { margin: var(--space-xs) 0 0; padding-left: 1.4em; }
+ol.fix li { font-size: var(--text-base); line-height: 1.8; margin-bottom: var(--space-2xs); }
+</style>
+</head>
+<body>
+
+<!--
+  印は絵文字ではなく、ここで引いた線にしてある。
+  絵文字は機種で形が変わり、読み上げでは「メモ」などと読まれてしまうため。
+  どれも 24×24・線だけ・色は currentColor。
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <g id="i-duty-vote" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+    <path d="M2.5 9.5h19M9 9.5V19.5M15 9.5V19.5"/>
+    <path d="M4.6 12.4l1.3 1.3 2.2-2.4"/>
+  </g>
+  <g id="i-care-vote" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 20.5c-1.6 0-2.6-1.2-2.6-2.7 0-3.4 1.1-4.7 1.1-7.6C5.5 6.4 8.4 3.5 12 3.5s6.5 2.9 6.5 6.7c0 2.9 1.1 4.2 1.1 7.6 0 1.5-1 2.7-2.6 2.7"/>
+    <path d="M7 20.5v-2.2M17 20.5v-2.2"/>
+  </g>
+  <g id="i-care-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3.5" y="4.5" width="17" height="16" rx="2"/>
+    <path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>
+    <path d="M8.2 14.6l2 2 4-4.4"/>
+  </g>
+  <g id="i-duty-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+    <path d="M2.5 9.5h19M2.5 14.5h19M12 9.5v10"/>
+    <path d="M6 2.5v4M18 2.5v4"/>
+  </g>
+  <!-- 大会＝旗。当番・手入れの印（表・馬・カレンダー）とぶつからない形にしてある -->
+  <g id="i-taikai-vote" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5.5 21.5V2.5"/>
+    <path d="M5.5 4h13l-3 4 3 4h-13z"/>
+  </g>
+  <!-- 人員表＝左に名前の列がある表。カレンダー（当番をまとめる）と見分けがつく -->
+  <g id="i-taikai-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+    <path d="M8.5 4.5v15M8.5 9.5h13M8.5 14.5h13M15 9.5v10"/>
+  </g>
+  <!-- 休み＝三日月。当番（表）・手入れ（馬・カレンダー）・大会（旗・表）のどれとも似ていない形にしてある -->
+  <g id="i-yasumi-vote" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20.5 14.8A8.6 8.6 0 0 1 9.2 3.5 8.6 8.6 0 1 0 20.5 14.8z"/>
+  </g>
+  <!-- 休みをまとめる＝申し込みの一覧に丸を付ける -->
+  <g id="i-yasumi-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="2.5" y="4.5" width="19" height="15" rx="2"/>
+    <path d="M6 9.5h7M6 13h7M6 16.5h4"/>
+    <circle cx="17.6" cy="12" r="2.6"/>
+  </g>
+  <g id="i-go" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1.5 1.5l7 6.5-7 6.5"/>
+  </g>
+</defs></svg>
+
+<header class="hub-head">
+  <h1>北海道大学馬術部　当番・手入れ</h1>
+  <p><?= 中身.題 ?></p>
+</header>
+
+<main>
+  <? 中身.groups.forEach(function (g) { ?>
+    <section class="hub-group">
+      <h2><?= g.題 ?></h2>
+      <? if (g.説明) { ?><p class="note hint"><?= g.説明 ?></p><? } ?>
+      <div class="hub-list">
+      <? g.links.forEach(function (x) { ?>
+        <a class="hub-link" href="<?= x.url ?>">
+          <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-<?= x.印 ?>"/></svg></span>
+          <span class="body">
+            <span class="t"><?= x.題 ?></span>
+            <span class="d"><?= x.説明 ?></span>
+            <? if (x.鍵) { ?><span class="key">鍵 <?= x.鍵 ?></span><? } ?>
+          </span>
+          <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+        </a>
+      <? }); ?>
+      </div>
+    </section>
+  <? }); ?>
+
+  <p class="hint">このページをブックマークしておくと、毎回ここから入れます。</p>
+
+  <!-- 開けない人はここを見れば済むようにしておく。ふだんは畳んでおいて場所を取らない。
+       原因はGoogleの複数ログインの不具合で、こちらのコードでは直せない（2026-09-12に切り分け済み）。
+       アプリ自体は匿名でも開ける（ログアウト状態のcurlで200）。だからここは「開く側の直し方」だけを書く。 -->
+  <details class="fold">
+    <summary>リンクが開かないときは</summary>
+    <div class="fold-body">
+      <p class="hint">
+        このシステムは<b>Googleアカウントなしで開けます</b>。開けないときは、
+        アプリではなく<b>いまブラウザがログインしているアカウント</b>が原因です。
+      </p>
+
+      <div class="trouble">
+        <h3>「現在、ファイルを開くことができません」と出る</h3>
+        <p>
+          Googleに<b>2つ以上のアカウントで同時にログインしている</b>と起きます。
+          大学のアカウントと個人のアカウントを両方入れている人が当たります。
+          <b>リンクが悪いのではありません</b>ので、URLを送り直してもらっても直りません。
+        </p>
+      </div>
+
+      <h3 style="margin-top:16px;">いちばん確実な直し方（一度やれば次からも効きます）</h3>
+      <ol class="fix">
+        <li>Googleから<b>いったん全部ログアウト</b>する</li>
+        <li><b>個人のアカウントで先にログイン</b>する　← これが「1つ目」になります</li>
+        <li>そのあとで大学のアカウントを足す</li>
+      </ol>
+
+      <h3 style="margin-top:16px;">すぐ開きたいだけなら</h3>
+      <ol class="fix">
+        <li><b>シークレットウィンドウ</b>（プライベートブラウズ）で開く</li>
+        <li>部活用に<b>別のブラウザ</b>（または別のプロフィール）を用意しておく</li>
+      </ol>
+
+      <div class="trouble">
+        <h3>アドレス欄が <span class="mono">/u/1/</span> に変わっていたら</h3>
+        <p>
+          その形は<b>「1つ目にログインしている人」を指すURL</b>です。
+          <b>そのまま人に送っても相手は開けません。</b>配るときは副将から渡されたURLをそのまま使ってください。
+          URLに <span class="mono">/a/gmail.com/</span> が入っているのは、この振り分けを避けるためのものです。消さないでください。
+        </p>
+      </div>
+
+      <p class="hint">
+        上をやっても開かないときは、<b>出ている画面をそのまま撮って副将に送ってください。</b>
+      </p>
+    </div>
+  </details>
+</main>
+</body>
+</html>
