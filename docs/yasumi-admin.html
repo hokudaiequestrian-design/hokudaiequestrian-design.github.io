@@ -836,10 +836,12 @@ const 和風 = (key) => {
 $('loginBtn').addEventListener('click', async () => {
   if (!$('pw').value) return 知らせ('loginMsg', 'warning', 'パスワードを入れてください。');
   try {
-    TOKEN = await call('login', $('pw').value);
+    // ログインと最初の読み込みを1往復で済ませる
+    const 入った = await call('loginAndLoadYasumi', $('pw').value, null);
+    TOKEN = 入った.token;
     $('loginCard').style.display = 'none';
     $('app').style.display = 'block';
-    await 読み直す();
+    await 読み直す(null, 入った.all);
   } catch (e) {
     知らせ('loginMsg', 'error', ((e && e.message) || e));
   }
@@ -857,8 +859,8 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
 });
 
 // ===== 読み込み =====
-async function 読み直す(年度) {
-  D = await call('yasumiLoadAll', TOKEN, 年度 || null);
+async function 読み直す(年度, 読んだぶん) {
+  D = 読んだぶん || await call('yasumiLoadAll', TOKEN, 年度 || null);
   if (!表示月) 表示月 = 今日().slice(0, 7);
 
   $('yearSelect').innerHTML = (D.years || []).map((y) =>

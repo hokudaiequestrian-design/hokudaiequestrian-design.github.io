@@ -832,8 +832,9 @@ const 名 = (id) => { const m = BASE.members.filter((x) => x.id === id)[0]; retu
     if (meta.要パスワード) {
       $('loginCard').style.display = 'block';
     } else {
-      TOKEN = await call('loginChief', '');
-      await 始める();
+      const 入った = await call('loginChiefAndLoad', '');
+      TOKEN = 入った.token;
+      await 始める(入った.base);
     }
   } catch (e) {
     $('loginCard').style.display = 'block';
@@ -843,15 +844,17 @@ const 名 = (id) => { const m = BASE.members.filter((x) => x.id === id)[0]; retu
 
 $('loginBtn').addEventListener('click', async () => {
   try {
-    TOKEN = await call('loginChief', $('pw').value);
+    // ログインと最初の読み込みを1往復で済ませる
+    const 入った = await call('loginChiefAndLoad', $('pw').value);
+    TOKEN = 入った.token;
     $('loginCard').style.display = 'none';
-    await 始める();
+    await 始める(入った.base);
   } catch (e) { msgIn('loginMsg', 'error', (e && e.message) || e); }
 });
 $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
 
-async function 始める() {
-  BASE = await call('chiefLoadAll', TOKEN);
+async function 始める(読んだぶん) {
+  BASE = 読んだぶん || await call('chiefLoadAll', TOKEN);
   $('app').style.display = 'block';
   $('horseSelect').innerHTML = '<option value="">選択してください</option>' +
     BASE.horses.filter((h) => h.active).map((h) =>

@@ -946,10 +946,12 @@ const 曜日クラス = (w) => (w === '土' ? ' sat' : (w === '日' ? ' sun' : '
 
 $('loginBtn').addEventListener('click', async () => {
   try {
-    TOKEN = await call('login', $('pw').value);
+    // ログインと最初の読み込みを1往復で済ませる（分けるとそのぶん待ちが倍になる）
+    const 入った = await call('loginAndLoad', $('pw').value, D.termId || null);
+    TOKEN = 入った.token;
     $('loginCard').style.display = 'none';
     $('app').style.display = 'block';
-    await loadAll(D.termId);
+    await loadAll(D.termId, 入った.all);
     try {
       const u = await call('adminShareUrl', TOKEN);
       const a = $('urlLink');
@@ -995,8 +997,8 @@ document.querySelector('.tabs').addEventListener('click', async (e) => {
   }
 });
 
-async function loadAll(termId) {
-  D = await call('adminLoadAll', TOKEN, termId || null);
+async function loadAll(termId, 読んだぶん) {
+  D = 読んだぶん || await call('adminLoadAll', TOKEN, termId || null);
   TABLE = (D.cells || []).slice();
   DIRTY = false;
   renderTerms();

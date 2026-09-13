@@ -653,9 +653,11 @@ async function doLogin() {
   if (!pw) return show($('loginMsg'), 'error', 'パスワードを入力してください。');
   $('loginBtn').disabled = true;
   try {
-    TOKEN = await call('login', pw);
+    // ログインと最初の読み込みを1往復で済ませる（分けるとそのぶん待ちが倍になる）
+    const r = await call('loginAndLoad', pw);
+    TOKEN = r.token;
     localStorage.setItem('adminToken', TOKEN);
-    await start();
+    await start(r.all);
   } catch (e) {
     show($('loginMsg'), 'error', (e && e.message) || String(e));
   } finally {
@@ -2040,8 +2042,8 @@ $('exportBtn').addEventListener('click', async () => {
 });
 
 // ===== 起動 =====
-async function start() {
-  ALL = await call('adminLoadAll', TOKEN);
+async function start(読んだぶん) {
+  ALL = 読んだぶん || await call('adminLoadAll', TOKEN);
   $('loginView').style.display = 'none';
   $('appView').style.display = 'block';
   $('logoutLink').style.display = 'inline';
