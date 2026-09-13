@@ -545,11 +545,16 @@ const 本文 = M.組み立てる(t, null, ['大会のぶんを読めませんで
 見出し('入口：変わった節だけ書き換える');
 const 節 = M.節々(t, jm, [], false);
 確かめる('節に名前が付いている',
-  JSON.stringify(節.map((s) => s.id)) === JSON.stringify(['meNotice', 'meWeek', 'meSoon', 'meTodo', 'meFacts']),
+  JSON.stringify(節.map((s) => s.id)) === JSON.stringify(['meNotice', 'meWeek', 'meSoon', 'meTodo', 'meFacts', 'meCal']),
   JSON.stringify(節.map((s) => s.id)));
+// みんなのカレンダーの枠（2026-09-13）
+const カレンダー枠 = 節.filter((s) => s.id === 'meCal')[0].html;
+確かめる('カレンダーの枠に手入れと休みの入口がある',
+  カレンダー枠.indexOf('calendar.html?tab=teire') > 0 && カレンダー枠.indexOf('calendar.html?tab=yasumi') > 0 && カレンダー枠.indexOf('>カレンダー<') > 0,
+  カレンダー枠.slice(0, 120));
 
 M.描く(t, jm, [], false);
-確かめる('節のぶんだけ箱ができる', meBody.children.length === 5, String(meBody.children.length));
+確かめる('節のぶんだけ箱ができる', meBody.children.length === 6, String(meBody.children.length));
 const 週の箱 = meBody.children[1];
 const 書いた回数 = 週の箱.書いた;
 M.描く(t, jm, [], false);
@@ -588,7 +593,7 @@ delete 覚え箱['mypage:出したところ'];
 見出し('組み立てたページ：マイページに戻る');
 const docs = path.join(__dirname, '..', 'docs');
 const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
-確かめる('中のページが8つある', 中のページ.length === 8, 中のページ.join(','));
+確かめる('中のページが9つある（カレンダーを足した）', 中のページ.length === 9, 中のページ.join(','));
 中のページ.forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];
@@ -666,7 +671,8 @@ const 失敗の知らせ = 要素('msg error', '送信に失敗しました：�
 // ===================== 5. 高速化（写し・待たせない送信） =====================
 
 見出し('出欠の画面：どちらの返事を出すか');
-const 出欠の原本 = fs.readFileSync(path.join(__dirname, '..', '画面', '人員表', 'member.html'), 'utf8');
+// git の autocrlf で CRLF になっていることがあるので、LF にそろえてから探す
+const 出欠の原本 = fs.readFileSync(path.join(__dirname, '..', '画面', '人員表', 'member.html'), 'utf8').split('\r\n').join('\n');
 const 選ぶソース = (出欠の原本.match(/const 版の時刻 = [^\n]*\n/) || [''])[0] +
   (出欠の原本.match(/function どちらの返事\([\s\S]*?\n}\n/) || [''])[0];
 確かめる('原本から どちらの返事 を取り出せる', 選ぶソース.indexOf('function どちらの返事') > 0 && 選ぶソース.indexOf('const 版の時刻') === 0);

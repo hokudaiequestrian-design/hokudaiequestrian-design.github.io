@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  みんなのカレンダー（2026-09-13）。できた手入れ表と、みんなの休みを月ごとに見るだけの画面。
+  1か月を「日ごとの行」で縦に並べる。手入れは1日に馬の数だけ名前が並ぶので、
+  7列のマス目にするとスマホでは読めない。マイページの「これからの1週間」と同じ並べ方にそろえた。
+*/
+.cal-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin: var(--space-sm) 0; }
+.cal-head h2 { margin: 0; font-size: var(--text-md); min-width: 8em; text-align: center; font-variant-numeric: tabular-nums; }
+.cal-head .grow { flex: 1 1 auto; }
+.cal-filter { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center; margin: 0 0 var(--space-sm); }
+.cal-filter select { width: auto; min-width: 10em; }
+.cal-filter label.inline { display: inline-flex; align-items: center; gap: var(--space-2xs); min-height: var(--tap); margin: 0; }
+
+.cal-days { border-top: 1px solid var(--rule-strong); }
+.cal-day { display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--rule); }
+.cal-day .d { font-weight: 700; font-variant-numeric: tabular-nums; }
+.cal-day .d .now { display: inline-block; margin-left: var(--space-2xs); padding: 0 var(--space-xs); border-radius: var(--radius-pill); background: var(--accent); color: #fff; font-size: var(--text-xs); }
+.cal-day.sat .d { color: var(--accent-dark); }
+.cal-day.sun .d { color: var(--danger); }
+.cal-day.today { background: var(--accent-soft); }
+.cal-day .x { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-sm); align-items: baseline; }
+.cal-day .none { color: var(--muted); font-size: var(--text-sm); }
+.cal-item { display: inline-flex; gap: var(--space-2xs); align-items: baseline; }
+.cal-item .h { font-weight: 700; }
+.cal-item .k { font-size: var(--text-xs); border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); padding: 0 var(--space-xs); color: var(--muted); }
+.cal-item.mine { background: var(--warning-soft); outline: 2px solid var(--warning); border-radius: 4px; padding: 0 var(--space-2xs); }
+.cal-item.wait .k { border-style: dashed; }
+
+.week-wrap { overflow-x: auto; }
+table.week { border-collapse: collapse; min-width: 36rem; width: 100%; font-size: var(--text-sm); }
+table.week th, table.week td { border: 1px solid var(--rule); padding: var(--space-2xs) var(--space-xs); text-align: left; vertical-align: top; }
+table.week th { background: var(--paper-sunken); }
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar"><span>カレンダー</span></header>
+
+<main>
+  <div class="card">
+    <div class="tabs" role="tablist" aria-label="見るカレンダー">
+      <button type="button" data-tab="teire" class="active" role="tab" aria-selected="true">手入れカレンダー</button>
+      <button type="button" data-tab="yasumi" role="tab" aria-selected="false">休みカレンダー</button>
+    </div>
+
+    <div class="cal-head">
+      <button type="button" class="secondary small" id="prevMonth">前の月</button>
+      <h2 id="monthTitle" aria-live="polite"></h2>
+      <button type="button" class="secondary small" id="nextMonth">次の月</button>
+      <span class="grow"></span>
+      <button type="button" class="secondary small" id="thisMonth">今月</button>
+    </div>
+
+    <div class="cal-filter" id="teireFilter">
+      <label for="horseSelect" class="inline">馬
+        <select id="horseSelect"><option value="">すべての馬</option></select>
+      </label>
+      <label class="inline"><input type="checkbox" id="onlyMe"> 自分のぶんだけ</label>
+    </div>
+    <p class="hint" id="tabHint"></p>
+
+    <div id="msg" role="status" aria-live="polite"></div>
+    <div class="cal-days" id="days"></div>
+  </div>
+
+  <div class="card" id="weeklyCard" style="display:none;">
+    <h2>毎週決まっている手入れ</h2>
+    <p class="hint">曜日で組んだ手入れ表です。日付が無いので、上のカレンダーには出ません。</p>
+    <div id="weekly"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+
+// google.script.run をPromiseで扱えるようにする
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler((r) => { busy(false); resolve(r); })
+      .withFailureHandler((e) => { busy(false); reject(e); })[fn].apply(null, args);
+  });
+}
+
+const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
+const 覚え = {
+  取る(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
+  置く(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* いっぱいなら諦める */ } },
+};
+const 私の名前 = () => { try { return localStorage.getItem('me') || ''; } catch (e) { return ''; } };
+function URLの(名) { try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; } }
+
+// 日本の今月（端末の時計で）。サーバから届いたら、その「今日」に合わせ直す
+function 今月() {
+  const d = new Date(Date.now() + 9 * 3600 * 1000);
+  return d.toISOString().slice(0, 7);
+}
+function 月をずらす(月, n) {
+  const p = 月.split('-').map(Number);
+  const d = new Date(Date.UTC(p[0], p[1] - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+let 見ている = { tab: URLの('tab') === 'yasumi' ? 'yasumi' : 'teire', 月: /^\d{4}-\d{2}$/.test(URLの('month')) ? URLの('month') : 今月() };
+let 中身 = null;
+let 読む番 = 0;
+
+function 日の並び(d) {
+  const out = [];
+  const p = d.from.split('-').map(Number);
+  const 末 = Number(d.to.slice(8, 10));
+  for (let i = 1; i <= 末; i++) {
+    const key = p[0] + '-' + String(p[1]).padStart(2, '0') + '-' + String(i).padStart(2, '0');
+    const 曜 = new Date(Date.UTC(p[0], p[1] - 1, i)).getUTCDay();
+    out.push({ key: key, label: p[1] + '/' + i + '（' + 曜日名[曜] + '）', 曜: 曜 });
+  }
+  return out;
+}
+
+function 描く() {
+  const d = 中身;
+  document.querySelectorAll('.tabs button').forEach((b) => {
+    const on = b.dataset.tab === 見ている.tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const p = 見ている.月.split('-');
+  $('monthTitle').textContent = p[0] + '年' + Number(p[1]) + '月';
+  const 手入れ = 見ている.tab === 'teire';
+  $('teireFilter').style.display = 手入れ ? 'flex' : 'none';
+  $('tabHint').textContent = 手入れ
+    ? 'チーフが組んだ手入れ表です。黄色の枠が自分のぶんです（マイページで選んだ名前）。'
+    : '了承ずみと了承待ちの休みです。点線の札は了承待ち。黄色の枠が自分のぶんです。';
+  if (!d) { $('days').innerHTML = '<p class="muted" style="padding:var(--space-sm) 0;">読み込んでいます…</p>'; $('weeklyCard').style.display = 'none'; return; }
+
+  // 馬の選ぶ欄。選んでいた馬は残す
+  const 選んだ馬 = $('horseSelect').value;
+  const 馬たち = d.馬.slice();
+  d.手入れ.concat(d.毎週).forEach((x) => { if (馬たち.indexOf(x.馬) < 0) 馬たち.push(x.馬); });
+  $('horseSelect').innerHTML = '<option value="">すべての馬</option>' + 馬たち.map((h) => '<option' + (h === 選んだ馬 ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
+
+  const 私 = 私の名前();
+  const 自分だけ = $('onlyMe').checked && !!私;
+  const 表 = {};
+  if (手入れ) {
+    d.手入れ.forEach((x) => {
+      if (選んだ馬 && x.馬 !== 選んだ馬) return;
+      if (自分だけ && x.名前 !== 私) return;
+      (表[x.date] = 表[x.date] || []).push(
+        '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '"><span class="h">' + esc(x.馬) + '</span>' + esc(x.名前) + '</span>');
+    });
+  } else {
+    d.休み.forEach((l) => {
+      日の並び(d).forEach((day) => {
+        if (day.key < l.from || day.key > (l.to || l.from)) return;
+        (表[day.key] = 表[day.key] || []).push(
+          '<span class="cal-item' + (l.名前 === 私 ? ' mine' : '') + (l.state === '申請中' ? ' wait' : '') + '">' + esc(l.名前) +
+          '<span class="k">' + esc(l.kind) + (l.state === '申請中' ? '・了承待ち' : '') + '</span></span>');
+      });
+    });
+  }
+
+  $('days').innerHTML = 日の並び(d).map((day) => {
+    const 今日 = day.key === d.今日;
+    return '<div class="cal-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') + (今日 ? ' today' : '') + '">' +
+      '<div class="d">' + esc(day.label) + (今日 ? '<span class="now">今日</span>' : '') + '</div>' +
+      '<div class="x">' + ((表[day.key] || []).join('') || '<span class="none">なし</span>') + '</div></div>';
+  }).join('');
+
+  if (!手入れ && !d.休みを読めた) $('msg').innerHTML = '<div class="msg warning">休みを読めませんでした。</div>';
+  else if ($('msg').dataset.keep !== '1') $('msg').innerHTML = '';
+
+  // 毎週決まっている手入れ（曜日方式）。期間の名前ごとに、馬×曜日の表にする
+  const 毎週 = d.毎週.filter((x) => (!選んだ馬 || x.馬 === 選んだ馬) && (!自分だけ || x.名前 === 私));
+  $('weeklyCard').style.display = 手入れ && 毎週.length ? 'block' : 'none';
+  if (手入れ && 毎週.length) {
+    const 週の曜日 = ['月', '火', '水', '木', '金', '土', '日'];
+    const 期間たち = [];
+    毎週.forEach((x) => { if (期間たち.indexOf(x.期間) < 0) 期間たち.push(x.期間); });
+    $('weekly').innerHTML = 期間たち.map((期間) => {
+      const 行 = 毎週.filter((x) => x.期間 === 期間);
+      const 馬ごと = [];
+      行.forEach((x) => { if (馬ごと.indexOf(x.馬) < 0) 馬ごと.push(x.馬); });
+      return '<h3>' + esc(期間 || '期間の名前なし') + '</h3><div class="week-wrap"><table class="week"><thead><tr><th>馬</th>' +
+        週の曜日.map((w) => '<th>' + w + '</th>').join('') + '</tr></thead><tbody>' +
+        馬ごと.map((h) => '<tr><th>' + esc(h) + '</th>' + 週の曜日.map((w) => '<td>' +
+          行.filter((x) => x.馬 === h && x.曜日 === w).map((x) => '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '">' + esc(x.名前) + '</span>').join('<br>') +
+          '</td>').join('') + '</tr>').join('') +
+        '</tbody></table></div>';
+    }).join('');
+  }
+}
+
+// 前に見た月の中身を先に出し、届いたら差し替える（Apps Script のころからの待たせない作り）
+async function 読む() {
+  const 番 = ++読む番;
+  const 月 = 見ている.月;
+  中身 = 覚え.取る('calendar:' + 月);
+  描く();
+  try {
+    const d = await call('getCalendarData', 月);
+    if (番 !== 読む番) return;
+    覚え.置く('calendar:' + 月, d);
+    中身 = d;
+    描く();
+  } catch (e) {
+    if (番 !== 読む番) return;
+    $('msg').innerHTML = '<div class="msg error">' + esc('読み込めませんでした：' + ((e && e.message) || e)) +
+      (中身 ? '（前に読んだ内容を出しています）' : '') + '</div>';
+  }
+}
+
+function 月を変える(月) {
+  見ている.月 = 月;
+  try { history.replaceState(null, '', '?tab=' + 見ている.tab + '&month=' + 月); } catch (e) { /* GAS の枠の中では変えられない */ }
+  読む();
+}
+
+document.querySelector('.tabs').addEventListener('click', (e) => {
+  const b = e.target.closest ? e.target.closest('[data-tab]') : null;
+  if (!b) return;
+  見ている.tab = b.dataset.tab;
+  try { history.replaceState(null, '', '?tab=' + 見ている.tab + '&month=' + 見ている.月); } catch (err) { /* そのまま */ }
+  描く();
+});
+$('prevMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, -1)));
+$('nextMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, 1)));
+$('thisMonth').addEventListener('click', () => 月を変える(今月()));
+$('horseSelect').addEventListener('change', 描く);
+$('onlyMe').addEventListener('change', () => {
+  if ($('onlyMe').checked && !私の名前()) {
+    $('onlyMe').checked = false;
+    $('msg').innerHTML = '<div class="msg warning">自分のぶんを出すには、左上の「← マイページ」で名前を選んでください。</div>';
+    return;
+  }
+  描く();
+});
+
+読む();
+</script>
+</body>
+</html>

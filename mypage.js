@@ -372,8 +372,20 @@
     }
     章.push({ id: 'meFacts', html: 事実.length ? '<div class="me-facts">' + 事実.join('') + '</div>' : '' });
 
+    章.push({ id: 'meCal', html: カレンダーの節 });
     return 章;
   }
+
+  /*
+    みんなのカレンダー（2026-09-13）。できた手入れ表とみんなの休みを、月ごとに見る画面（calendar.html）への入口。
+    自分の予定は上の「これからの1週間」に出ているので、ここは「みんなのぶん」を見に行く枠。
+    名前を選ぶ前から出す（見るだけならパスワードも名前も要らない）。
+  */
+  const カレンダーの節 = 節('カレンダー',
+    '<div class="me-cal">' +
+      '<a class="care" href="calendar.html?tab=teire">手入れカレンダー<span class="d">どの日に誰がどの馬の手入れか</span></a>' +
+      '<a class="off" href="calendar.html?tab=yasumi">休みカレンダー<span class="d">みんなの有給・季節休み・バイト</span></a>' +
+    '</div>');
 
   // 検査用。画面では使わない（画面は 描く のほうを通る）
   const 組み立てる = (t, j, 困った, 更新中, 追いつかず) => 節々(t, j, 困った, 更新中, 追いつかず).map((s) => s.html).join('');
@@ -409,7 +421,8 @@
   }
 
   async function 出す(名) {
-    if (!名) { $('meBody').innerHTML = ''; Object.keys(描いた).forEach((k) => { delete 描いた[k]; }); return; }
+    // 名前を選んでいなくても、カレンダーの枠だけは出す
+    if (!名) { $('meBody').innerHTML = '<div id="meCal">' + カレンダーの節 + '</div>'; Object.keys(描いた).forEach((k) => { delete 描いた[k]; }); return; }
     名前を覚える(名);
 
     // 前に取ってあるぶんを先に出す。通信を待たずに読み始められる。
@@ -480,6 +493,9 @@
       if (t && t.members) 保存する('mypage:名簿', t.members);
       return;
     }
+
+    // 名前を選ぶ前でも、カレンダーの枠は出しておく（見るだけなら名前は要らない）
+    出す('');
 
     // まだ誰も選んでいないときだけ、名簿を取りに行く
     try {

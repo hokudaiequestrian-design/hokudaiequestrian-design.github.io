@@ -105,3 +105,16 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
   margin: 0 0 var(--space-xs); padding: var(--space-2xs) var(--space-xs);
   background: var(--paper-3); color: var(--muted); font-size: var(--text-sm);
 }
+
+/* みんなのカレンダーへの入口（2026-09-13）。手入れは緑、休みは黄の帯で見分ける（色だけに頼らず字でも書く） */
+.me-cal { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.me-cal a {
+  flex: 1 1 14rem; display: flex; flex-direction: column; justify-content: center;
+  min-height: var(--tap); padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--rule-strong); border-left-width: 6px; border-radius: var(--radius-card);
+  background: var(--paper-2); color: var(--ink); text-decoration: none; font-weight: 700;
+}
+.me-cal a.care { border-left-color: var(--care); }
+.me-cal a.off { border-left-color: var(--warning); }
+.me-cal a:hover { background: var(--accent-soft); }
+.me-cal .d { font-weight: 400; font-size: var(--text-sm); color: var(--muted); margin-top: 2px; }

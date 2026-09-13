@@ -19,6 +19,13 @@ const path = require('path');
 const NL = String.fromCharCode(10);
 
 /*
+  原本は改行を LF にそろえてから読む（2026-09-13）。
+  このリポジトリは git の autocrlf が効いていて、チェックアウトすると原本が CRLF になる。
+  下の 元のcall などの突き合わせは LF で書いてあるので、そろえないと「call() の形が原本と違う」で止まる。
+*/
+const 読む = (p) => fs.readFileSync(p, 'utf8').split(String.fromCharCode(13) + NL).join(NL);
+
+/*
   画面の原本は、このリポジトリの 画面/ にある（2026-09-13、Apps Script から Cloudflare へ移すときに写した）。
   前は2つの GAS プロジェクトの HTML を直に読んでいた。GAS 側は切り替えまでの控えとしてもう触らない。
   入口の中身（入口の中身()）は、API の原本 馬術部API/src/touban.gs から読む。
@@ -47,13 +54,15 @@ const ページ = [
   { 出す: 'teire-chief.html', 元: 当番 + '/chief.html', api: API.当番, 題: '手入れをまとめる' },
   { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
   { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: '休みをまとめる' },
+  // みんなのカレンダー（手入れ・休み）。入口のマイページから入る（2026-09-13）
+  { 出す: 'calendar.html', 元: 当番 + '/calendar.html', api: API.当番, 題: 'カレンダーを見る' },
   { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
   { 出す: 'taikai-admin.html', 元: 人員表 + '/admin.html', api: API.人員表, 題: '人員表をまとめる' },
 ];
 
 // ===== 1. include('style') を差し替える =====
 function スタイルを埋める(html, プロジェクト) {
-  const style = fs.readFileSync(プロジェクト + '/style.html', 'utf8');
+  const style = 読む(プロジェクト + '/style.html');
   const 印 = "<?!= include('style') ?>";
   if (html.indexOf(印) < 0) throw new Error('include(style) が見つからない');
   return html.split(印).join(style.trim());
@@ -70,6 +79,7 @@ function 検索避けを入れる(html) {
 }
 
 // ===== 2. call() を fetch に差し替える =====
+// この build.js 自身が CRLF で置かれることがあるので、**中に書いた見本も LF にそろえてから**使う
 // 原本の call() は google.script.run を Promise に包んだだけのもの。
 // 呼び出し側（call('login', ...) など）はそのまま使えるように、名前も引数も返りも合わせる。
 const 元のcall = `function call(fn) {
@@ -80,7 +90,7 @@ const 元のcall = `function call(fn) {
       .withSuccessHandler((r) => { busy(false); resolve(r); })
       .withFailureHandler((e) => { busy(false); reject(e); })[fn].apply(null, args);
   });
-}`;
+}`.split(String.fromCharCode(13) + NL).join(NL);
 
 const 新しいcall = (api) => `const API = '${api}';
 
@@ -261,7 +271,7 @@ function 戻るを足す(html) {
 // コード.gs の 入口の中身() をそのまま動かして、題や説明を焼き込む。
 // URLだけは、同じフォルダに並ぶ静的ページへの相対リンクに差し替える。
 function 入口の中身たち() {
-  const src = fs.readFileSync(当番のコード, 'utf8');
+  const src = 読む(当番のコード);
   const lines = src.split(NL);
   const grab = (name) => {
     const head = 'function ' + name + '(';
@@ -295,14 +305,14 @@ function 入口の中身たち() {
  * スクリプトレットで組んでいたところだけ、焼き込んだ中身から画面側で組み立てる。
  */
 function 入口を作る() {
-  const src = fs.readFileSync(当番 + '/hub.html', 'utf8');
+  const src = 読む(当番 + '/hub.html');
   let html = スタイルを埋める(src, 当番);
   html = 検索避けを入れる(html);
 
   // マイページぶんのCSS。hub.html 自身の <style> の末尾に足す
   const 印 = '</style>' + NL + '</head>';
   if (html.indexOf(印) < 0) throw new Error('入口の </style></head> が見つからない');
-  html = html.split(印).join(fs.readFileSync(path.join(__dirname, 'mypage.css'), 'utf8') + 印);
+  html = html.split(印).join(読む(path.join(__dirname, 'mypage.css')) + 印);
 
   // 色はスクリプトレットで入っていたので、CSS変数に逃がして画面側から差す
   html = html.split('background: <?= 中身.色 ?>;').join('background: var(--hub-color, var(--accent));');
@@ -379,7 +389,7 @@ document.getElementById('hub-groups').innerHTML = 中身.groups.map((g) => (
   // マイページの中身。API の2本をここで渡す（mypage.js から見えるようにする）
   const マイページ = '<script>' + NL +
     'const API = ' + JSON.stringify(API, null, 2) + ';' + NL +
-    fs.readFileSync(path.join(__dirname, 'mypage.js'), 'utf8') + NL +
+    読む(path.join(__dirname, 'mypage.js')) + NL +
     '<' + '/script>' + NL;
 
   html = html.split('</main>').join('</main>' + 組み立て + マイページ);
@@ -392,7 +402,7 @@ fs.mkdirSync(出す先, { recursive: true });
 let 件 = 0;
 ページ.forEach((p) => {
   const プロジェクト = path.dirname(p.元);
-  let html = fs.readFileSync(p.元, 'utf8');
+  let html = 読む(p.元);
   html = スタイルを埋める(html, プロジェクト);
   html = 検索避けを入れる(html);
   html = callを差し替える(html, p.api);
