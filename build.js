@@ -27,6 +27,8 @@ const 出す先 = path.join(__dirname, 'docs');
 const API = {
   当番: 'https://script.google.com/macros/s/AKfycbxRymAf5iGuZfmZE-CK2fwicbnj1tE6UZKywZ3cNDTkqxZp0aBAKIb67jYWfOzYorK2Yw/exec',
   人員表: 'https://script.google.com/macros/s/AKfycbxUWCdZAA0-JIhl2Pr10KbAIZSKY4hcn7MfFwRWODjd0WQBWmmA25A-GdtVb5mcK38MTQ/exec',
+  // 人員表の「表示用の写し」を読む窓口（Cloudflare。worker/ にある）。読むだけ。2026-09-13
+  写し: 'https://bajutsubu-cache.hokudai-equestrian.workers.dev',
 };
 
 // 出す先のファイル名。入口ページからは、この名前で相対リンクを張る。
@@ -37,7 +39,7 @@ const ページ = [
   { 出す: 'teire-chief.html', 元: 当番 + '/chief.html', api: API.当番, 題: '手入れをまとめる' },
   { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
   { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: '休みをまとめる' },
-  { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
+  { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す', 写し: true },
   { 出す: 'taikai-admin.html', 元: 人員表 + '/admin.html', api: API.人員表, 題: '人員表をまとめる' },
 ];
 
@@ -84,22 +86,68 @@ const 新しいcall = (api) => `const API = '${api}';
  *
  * Content-Type を text/plain にしているのは、application/json にすると
  * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ *
+ * 通信のせいで失敗したとき（つながらない・HTMLのエラーページが返った）は、エラーに 通信: true を付ける。
+ * サーバが断ったとき（入力の誤りなど）と分けて、送り直してよいかを画面が判断できるようにするため。
+ *
+ * **送信（submitResponse）だけは keepalive で送る。** 押してすぐ画面を閉じたり
+ * マイページへ戻ったりしても、ブラウザが最後まで届けてくれる。keepalive で失敗したときは
+ * 普通の送り方でもう一度だけ試す（出欠の送信は同じ中身で何度送っても結果が変わらない）。
  */
+const 閉じても届ける = ['submitResponse'];
+
 function call(fn) {
   const args = Array.prototype.slice.call(arguments, 1);
   busy(true);
-  return fetch(API, {
+  const 本文 = JSON.stringify({ fn: fn, args: args });
+  const 送る = (keepalive) => fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ fn: fn, args: args }),
-  }).then((res) => {
+    body: 本文,
+    keepalive: keepalive,
+  });
+  const 届ける = 閉じても届ける.indexOf(fn) >= 0 && 本文.length < 60000;
+  return (届ける ? 送る(true).catch(() => 送る(false)) : 送る(false)).then((res) => {
     if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
     return res.json();
+  }).catch((e) => {
+    const err = /^つながりませんでした/.test((e && e.message) || '') ? e
+      : new Error('つながりませんでした。電波の良いところで、少し待ってから開き直してください。');
+    err.通信 = true;
+    throw err;
   }).then((r) => {
     if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
     return r.value;
   }).finally(() => { busy(false); });
 }`;
+
+// ===== 2.2 Cloudflare の写しから読む =====
+/**
+ * 出欠の画面に「写しから読む(名前)」を差し込む。**原本（GASの画面）には無い**ので、
+ * 画面は typeof で有無を見て、無ければ今までどおり Apps Script に聞く。
+ * 5秒で返ってこなければ諦めて Apps Script に聞く（写しの窓口が止まっていても画面は動く）。
+ */
+const 写しの読み口 = (url) => `<script>
+const 写しのURL = '${url}';
+function 写しから読む(名) {
+  const 止める = typeof AbortController === 'function' ? new AbortController() : null;
+  const 時間切れ = setTimeout(() => { if (止める) 止める.abort(); }, 5000);
+  return fetch(写しのURL + '/jinin/taikai?name=' + encodeURIComponent(名 || ''), {
+    cache: 'no-store', signal: 止める ? 止める.signal : undefined,
+  }).then((res) => {
+    if (!res.ok) throw new Error('写しを読めませんでした（' + res.status + '）');
+    return res.json();
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '写しを読めませんでした');
+    return r.value;
+  }).finally(() => clearTimeout(時間切れ));
+}
+<` + `/script>`;
+
+function 写しを足す(html, url) {
+  if (html.indexOf('</head>') < 0) throw new Error('</head> が見つからない');
+  return html.replace('</head>', 写しの読み口(url) + NL + '</head>');
+}
 
 // 原本には call() の上に「google.script.run をPromiseで扱えるようにする」という
 // 説明が付いているファイルがある。差し替えたあとに残ると嘘になるので、そこも消す。
@@ -340,6 +388,7 @@ let 件 = 0;
   html = スタイルを埋める(html, プロジェクト);
   html = 検索避けを入れる(html);
   html = callを差し替える(html, p.api);
+  if (p.写し) html = 写しを足す(html, API.写し);
   html = 戻るを足す(html);
   if (html.indexOf('google.script.run') >= 0) {
     throw new Error(p.出す + ' に google.script.run が残っている');

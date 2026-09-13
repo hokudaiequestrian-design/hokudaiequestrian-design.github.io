@@ -55,6 +55,32 @@ Content-Type: text/plain;charset=UTF-8
 `google.script.run` と違い、ここは誰でも叩けるただのURLなので、初期設定やパスワード変更まで
 届かないように名前で絞ってある。
 
+## 表示用の写し（Cloudflare、2026-09-13）
+
+Apps Script は1回の往復に2〜30秒かかる（しばらく使われないと眠り、起こすのに時間がかかる）。
+そこで**人員表の読むだけのぶん**を Cloudflare に「写し」として置き、画面はそこから読む（0.1秒前後）。
+**書き込みは今までどおり Apps Script に送る。**
+
+```
+人員表の GAS ──毎分「版が変わっていたら」PUT──▶ Cloudflare（worker/）──GET──▶ 入口・taikai.html
+             ◀────────────── 出欠の送信・管理者の操作 ───────────────────── 画面
+```
+
+| | |
+|---|---|
+| 窓口 | `https://bajutsubu-cache.hokudai-equestrian.workers.dev`（Worker `bajutsubu-cache`、KV `bajutsubu-cache-DATA`） |
+| アカウント | `hokudai.equestrian@gmail.com`（GitHubと同じ部活のアドレス） |
+| 読む口 | `GET /jinin/mypage?name=&v=`（`getMyPage` と同じ形）／`GET /jinin/taikai?name=`（名簿・大会・自分の返事を1回で） |
+| 置く口 | `PUT /jinin`。鍵は Worker の secret `WRITE_KEY` と、GAS の `つなぎ先.gs`（**このリポジトリには置かない**） |
+| 送る側 | `コード.gs` の `毎分の見回り`（トリガー）。版が変わったときだけ送り、30分たったら変わっていなくても送る。5分ごとにウェブアプリを叩いて眠らせない |
+
+- **写しを丸ごと返す口は作らない。** 写しには全員の出欠の理由が入っているので、返すのは名前を渡した人のぶんだけ（今の Apps Script でもパスワード無しで取れる範囲）
+- 写しは1〜2分遅れる。出欠の画面は「出したあとに作られた写し」が来るまで手元の返事を出し、入口も「出したところ」の印を残す（版は `時刻.乱数` なので時刻で比べる）
+- 写しが読めない（落ちている・5秒で返らない）ときは、画面は Apps Script に聞き直す
+- 出欠の送信は押した瞬間に受け付け、届くまで `taikai:送り待ち` に残す。届かなければ次に開いたとき（出欠の画面か入口）に送り直す。keepalive を使うのは `submitResponse` だけ（同じ中身で何度送っても結果が変わらないため。管理者の操作は二重になると困るので使わない）
+
+Worker を直したら `cd worker; npx wrangler deploy`。鍵を変えるときは `npx wrangler secret put WRITE_KEY` と `つなぎ先.gs` を同じ値にする。
+
 ## 直すとき
 
 ```
@@ -72,6 +98,8 @@ node tests/apicheck.js  # 本物のウェブアプリに通してみる
 | `toubantest.js` | 当番・手入れ・休みの中身（Nodeの模擬スプレッドシートで `コード.gs` を動かす） | 254 |
 | `synctest.js` | 人員表システムとの名簿の同期 | 36 |
 | `apicheck.js` | 本物のウェブアプリへの往復（Cookieなし。マイページまで） | 14 |
+| `workertest.js` | 写しの窓口（`worker/index.mjs`）。鍵・その人のぶんだけ返す・丸ごと返す口が無い | 27 |
+| `browsertest.js` | Chrome で組み立てたページを動かす（写しとGASは模擬）。先に出す・待たせない送信・送り直し・管理者の画面。最後の1件だけ本物のGASに keepalive で届くか見る。初回に `npm install --no-save --no-package-lock puppeteer-core` | 34 |
 
 Apps Script は続けて叩くと、たまにJSONではなくHTMLのエラーページを返す。
 `apicheck.js` は間を置いて1度だけ試し直すので、そこで落ちたときは本当に壊れている。

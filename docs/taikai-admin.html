@@ -620,17 +620,35 @@ const API = 'https://script.google.com/macros/s/AKfycbxUWCdZAA0-JIhl2Pr10KbAIZSK
  *
  * Content-Type を text/plain にしているのは、application/json にすると
  * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ *
+ * 通信のせいで失敗したとき（つながらない・HTMLのエラーページが返った）は、エラーに 通信: true を付ける。
+ * サーバが断ったとき（入力の誤りなど）と分けて、送り直してよいかを画面が判断できるようにするため。
+ *
+ * **送信（submitResponse）だけは keepalive で送る。** 押してすぐ画面を閉じたり
+ * マイページへ戻ったりしても、ブラウザが最後まで届けてくれる。keepalive で失敗したときは
+ * 普通の送り方でもう一度だけ試す（出欠の送信は同じ中身で何度送っても結果が変わらない）。
  */
+const 閉じても届ける = ['submitResponse'];
+
 function call(fn) {
   const args = Array.prototype.slice.call(arguments, 1);
   busy(true);
-  return fetch(API, {
+  const 本文 = JSON.stringify({ fn: fn, args: args });
+  const 送る = (keepalive) => fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ fn: fn, args: args }),
-  }).then((res) => {
+    body: 本文,
+    keepalive: keepalive,
+  });
+  const 届ける = 閉じても届ける.indexOf(fn) >= 0 && 本文.length < 60000;
+  return (届ける ? 送る(true).catch(() => 送る(false)) : 送る(false)).then((res) => {
     if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
     return res.json();
+  }).catch((e) => {
+    const err = /^つながりませんでした/.test((e && e.message) || '') ? e
+      : new Error('つながりませんでした。電波の良いところで、少し待ってから開き直してください。');
+    err.通信 = true;
+    throw err;
   }).then((r) => {
     if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
     return r.value;
@@ -665,9 +683,36 @@ async function doLogin() {
   }
 }
 
+/* 前回読んだ中身を覚えておき、開いた瞬間に出す（2026-09-13）。
+   Apps Script は1回の往復に2〜30秒かかるので、届くまで待たせない。届いたら差し替える。
+   ただし**待っているあいだに画面で保存したとき（ALL や EV が書き替わったとき）は差し替えない。**
+   保存の返事のほうが新しいため。人員表を触っている最中（DIRTY）も、マスは差し替えない。
+   管理者のデータなので、ログアウトしたら端末から消す。 */
+const 管理の覚え = {
+  取る(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
+  置く(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* いっぱいなら諦める */ } },
+  全部消す() {
+    try {
+      Object.keys(localStorage).filter((k) => k.indexOf('jinin:admin:') === 0).forEach((k) => localStorage.removeItem(k));
+    } catch (e) { /* 消せない設定なら、そもそも覚えていない */ }
+  },
+};
+
+// 大会ごとの中身は、人員表のマスまで入って大きいので、最近開いた5つだけ覚える
+const 大会の覚えの数 = 5;
+function 大会の覚え(eventId, 中身) {
+  const 表 = 管理の覚え.取る('jinin:admin:events') || { 順: [], 中身: {} };
+  if (中身 === undefined) return 表.中身[eventId] || null;
+  表.順 = 表.順.filter((x) => x !== eventId).concat([eventId]);
+  表.中身[eventId] = 中身;
+  while (表.順.length > 大会の覚えの数) delete 表.中身[表.順.shift()];
+  管理の覚え.置く('jinin:admin:events', 表);
+}
+
 function logout() {
   TOKEN = '';
   localStorage.removeItem('adminToken');
+  管理の覚え.全部消す();
   $('appView').style.display = 'none';
   $('loginView').style.display = 'block';
   $('logoutLink').style.display = 'none';
@@ -1171,13 +1216,31 @@ $('copyUrlBtn').addEventListener('click', () => {
 // ===== 出欠・出場 =====
 $('entryEventSelect').addEventListener('change', () => loadEventData($('entryEventSelect').value, renderEntriesTab));
 
+/**
+ * 大会の中身を読む。覚えていればまずそれで then(false) を呼び、
+ * 届いた中身が違えば then(true) でもう一度呼ぶ（true は「後から差し替えた」の印）。
+ */
+let 大会を読む番 = 0;
 async function loadEventData(eventId, then) {
-  if (!eventId) { EV = null; then(); return; }
+  const 番 = ++大会を読む番;
+  if (!eventId) { EV = null; then(false); return; }
+  const 前 = 大会の覚え(eventId);
+  if (前) { EV = 前; EV.eventId = eventId; then(false); }
+  const 出した形 = 前 ? JSON.stringify(EV) : '';
   try {
-    EV = await call('adminLoadEvent', TOKEN, eventId);
-    EV.eventId = eventId;
-    then();
-  } catch (e) { handleError($('entryMsg'), e); }
+    const 新 = await call('adminLoadEvent', TOKEN, eventId);
+    if (!新) return;
+    新.eventId = eventId;
+    大会の覚え(eventId, 新);
+    if (番 !== 大会を読む番) return;   // 読んでいるあいだに別の大会を選んだ
+    if (!前) { EV = 新; then(false); return; }
+    if (JSON.stringify(EV) !== 出した形) return;   // 待っているあいだに保存した。そちらが新しい
+    if (JSON.stringify(新) === 出した形) return;
+    EV = 新;
+    then(true);
+  } catch (e) {
+    if (番 === 大会を読む番) handleError($('entryMsg'), e);
+  }
 }
 
 function renderEntriesTab() {
@@ -1311,7 +1374,12 @@ $('boardEventSelect').addEventListener('change', () => {
   }
   DIRTY = {};
   ASSUME = {};
-  loadEventData($('boardEventSelect').value, () => {
+  loadEventData($('boardEventSelect').value, (後から) => {
+    // 前回のぶんを出したあとに触り始めていたら、マスは差し替えない（触ったぶんが消えてしまう）
+    if (後から && Object.keys(DIRTY).length) {
+      show($('boardMsg'), 'warning', 'この大会の中身が、ほかの所で変わっていました。いま画面にある人員表を保存すると、そちらで上書きします。');
+      return;
+    }
     CELLS = EV ? JSON.parse(JSON.stringify(EV.cells)) : {};
     renderMatrix();
     renderWarnings(null);
@@ -2043,7 +2111,38 @@ $('exportBtn').addEventListener('click', async () => {
 
 // ===== 起動 =====
 async function start(読んだぶん) {
-  ALL = 読んだぶん || await call('adminLoadAll', TOKEN);
+  if (!読んだぶん) {
+    // 前に開いたときのぶんがあれば、それで先に開いて、裏で読み直す
+    const 前 = 管理の覚え.取る('jinin:admin:all');
+    if (前 && 前.posts && 前.members) {
+      画面を開く(前);
+      全部を読み直す();
+      return;
+    }
+  }
+  画面を開く(読んだぶん || await call('adminLoadAll', TOKEN));
+}
+
+async function 全部を読み直す() {
+  const 出した形 = JSON.stringify(ALL);
+  try {
+    const 新 = await call('adminLoadAll', TOKEN);
+    if (JSON.stringify(ALL) !== 出した形) return;   // 待っているあいだに保存した。そちらが新しい
+    管理の覚え.置く('jinin:admin:all', 新);
+    if (JSON.stringify(新) === 出した形) return;
+    ALL = 新;
+    renderMembers();
+    renderHorses();
+    renderEvents();
+    fillEventSelects();
+  } catch (e) {
+    handleError($('memberMsg'), e);   // ログインが切れていたら、ここでログイン画面に戻る
+  }
+}
+
+function 画面を開く(all) {
+  ALL = all;
+  管理の覚え.置く('jinin:admin:all', ALL);
   $('loginView').style.display = 'none';
   $('appView').style.display = 'block';
   $('logoutLink').style.display = 'inline';

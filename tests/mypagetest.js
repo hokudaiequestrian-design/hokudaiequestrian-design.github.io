@@ -337,6 +337,65 @@ ctx.readRows('部員');
 確かめる('書き替えたシートは読み直す', 読んだ回数 === 2, String(読んだ回数));
 ctx.シートを読む = 元のシートを読む;
 
+// ===================== 1.6 表示用の写し（Cloudflare） =====================
+
+見出し('人員表：表示用の写し');
+const 束 = G.写しの束();
+確かめる('写しに版が付く', 束.版 === G.データの版(), 束.版);
+確かめる('部員全員ぶん入る', Object.keys(束.人).length === G.loadMembers().length, Object.keys(束.人).join(','));
+確かめる('出欠の画面ぶんは getMemberPageData と同じ',
+  JSON.stringify(束.出欠画面) === JSON.stringify(G.getMemberPageData()));
+const 本物のマイページ = G.getMyPage('美浦');
+delete 本物のマイページ.版;
+確かめる('マイページぶんは getMyPage と同じ',
+  JSON.stringify(束.人['美浦'].マイページ) === JSON.stringify(本物のマイページ),
+  JSON.stringify(束.人['美浦'].マイページ).slice(0, 80));
+確かめる('返事は大会ごとに getMyResponse と同じ',
+  G.loadEvents().every((e) => JSON.stringify(束.人['美浦'].返事[e.id]) === JSON.stringify(G.getMyResponse(e.id, 私.id))));
+確かめる('出していない人の返事は null', G.loadEvents().every((e) => 束.人['相棒'].返事[e.id] === null));
+確かめる('部員IDが付く', 束.人['美浦'].id === 私.id);
+
+見出し('人員表：写しを送る');
+const 送った = [];
+let 応答コード = 200;
+sandbox.UrlFetchApp = {
+  fetch: (url, opt) => {
+    送った.push({ url: url, opt: opt });
+    return { getResponseCode: () => 応答コード, getContentText: () => (応答コード === 200 ? '{"ok":true}' : 'だめ') };
+  },
+};
+確かめる('送り先が無ければ送らない', G.写しを送る(false) === '未設定' && 送った.length === 0);
+
+sandbox.写し先 = { url: 'https://cache.test', 鍵: 'test-key', 起こす先: 'https://script.google.com/macros/s/TEST/exec' };
+確かめる('初めては送る', G.写しを送る(false) === '送った' && 送った.length === 1);
+const 一通目 = 送った[0];
+確かめる('PUT /jinin に置く', 一通目.url === 'https://cache.test/jinin' && 一通目.opt.method === 'put', 一通目.url);
+確かめる('鍵を付ける', 一通目.opt.headers.Authorization === 'Bearer test-key');
+確かめる('中身は写しの束', !!JSON.parse(一通目.opt.payload).人['美浦']);
+
+確かめる('変わっていなければ送らない', G.写しを送る(false) === '同じ' && 送った.length === 1, String(送った.length));
+確かめる('必ずのときは変わっていなくても送る', G.写しを送る(true) === '送った' && 送った.length === 2);
+
+G.adminSaveEvent(T, { name: '写しのテスト大会', startDate: 日(8), endDate: 日(8), competitions: [], jobs: [] });
+確かめる('書き替えたら送る', G.写しを送る(false) === '送った' && 送った.length === 3);
+確かめる('送った写しに書き替えが入っている',
+  JSON.stringify(JSON.parse(送った[2].opt.payload).出欠画面.events).indexOf('写しのテスト大会') > 0);
+
+PROPS['写しを送った時刻'] = String(Date.now() - 31 * 60 * 1000);
+確かめる('30分たったら変わっていなくても送る（シートを手で直したとき用）', G.写しを送る(false) === '送った' && 送った.length === 4);
+
+G.adminDeleteEvent(T, G.loadEvents().filter((e) => e.name === '写しのテスト大会')[0].id);
+応答コード = 500;
+let 投げた = null;
+try { G.写しを送る(false); } catch (e) { 投げた = e; }
+確かめる('置けなかったら知らせる', !!投げた && /500/.test(投げた.message), 投げた && 投げた.message);
+let 見回りが投げた = null;
+try { G.毎分の見回り(); } catch (e) { 見回りが投げた = e; }
+確かめる('見回りは送れなくても止まらない', !見回りが投げた, 見回りが投げた && 見回りが投げた.message);
+応答コード = 200;
+const 送る前 = 送った.length;
+確かめる('置けなかったぶんは次の見回りで送り直す', G.写しを送る(false) === '送った' && 送った.length > 送る前);
+
 // ===================== 2. マイページの組み立て =====================
 
 見出し('入口：1週間のカレンダー');
@@ -344,7 +403,7 @@ ctx.シートを読む = 元のシートを読む;
 // IIFE の中の関数を外へ出して読み込む（画面のファイルはそのまま使う）
 const 入口のソース = fs.readFileSync(入口, 'utf8')
   .replace('  始める();',
-    '  this.__test = { 一週間を組む, 重なり, 週の見た目, 先の予定, 組み立てる, 節々, 描く, 和風, 足す };');
+    '  this.__test = { 一週間を組む, 重なり, 週の見た目, 先の予定, 組み立てる, 節々, 描く, 和風, 足す, 人員表を読む, 送り待ちを直す };');
 
 // 模擬DOM。innerHTML を書いた回数を数えて、「変わった節だけ書き換える」を確かめられるようにする
 function 模擬要素() {
@@ -372,6 +431,9 @@ const meBody = 模擬要素();
 const 覚え箱 = {};
 const 入口ctx = vm.createContext({
   console: console, fetch: () => {}, Date: Date,
+  API: { 当番: 'https://touban.test', 人員表: 'https://gas.test', 写し: 'https://cache.test' },
+  setTimeout: setTimeout, clearTimeout: clearTimeout, AbortController: AbortController,
+  encodeURIComponent: encodeURIComponent,
   localStorage: {
     getItem: (k) => (覚え箱[k] === undefined ? null : 覚え箱[k]),
     setItem: (k, v) => { 覚え箱[k] = String(v); },
@@ -600,7 +662,90 @@ const 失敗の知らせ = 要素('msg error', '送信に失敗しました：�
 観察([{ addedNodes: [失敗の知らせ] }]);
 確かめる('失敗の知らせには付けない', 失敗の知らせ.後ろ.length === 0, String(失敗の知らせ.後ろ.length));
 
+// ===================== 5. 高速化（写し・待たせない送信） =====================
+
+見出し('出欠の画面：どちらの返事を出すか');
+const 出欠の原本 = fs.readFileSync(path.join('C:', 'Users', 'minuu', 'Documents', '人員表システム_GAS', 'member.html'), 'utf8');
+const 選ぶソース = (出欠の原本.match(/const 版の時刻 = [^\n]*\n/) || [''])[0] +
+  (出欠の原本.match(/function どちらの返事\([\s\S]*?\n}\n/) || [''])[0];
+確かめる('原本から どちらの返事 を取り出せる', 選ぶソース.indexOf('function どちらの返事') > 0 && 選ぶソース.indexOf('const 版の時刻') === 0);
+const 選ぶctx = vm.createContext({ Number: Number, String: String });
+vm.runInContext(選ぶソース + ';this.どちらの返事 = どちらの返事;', 選ぶctx);
+const 選ぶ = 選ぶctx.どちらの返事;
+const サーバの返事 = { answers: [{ date: 'd', attending: true }], comment: '', entries: [] };
+const 手元の返事 = { answers: [{ date: 'd', attending: false }], comment: '用事', entries: [{ competitionId: 'c', horse: '北叡' }], 時刻: 2000 };
+確かめる('手元が無ければサーバ', 選ぶ(サーバの返事, '1000.1', null, false).返事 === サーバの返事);
+確かめる('出す前に作られた写しなら、手元を出す', 選ぶ(サーバの返事, '1000.1', 手元の返事, false).手元を使った === true);
+const 出したあと = 選ぶ(サーバの返事, '3000.1', 手元の返事, false);
+確かめる('出したあとに作られた写しなら、サーバを出して手元は捨てる', 出したあと.返事 === サーバの返事 && 出したあと.手元は古い === true);
+確かめる('Apps Script から直に取ったぶんはサーバを出す', 選ぶ(サーバの返事, null, 手元の返事, false).手元を使った === false);
+確かめる('まだ届いていなければ、新しい写しでも手元', 選ぶ(サーバの返事, '3000.1', 手元の返事, true).手元を使った === true);
+確かめる('まだ届いていなければ、Apps Script のぶんでも手元', 選ぶ(サーバの返事, null, 手元の返事, true).手元を使った === true);
+const 手元で = 選ぶ(null, '1000.1', 手元の返事, false).返事;
+確かめる('手元の返事はサーバと同じ形（answers・comment・entries）',
+  手元で.comment === '用事' && 手元で.answers.length === 1 && 手元で.entries[0].horse === '北叡' && 手元で.時刻 === undefined,
+  JSON.stringify(手元で));
+
+見出し('組み立てたページ：写しと送信');
+const 出欠HTML = fs.readFileSync(path.join(docs, 'taikai.html'), 'utf8');
+確かめる('出欠の画面に写しの読み口が入る',
+  出欠HTML.indexOf('function 写しから読む') > 0 && 出欠HTML.indexOf('https://bajutsubu-cache.hokudai-equestrian.workers.dev') > 0);
+確かめる('写しの読み口は本体より先に読まれる（<head> の中）', 出欠HTML.indexOf('function 写しから読む') < 出欠HTML.indexOf('</head>'));
+確かめる('keepalive は出欠の送信だけ', 出欠HTML.indexOf("const 閉じても届ける = ['submitResponse'];") > 0);
+確かめる('通信の失敗に印を付ける', 出欠HTML.indexOf('err.通信 = true;') > 0);
+['touban.html', 'teire.html', 'yasumi.html', 'taikai-admin.html', 'touban-admin.html'].forEach((f) => {
+  確かめる(f + '：写しの読み口は入らない', fs.readFileSync(path.join(docs, f), 'utf8').indexOf('function 写しから読む') < 0);
+});
+確かめる('入口に写しの窓口のURLが渡る', 入口HTML.indexOf('"写し": "https://bajutsubu-cache.hokudai-equestrian.workers.dev"') > 0);
+確かめる('写しの窓口に鍵が入っていない（public のリポジトリ）',
+  [出欠HTML, 入口HTML].every((s) => s.indexOf('WRITE_KEY') < 0 && s.indexOf('Bearer') < 0));
+
+async function 写しのテスト() {
+  見出し('入口：人員表は写しから読む');
+  const 呼ばれた = [];
+  const 返す = (value) => ({ ok: true, status: 200, json: async () => ({ ok: true, value: value }) });
+  入口ctx.fetch = async (url) => {
+    呼ばれた.push(url);
+    return url.indexOf('https://cache.test') === 0
+      ? 返す({ 版: '5000.1', me: { name: '美浦' }, 大会: [] })
+      : 返す({ 版: '9000.1', me: { name: '美浦' }, 大会: [] });
+  };
+  let x = await M.人員表を読む('美浦', null);
+  確かめる('まず写しに聞く', x.写し === true && 呼ばれた.length === 1 && 呼ばれた[0].indexOf('https://cache.test/jinin/mypage?name=') === 0, JSON.stringify(呼ばれた));
+  x = await M.人員表を読む('美浦', '6000.1');
+  確かめる('持っている版を渡す', 呼ばれた[1].indexOf('&v=6000.1') > 0, 呼ばれた[1]);
+  確かめる('写しが手元より古ければ「同じ」扱い（古い中身に戻さない）', x.返事.同じ === true && x.返事.版 === '6000.1', JSON.stringify(x));
+  x = await M.人員表を読む('美浦', '4000.1');
+  確かめる('写しが新しければ中身を使う', !x.返事.同じ && x.返事.版 === '5000.1', JSON.stringify(x));
+
+  入口ctx.fetch = async (url) => {
+    呼ばれた.push(url);
+    return url.indexOf('https://cache.test') === 0
+      ? { ok: false, status: 503, json: async () => ({ ok: false }) }
+      : 返す({ 版: '9000.1', me: null, 大会: [] });
+  };
+  x = await M.人員表を読む('美浦', null);
+  確かめる('写しが読めなければ Apps Script に聞く', x.写し === false && x.返事.版 === '9000.1' && 呼ばれた[呼ばれた.length - 1] === 'https://gas.test');
+
+  見出し('入口：送り待ちの片付け');
+  覚え箱['taikai:送り待ち'] = JSON.stringify({ 'm1|e1': { memberId: 'm1', eventId: 'e1', 時刻: 100 } });
+  覚え箱['taikai:手元:m1|e1'] = JSON.stringify({ 時刻: 100, answers: [] });
+  M.送り待ちを直す({ memberId: 'm1', eventId: 'e1', 時刻: 100 }, true);
+  確かめる('届いたら送り待ちから消える', JSON.parse(覚え箱['taikai:送り待ち'])['m1|e1'] === undefined);
+  確かめる('届いたら手元の時刻を届いた時刻にする（写しと比べるため）', JSON.parse(覚え箱['taikai:手元:m1|e1']).時刻 > 100);
+  覚え箱['taikai:送り待ち'] = JSON.stringify({ 'm1|e1': { memberId: 'm1', eventId: 'e1', 時刻: 300 } });
+  M.送り待ちを直す({ memberId: 'm1', eventId: 'e1', 時刻: 200 }, true);
+  確かめる('あとで出し直したぶんは消さない', JSON.parse(覚え箱['taikai:送り待ち'])['m1|e1'].時刻 === 300);
+  覚え箱['taikai:送り待ち'] = JSON.stringify({ 'm2|e1': { memberId: 'm2', eventId: 'e1', 時刻: 100 } });
+  覚え箱['taikai:手元:m2|e1'] = JSON.stringify({ 時刻: 100 });
+  M.送り待ちを直す({ memberId: 'm2', eventId: 'e1', 時刻: 100 }, false);
+  確かめる('断られたら手元も送り待ちも消す',
+    覚え箱['taikai:手元:m2|e1'] === undefined && JSON.parse(覚え箱['taikai:送り待ち'])['m2|e1'] === undefined);
+}
+
 // ===================== まとめ =====================
 
-console.log('\n' + (失敗.length ? '✗ ' + 失敗.length + '件失敗' : '✓ ぜんぶ通った') + '（' + ok + '/' + (ok + 失敗.length) + '）');
-if (失敗.length) process.exit(1);
+写しのテスト().catch((e) => { 失敗.push('写しのテストが止まった：' + e.message); console.log(e); }).then(() => {
+  console.log('\n' + (失敗.length ? '✗ ' + 失敗.length + '件失敗' : '✓ ぜんぶ通った') + '（' + ok + '/' + (ok + 失敗.length) + '）');
+  if (失敗.length) process.exit(1);
+});

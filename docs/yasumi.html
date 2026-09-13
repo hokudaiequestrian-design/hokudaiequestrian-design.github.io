@@ -838,17 +838,35 @@ const API = 'https://script.google.com/macros/s/AKfycbxRymAf5iGuZfmZE-CK2fwicbnj
  *
  * Content-Type を text/plain にしているのは、application/json にすると
  * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ *
+ * 通信のせいで失敗したとき（つながらない・HTMLのエラーページが返った）は、エラーに 通信: true を付ける。
+ * サーバが断ったとき（入力の誤りなど）と分けて、送り直してよいかを画面が判断できるようにするため。
+ *
+ * **送信（submitResponse）だけは keepalive で送る。** 押してすぐ画面を閉じたり
+ * マイページへ戻ったりしても、ブラウザが最後まで届けてくれる。keepalive で失敗したときは
+ * 普通の送り方でもう一度だけ試す（出欠の送信は同じ中身で何度送っても結果が変わらない）。
  */
+const 閉じても届ける = ['submitResponse'];
+
 function call(fn) {
   const args = Array.prototype.slice.call(arguments, 1);
   busy(true);
-  return fetch(API, {
+  const 本文 = JSON.stringify({ fn: fn, args: args });
+  const 送る = (keepalive) => fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ fn: fn, args: args }),
-  }).then((res) => {
+    body: 本文,
+    keepalive: keepalive,
+  });
+  const 届ける = 閉じても届ける.indexOf(fn) >= 0 && 本文.length < 60000;
+  return (届ける ? 送る(true).catch(() => 送る(false)) : 送る(false)).then((res) => {
     if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
     return res.json();
+  }).catch((e) => {
+    const err = /^つながりませんでした/.test((e && e.message) || '') ? e
+      : new Error('つながりませんでした。電波の良いところで、少し待ってから開き直してください。');
+    err.通信 = true;
+    throw err;
   }).then((r) => {
     if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
     return r.value;

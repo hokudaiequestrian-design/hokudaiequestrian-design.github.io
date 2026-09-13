@@ -1,0 +1,12 @@
+// 人員表の「表示用の写し」を配る窓口。中身の説明は index.mjs の頭に書いてある。
+// 出すとき: cd worker; npx wrangler deploy
+// 鍵（GAS が写しを置くときのもの）は secret の WRITE_KEY。ここには書かない。
+{
+  "name": "bajutsubu-cache",
+  "main": "index.mjs",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "kv_namespaces": [
+    { "binding": "DATA", "id": "41c70ddc899344759e2525ab36f99081" }
+  ]
+}

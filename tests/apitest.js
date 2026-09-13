@@ -9,13 +9,16 @@ const プロジェクト = [
 ];
 
 // 入口（マイページ）はGASプロジェクトの外、馬術部サイトの mypage.js にあって、
-// 当番・手入れと人員表の両方の getMyPage を呼ぶ。ここだけ別に拾う。
+// 当番・手入れと人員表の両方を呼ぶ。ここだけ別に拾い、呼び先（API.当番／API.人員表）ごとに分ける。
+// 人員表だけに送り直し（submitResponse）があるので、まとめて数えると当番・手入れ側で足りないと出てしまう。
 const 入口 = __dirname.split(String.fromCharCode(92)).join('/').replace(/[/]tests$/, '') + '/mypage.js';
-const 入口が呼ぶ = new Set();
+const 呼び先の名 = { 当番: '当番・手入れ', 人員表: '人員表' };
+const 入口が呼ぶ = { '当番・手入れ': new Set(), '人員表': new Set() };
 if (fs.existsSync(入口)) {
   const src = fs.readFileSync(入口, 'utf8');
   (src.match(/呼ぶ[(]API[.][^,]+, *'[a-zA-Z0-9_]+'/g) || []).forEach((x) => {
-    入口が呼ぶ.add(x.match(/'([a-zA-Z0-9_]+)'/)[1]);
+    const 先 = 呼び先の名[x.match(/API[.]([^,]+),/)[1].trim()];
+    if (先) 入口が呼ぶ[先].add(x.match(/'([a-zA-Z0-9_]+)'/)[1]);
   });
 }
 
@@ -52,7 +55,7 @@ const 確認 = (名, 実, 期待) => {
     m.forEach((x) => 呼ばれる.add(x.slice(6, -1)));
   });
   // 入口は馬術部サイト側にあるので、ここで足す
-  入口が呼ぶ.forEach((n) => 呼ばれる.add(n));
+  入口が呼ぶ[p.名].forEach((n) => 呼ばれる.add(n));
 
   // コード.gs にある関数名を集める
   const ある = new Set();

@@ -236,6 +236,22 @@ th.short { background: #fef2f2; }
 .wholine b { font-size: var(--text-md); }
 .wholine .hint { display: block; margin-top: var(--space-3xs); }
 </style>
+<script>
+const 写しのURL = 'https://bajutsubu-cache.hokudai-equestrian.workers.dev';
+function 写しから読む(名) {
+  const 止める = typeof AbortController === 'function' ? new AbortController() : null;
+  const 時間切れ = setTimeout(() => { if (止める) 止める.abort(); }, 5000);
+  return fetch(写しのURL + '/jinin/taikai?name=' + encodeURIComponent(名 || ''), {
+    cache: 'no-store', signal: 止める ? 止める.signal : undefined,
+  }).then((res) => {
+    if (!res.ok) throw new Error('写しを読めませんでした（' + res.status + '）');
+    return res.json();
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '写しを読めませんでした');
+    return r.value;
+  }).finally(() => clearTimeout(時間切れ));
+}
+</script>
 <style>
 /* 「マイページに戻る」は**いつでも左上**に出す（2026-09-13にユーザーが決めた）。
    見出し帯ごと貼り付けておけば、下まで読んでいる途中でも戻れる。 */
@@ -306,9 +322,11 @@ function 名前を覚える(members, memberId) {
   if (!m) return;
   try { localStorage.setItem('me', m.name); } catch (e) { /* 保存できない設定でも画面は動かす */ }
 }
+function 覚えた名前() {
+  try { return localStorage.getItem('me') || ''; } catch (e) { return ''; }
+}
 function 覚えた人のID(members) {
-  let 名 = '';
-  try { 名 = localStorage.getItem('me') || ''; } catch (e) {}
+  const 名 = 覚えた名前();
   const m = (members || []).filter((x) => x.name === 名)[0];
   if (m) return m.id;
   // 名前で覚える前に使っていた人のぶん（同じシステムの中でだけ当たる）
@@ -367,22 +385,85 @@ const API = 'https://script.google.com/macros/s/AKfycbxUWCdZAA0-JIhl2Pr10KbAIZSK
  *
  * Content-Type を text/plain にしているのは、application/json にすると
  * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ *
+ * 通信のせいで失敗したとき（つながらない・HTMLのエラーページが返った）は、エラーに 通信: true を付ける。
+ * サーバが断ったとき（入力の誤りなど）と分けて、送り直してよいかを画面が判断できるようにするため。
+ *
+ * **送信（submitResponse）だけは keepalive で送る。** 押してすぐ画面を閉じたり
+ * マイページへ戻ったりしても、ブラウザが最後まで届けてくれる。keepalive で失敗したときは
+ * 普通の送り方でもう一度だけ試す（出欠の送信は同じ中身で何度送っても結果が変わらない）。
  */
+const 閉じても届ける = ['submitResponse'];
+
 function call(fn) {
   const args = Array.prototype.slice.call(arguments, 1);
   busy(true);
-  return fetch(API, {
+  const 本文 = JSON.stringify({ fn: fn, args: args });
+  const 送る = (keepalive) => fetch(API, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ fn: fn, args: args }),
-  }).then((res) => {
+    body: 本文,
+    keepalive: keepalive,
+  });
+  const 届ける = 閉じても届ける.indexOf(fn) >= 0 && 本文.length < 60000;
+  return (届ける ? 送る(true).catch(() => 送る(false)) : 送る(false)).then((res) => {
     if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
     return res.json();
+  }).catch((e) => {
+    const err = /^つながりませんでした/.test((e && e.message) || '') ? e
+      : new Error('つながりませんでした。電波の良いところで、少し待ってから開き直してください。');
+    err.通信 = true;
+    throw err;
   }).then((r) => {
     if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
     return r.value;
   }).finally(() => { busy(false); });
 }
+
+/* ===== 待たせない工夫（2026-09-13） =====
+   Apps Script は1回の往復に2〜30秒かかる。そこで
+     ・前回読んだ中身を覚えておき、**開いた瞬間にそれで組む**（届いたら差し替える）
+     ・静的サイトでは Cloudflare の写しから、名簿・大会と自分の返事を**1回で**読む（写しから読む。build.js が差し込む）
+     ・送信は**押した瞬間に受け付けて**、裏で送る。届くまで「送り待ち」に残し、
+       届かなかったら次に開いたとき（この画面かマイページ）にもう一度送る
+   覚えるもの：
+     taikai:画面               前回の名簿・大会・馬
+     taikai:返事:部員ID|大会ID  前回サーバから取れた自分の返事
+     taikai:手元:部員ID|大会ID  自分が出したばかりの返事（写しに載るまでこちらを出す）
+     taikai:送り待ち           まだ届いたと確かめていない送信
+*/
+const 覚え = {
+  取る(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
+  置く(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* いっぱいなら諦める */ } },
+  消す(k) { try { localStorage.removeItem(k); } catch (e) {} },
+};
+const 組の鍵 = (memberId, eventId) => memberId + '|' + eventId;
+// 版は「書き替えた時刻.乱数」。写しがいつの中身かを、この時刻で見分ける
+const 版の時刻 = (v) => Number(String(v == null ? '' : v).split('.')[0]) || 0;
+
+/**
+ * 画面に出す自分の返事を選ぶ。
+ *   サーバ … サーバの返事（無ければ null）
+ *   版     … それが写しなら写しの版。Apps Script から直に取った最新なら null
+ *   手元   … 自分が出したばかりの返事（{answers, comment, entries, 時刻}）
+ *   待ち   … その返事がまだ届いたと確かめられていないか
+ * 写しは1〜2分遅れるので、**出したあとに作られた写しが来るまでは手元を出す。**
+ */
+function どちらの返事(サーバ, 版, 手元, 待ち) {
+  if (!手元) return { 返事: サーバ, 手元を使った: false, 手元は古い: false };
+  const サーバが新しい = !待ち && (版 === null || 版の時刻(版) >= 手元.時刻);
+  if (サーバが新しい) return { 返事: サーバ, 手元を使った: false, 手元は古い: true };
+  return {
+    返事: { answers: 手元.answers, comment: 手元.comment, entries: 手元.entries },
+    手元を使った: true,
+    手元は古い: false,
+  };
+}
+
+let 触った = false;       // 返事を出したあとに、この人が画面を触ったか（触ったら上書きしない）
+let 返事の表 = null;      // 写しから取れた自分の返事 {版, memberId, 表: {大会ID: 返事}}
+let 返事を読む番 = 0;     // 読んでいるあいだに選び直されたら、古いほうの結果は捨てる
+let 読み込み中 = true;    // 開いてすぐの読み込みが終わるまでは、手元のぶんを出すだけにする（写しで返事も一緒に来るので、別に聞きに行かない）
 
 const 行けない日 = () => DAYS.filter((d) => ANSWERS[d.date] === false);
 const 未入力の日 = () => DAYS.filter((d) => ANSWERS[d.date] === undefined);
@@ -422,6 +503,7 @@ function renderDays() {
 
   $('dayVotes').querySelectorAll('select[data-ride]').forEach((sel) => {
     sel.addEventListener('change', () => {
+      触った = true;
       const cid = sel.dataset.ride;
       const i = Number(sel.dataset.slot);
       const 一覧 = (RIDES[cid] || []).slice();
@@ -442,6 +524,7 @@ function renderDays() {
 $('dayVotes').addEventListener('click', (e) => {
   const chip = e.target.closest ? e.target.closest('[data-day]') : null;
   if (!chip) return;
+  触った = true;
   const day = DAYS[Number(chip.dataset.day)];
   const 行ける = chip.dataset.val === '1';
   ANSWERS[day.date] = 行ける;
@@ -449,6 +532,7 @@ $('dayVotes').addEventListener('click', (e) => {
   if (!行ける) (day.competitions || []).forEach((c) => { delete RIDES[c.id]; });
   renderDays();
 });
+$('comment').addEventListener('input', () => { 触った = true; });
 
 // 行けない日があるときだけ連絡事項を必須にする
 function updateCommentLabel() {
@@ -464,44 +548,140 @@ function updateCommentLabel() {
   }
 }
 
+// 返事を画面に入れる（null なら空にする）
+function 返事を入れる(mine) {
+  ANSWERS = {};
+  RIDES = {};
+  $('comment').value = '';
+  if (mine) {
+    (mine.answers || []).forEach((a) => { ANSWERS[a.date || ''] = a.attending; });
+    (mine.entries || []).forEach((x) => {
+      if (!RIDES[x.competitionId]) RIDES[x.competitionId] = [];
+      if (RIDES[x.competitionId].indexOf(x.horse) < 0) RIDES[x.competitionId].push(x.horse);
+    });
+    $('comment').value = mine.comment || '';
+  }
+  renderDays();
+}
+
 async function onSelectionChange() {
   const memberId = $('memberSelect').value;
   const eventId = $('eventSelect').value;
-  if (!memberId || !eventId) { $('formCard').style.display = 'none'; return; }
+  const ev = DATA.events.filter((e) => e.id === eventId)[0];
+  if (!memberId || !eventId || !ev) { $('formCard').style.display = 'none'; return; }
   名前を覚える(DATA.members, memberId);
 
-  const ev = DATA.events.filter((e) => e.id === eventId)[0];
   $('eventTitle').textContent = ev.name;
   DAYS = ev.days || [];
   $('eventPeriod').textContent = DAYS.length && DAYS[0].date
     ? DAYS[0].label + (DAYS.length > 1 ? ' 〜 ' + DAYS[DAYS.length - 1].label : '') + '（全' + DAYS.length + '日）'
     : '';
 
-  ANSWERS = {};
-  RIDES = {};
-  $('comment').value = '';
   $('msg').innerHTML = '';
   $('formCard').style.display = 'block';
-  renderDays();
+  触った = false;
+  await 自分の返事を出す(memberId, eventId);
+}
 
+/**
+ * 自分の返事を出す。まず手元（出したばかり／前回取れたぶん）で出して、
+ * サーバのぶんが取れたら、**まだ画面を触っていなければ**差し替える。
+ */
+async function 自分の返事を出す(memberId, eventId) {
+  const 番 = ++返事を読む番;
+  const 鍵 = 組の鍵(memberId, eventId);
+  const 手元 = 覚え.取る('taikai:手元:' + 鍵);
+  const 待ち = !!(覚え.取る('taikai:送り待ち') || {})[鍵];
+
+  // 1. 待たずに出せるぶん
+  const 表 = 返事の表 && 返事の表.memberId === memberId ? 返事の表 : null;
+  const 先に = どちらの返事(表 ? (表.表[eventId] || null) : 覚え.取る('taikai:返事:' + 鍵), 表 ? 表.版 : '0', 手元, 待ち);
+  返事を入れる(先に.返事);
+  if (待ち) show('warning', '前に出したぶんを、まだ送っています。届くとここに出ます。');
+  else if (先に.返事) show('success', '前回の回答を読み込みました。書き換えて送信すると更新されます。');
+  if (表) { 返事を覚える(鍵, 表.表[eventId] || null, 先に); return; }
+  if (読み込み中) return;
+
+  // 2. 写しが無いときは Apps Script に聞く（こちらは常に最新）
+  let サーバ;
   try {
-    const mine = await call('getMyResponse', eventId, memberId);
-    if (mine) {
-      (mine.answers || []).forEach((a) => { ANSWERS[a.date || ''] = a.attending; });
-      (mine.entries || []).forEach((x) => {
-        if (!RIDES[x.competitionId]) RIDES[x.competitionId] = [];
-        if (RIDES[x.competitionId].indexOf(x.horse) < 0) RIDES[x.competitionId].push(x.horse);
-      });
-      $('comment').value = mine.comment || '';
-      show('success', '前回の回答を読み込みました。書き換えて送信すると更新されます。');
-    }
-    renderDays();
+    サーバ = await call('getMyResponse', eventId, memberId);
   } catch (e) {
-    show('error', (e && e.message) || e);
+    if (番 === 返事を読む番 && !先に.返事) show('error', (e && e.message) || e);
+    return;
+  }
+  if (番 !== 返事を読む番) return;   // 読んでいるあいだに選び直された
+  const 後で = どちらの返事(サーバ, null, 手元, 待ち);
+  返事を覚える(鍵, サーバ, 後で);
+  if (触った || JSON.stringify(後で.返事) === JSON.stringify(先に.返事)) return;
+  返事を入れる(後で.返事);
+  if (後で.返事) show('success', '前回の回答を読み込みました。書き換えて送信すると更新されます。');
+  else $('msg').innerHTML = '';
+}
+
+function 返事を覚える(鍵, サーバ, 選んだ) {
+  覚え.置く('taikai:返事:' + 鍵, サーバ);
+  if (選んだ.手元は古い) 覚え.消す('taikai:手元:' + 鍵);   // サーバに載ったので、手元のぶんはもう要らない
+}
+
+// ===== 送る =====
+
+let 送信の列 = Promise.resolve();   // 続けて押しても、押した順に届くように1つずつ送る
+
+function 送り待ちを直す(x, 届いた) {
+  const 鍵 = 組の鍵(x.memberId, x.eventId);
+  const 待ち = 覚え.取る('taikai:送り待ち') || {};
+  // もっと新しく出し直していたら、そちらを残す
+  if (待ち[鍵] && 待ち[鍵].時刻 === x.時刻) { delete 待ち[鍵]; 覚え.置く('taikai:送り待ち', 待ち); }
+  const 手元 = 覚え.取る('taikai:手元:' + 鍵);
+  if (!手元 || 手元.時刻 < x.時刻) return;
+  if (届いた && 手元.時刻 === x.時刻) {
+    手元.時刻 = Date.now();   // 届いた時刻にしておく。これより新しい写しなら、この返事が載っている
+    覚え.置く('taikai:手元:' + 鍵, 手元);
+  } else if (!届いた) {
+    覚え.消す('taikai:手元:' + 鍵);
   }
 }
 
-$('submitBtn').addEventListener('click', async () => {
+/**
+ * 1件送る。通信のせいで届かなかったときは送り待ちに残し（次に開いたときにもう一度送る）、
+ * サーバに断られたとき（大会が消えた など）は残さずに知らせる。
+ */
+async function 送る(x, 知らせる) {
+  const 今この組 = () => $('memberSelect').value === x.memberId && $('eventSelect').value === x.eventId;
+  try {
+    await call('submitResponse', x.eventId, x.memberId, x.answers, x.comment, x.rides);
+    送り待ちを直す(x, true);
+    // マイページが、写しに載るまで「まだ出していないもの」から外しておけるように
+    try { localStorage.setItem('mypage:出したところ', JSON.stringify({ url: 'taikai.html', 時刻: Date.now() })); } catch (e) {}
+    if (知らせる && 今この組()) {
+      const ng = x.answers.filter((a) => !a.attending).length;
+      show('success', '送信しました。ありがとうございます。' +
+        (x.rides.length ? '出場する競技を' + x.rides.length + '件登録しました。' : '') +
+        (ng ? '（行けない日は欠席で登録しました）' : ''));
+    }
+  } catch (e) {
+    const 文 = (e && e.message) || String(e);
+    if (e && e.通信) {
+      if (知らせる && 今この組()) show('warning', '送信がまだ届いていません（' + 文 + '）。電波の良いところでこの画面を開き直すと、自動でもう一度送ります。');
+      return;
+    }
+    送り待ちを直す(x, false);
+    if (知らせる && 今この組()) show('error', '送信に失敗しました：' + 文);
+  }
+}
+
+// 前に届かなかった送信を送り直す。いま飛んでいる最中かもしれないので、1分たったものだけ
+function 送り待ちを送る() {
+  const 待ち = 覚え.取る('taikai:送り待ち') || {};
+  Object.keys(待ち).forEach((k) => {
+    const x = 待ち[k];
+    if (!x || Date.now() - (x.時刻 || 0) < 60 * 1000) return;
+    送信の列 = 送信の列.then(() => 送る(x, true));
+  });
+}
+
+$('submitBtn').addEventListener('click', () => {
   const memberId = $('memberSelect').value;
   const eventId = $('eventSelect').value;
   if (!memberId || !eventId) return;
@@ -517,51 +697,108 @@ $('submitBtn').addEventListener('click', async () => {
     return;
   }
 
-  $('submitBtn').disabled = true;
-  try {
-    const answers = DAYS.map((d) => ({ date: d.date, attending: !!ANSWERS[d.date] }));
-    const rides = [];
-    Object.keys(RIDES).forEach((cid) => {
-      (RIDES[cid] || []).forEach((h) => rides.push({ competitionId: cid, horse: h }));
-    });
-    await call('submitResponse', eventId, memberId, answers, $('comment').value, rides);
-    show('success', '送信しました。ありがとうございます。' +
-      (rides.length ? '出場する競技を' + rides.length + '件登録しました。' : '') +
-      (ng.length ? '（' + ng.map((d) => d.label).join('、') + 'は欠席で登録しました）' : ''));
-  } catch (e) {
-    show('error', '送信に失敗しました：' + ((e && e.message) || e));
-  } finally {
-    $('submitBtn').disabled = false;
-  }
+  const answers = DAYS.map((d) => ({ date: d.date, attending: !!ANSWERS[d.date] }));
+  const rides = [];
+  Object.keys(RIDES).forEach((cid) => {
+    (RIDES[cid] || []).forEach((h) => rides.push({ competitionId: cid, horse: h }));
+  });
+  const x = { eventId: eventId, memberId: memberId, answers: answers, comment: $('comment').value, rides: rides, 時刻: Date.now() };
+
+  // 押した瞬間に受け付ける。届くまでは送り待ちに残し、画面にも手元のぶんを出す
+  const 鍵 = 組の鍵(memberId, eventId);
+  const 待ち = 覚え.取る('taikai:送り待ち') || {};
+  待ち[鍵] = x;
+  覚え.置く('taikai:送り待ち', 待ち);
+  覚え.置く('taikai:手元:' + 鍵, { answers: answers, comment: x.comment, entries: rides, 時刻: x.時刻 });
+  触った = false;
+
+  show('success', '受け付けました。' +
+    (rides.length ? '出場する競技' + rides.length + '件も一緒に出します。' : '') +
+    (ng.length ? '（' + ng.map((d) => d.label).join('、') + 'は欠席で出します）' : '') +
+    'いま送っています。届くとここに出ます。');
+  送信の列 = 送信の列.then(() => 送る(x, true));
 });
 
+// ===== 開いたとき =====
+
+// 名簿と大会の選ぶ欄を組む。選んでいたものはそのまま残す
+function 選ぶ欄を組む(data) {
+  DATA = data;
+  HORSES = data.horses || [];
+  $('loading').style.display = 'none';
+  $('pickCard').style.display = 'block';
+  const 人 = $('memberSelect').value;
+  const 大会 = $('eventSelect').value;
+  $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
+    DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
+  $('eventSelect').innerHTML = '<option value="">選択してください</option>' +
+    DATA.events.map((e) => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
+  if (人 && DATA.members.some((m) => m.id === 人)) $('memberSelect').value = 人;
+  if (大会 && DATA.events.some((e) => e.id === 大会)) $('eventSelect').value = 大会;
+}
+
+let 選んだことがある = false;
+function 最初に選ぶ() {
+  if (選んだことがある) return;
+  選んだことがある = true;
+  const saved = 覚えた人のID(DATA.members);
+  if (saved) {
+    $('memberSelect').value = saved;
+    名前は聞かない((DATA.members.filter((m) => m.id === saved)[0] || {}).name);
+  }
+  if (DATA.events.length === 1) $('eventSelect').value = DATA.events[0].id;
+  // マイページの「まだ出していないもの」から来たときは、その大会を開く
+  const 指定 = URLの('event');
+  if (指定 && DATA.events.some((e2) => e2.id === 指定)) $('eventSelect').value = 指定;
+}
+
+// 新しい中身を読む。静的サイトでは Cloudflare の写しから、名簿・大会・自分の返事を1回で
+async function 新しいのを読む() {
+  if (typeof 写しから読む === 'function') {
+    try {
+      const r = await 写しから読む(覚えた名前());
+      return { data: r.data, 返事の表: r.memberId ? { 版: r.版, memberId: r.memberId, 表: r.返事 || {} } : null };
+    } catch (e) { /* 写しが読めなければ Apps Script に聞く */ }
+  }
+  return { data: await call('getMemberPageData'), 返事の表: null };
+}
+
 (async () => {
-  try {
-    DATA = await call('getMemberPageData');
-    HORSES = DATA.horses || [];
-    $('loading').style.display = 'none';
-    $('pickCard').style.display = 'block';
+  $('memberSelect').addEventListener('change', onSelectionChange);
+  $('eventSelect').addEventListener('change', onSelectionChange);
+  送り待ちを送る();
 
-    $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
-      DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
-    $('eventSelect').innerHTML = '<option value="">選択してください</option>' +
-      DATA.events.map((e) => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
-
-    $('memberSelect').addEventListener('change', onSelectionChange);
-    $('eventSelect').addEventListener('change', onSelectionChange);
-
-    const saved = 覚えた人のID(DATA.members);
-    if (saved) {
-      $('memberSelect').value = saved;
-      名前は聞かない((DATA.members.filter((m) => m.id === saved)[0] || {}).name);
-    }
-    if (DATA.events.length === 1) $('eventSelect').value = DATA.events[0].id;
-    // マイページの「まだ出していないもの」から来たときは、その大会を開く
-    const 指定 = URLの('event');
-    if (指定 && DATA.events.some((e2) => e2.id === 指定)) $('eventSelect').value = 指定;
+  const 前 = 覚え.取る('taikai:画面');
+  if (前 && 前.members && 前.events) {
+    選ぶ欄を組む(前);
+    最初に選ぶ();
     onSelectionChange();
+  }
+
+  let 新;
+  try {
+    新 = await 新しいのを読む();
   } catch (e) {
-    $('loading').innerHTML = '<div class="msg error">読み込みに失敗しました：' + esc((e && e.message) || e) + '</div>';
+    読み込み中 = false;
+    if (前) show('warning', '最新の内容を読めませんでした。前回の内容を出しています：' + ((e && e.message) || e));
+    else $('loading').innerHTML = '<div class="msg error">読み込みに失敗しました：' + esc((e && e.message) || e) + '</div>';
+    return;
+  }
+  覚え.置く('taikai:画面', 新.data);
+  返事の表 = 新.返事の表;
+  読み込み中 = false;
+
+  const 同じ = 前 && JSON.stringify(前) === JSON.stringify(新.data);
+  if (!同じ) {
+    選ぶ欄を組む(新.data);
+    最初に選ぶ();
+  }
+  if (!前 || !触った) {
+    onSelectionChange();   // 大会の日や自分の返事が変わっていれば出し直す
+  } else if (!同じ) {
+    // 触っている最中なら、入れたぶんは残して日の並びだけ新しくする
+    const ev = DATA.events.filter((e) => e.id === $('eventSelect').value)[0];
+    if (ev) { DAYS = ev.days || []; renderDays(); }
   }
 })();
 </script>
