@@ -858,6 +858,8 @@ G.chiefDeletePlan(C, plan1.id);
   確かめる('サブをまとめて直すのURLが出る', V.手入れ_サブ === 'https://hokudaiequestrian-design.github.io/teire-subs.html', V.手入れ_サブ);
   確かめる('副将用にもサブをまとめて直すが入る', 副将.groups[1].links.some((l) => l.url === V.手入れ_サブ));
   確かめる('部員用にサブをまとめて直すは入らない', URLたち(部員).indexOf(V.手入れ_サブ) < 0);
+  確かめる('サブ整理は副将画面のタブなので、別ページのURLも入口のリンクも無い',
+    !('手入れ_サブ整理' in V) && !URLたち(副将).some((x) => /subterms/.test(x)));
 
   確かめる('副将用も投票とまとめるで分かれている', 副将.groups.length === 2);
   確かめる('副将用のまとめるに当番・手入れ・休みが入る',
@@ -1286,6 +1288,106 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   確かめる('外から呼べる', G.外から呼べる関数.indexOf('chiefSaveSubsBulk') >= 0);
 
   計画.forEach((p) => G.chiefDeletePlan(C, p.id));
+}
+
+// ----- サブ整理（副将が開始日ごとに決める、馬ごとの基本のサブ。2026-09-13） -----
+見出し('サブ整理');
+{
+  const [X, Y] = G.loadHorses().filter((h) => h.active).slice(-2);   // 後ろの2頭（ほかの検査で期間を作っていない）
+  const [A, B, D] = G.loadMembers().slice(0, 3).map((m) => m.id);
+  const 並べ = (a) => JSON.stringify((a || []).slice().sort());
+  const サブ = (pid) => 並べ(G.loadSubs(pid).map((s) => s.memberId));
+  const 作った計画 = [];
+
+  確かめる('サブ整理が無いうちは、チーフの読み込みの 最新のサブ整理 は null',
+    G.chiefLoadAll(C).最新のサブ整理 === null, JSON.stringify(G.chiefLoadAll(C).最新のサブ整理));
+  投げるはず('副将のトークンが要る（チーフでは読めない）', () => G.adminLoadSubTerms(C), '有効期限');
+  投げるはず('開始日が無いと作れない', () => G.adminSaveSubTerm(T, { name: '前期' }), '開始日');
+  const s1 = G.adminSaveSubTerm(T, { name: '前期', from: '2030-04-01' });
+  確かめる('サブ整理が作れる', !!s1.id && s1.all.subTerms.some((t) => t.id === s1.id && t.from === '2030-04-01'), JSON.stringify(s1.all.subTerms));
+  投げるはず('同じ開始日は2つ作れない', () => G.adminSaveSubTerm(T, { name: 'かぶり', from: '2030-04-01' }), 'もうあります');
+  G.adminSaveBaseSubs(T, s1.id, { [X.id]: [A, B, B, 'だれでもない'], [Y.id]: [D] });
+  const 読んだ = G.adminLoadSubTerms(T);
+  確かめる('基本のサブが保存できる（二重と名簿にない人は入れない）',
+    並べ(読んだ.subs[s1.id][X.id]) === 並べ([A, B]) && 並べ(読んだ.subs[s1.id][Y.id]) === 並べ([D]), JSON.stringify(読んだ.subs));
+
+  const s2 = G.adminSaveSubTerm(T, { name: '後期', from: '2030-10-01' });
+  確かめる('新しいサブ整理は直前のサブ整理のサブを写して作る',
+    並べ((s2.all.subs[s2.id] || {})[X.id]) === 並べ([A, B]) && s2.写した === '前期', JSON.stringify(s2.all.subs[s2.id]));
+  G.adminSaveBaseSubs(T, s2.id, { [X.id]: [D] });
+  確かめる('送らなかった馬には触らない', 並べ(G.adminLoadSubTerms(T).subs[s2.id][Y.id]) === 並べ([D]));
+  {
+    const t = G.chiefLoadAll(C).最新のサブ整理;
+    確かめる('いちばん新しいサブ整理がチーフの読み込みに入る',
+      !!t && t.id === s2.id && t.from === '2030-10-01' && t.name === '後期' && 並べ(t.subs[X.id]) === 並べ([D]) && 並べ(t.subs[Y.id]) === 並べ([D]),
+      JSON.stringify(t));
+  }
+
+  // 期間を作ると、既定は前の期間から引き継ぐ（サブ整理は自動では入らない）
+  const 作る = (term, mode, from, to, 合わせる) => {
+    const r = G.chiefSavePlan(C, { horseId: X.id, term: term, mode: mode, from: from, to: to, min: 1, max: 1, 最新に合わせる: 合わせる });
+    作った計画.push(r.id);
+    return r;
+  };
+  const 土台 = 作る('土台', '曜日', '2030-05-01');
+  G.chiefSaveSubs(C, 土台.id, [A]);
+  const w1 = 作る('引き継ぐ', '曜日', '2030-11-01');
+  確かめる('既定は前の期間から引き継ぐ（開始日が最新のサブ整理より後でも、サブ整理は入らない）',
+    サブ(w1.id) === 並べ([A]) && /前の期間/.test(w1.サブの元), JSON.stringify(w1));
+  確かめる('曜日の期間にも開始日が入る', G.findPlan(w1.id).from === '2030-11-01' && G.findPlan(w1.id).to === '', JSON.stringify(G.findPlan(w1.id)));
+  const w2 = 作る('合わせる', 'カレンダー', '2030-06-01', '2030-06-30', true);
+  確かめる('「最新のサブ整理に合わせる」なら、開始日に関係なくいちばん新しいサブ整理のサブが入る',
+    サブ(w2.id) === 並べ([D]) && /後期/.test(w2.サブの元), JSON.stringify(w2));
+
+  const s3 = G.adminSaveSubTerm(T, { name: '空で', from: '2032-04-01', 写す: false });
+  確かめる('写さずにも作れる', !s3.all.subs[s3.id]);
+  const w3 = 作る('空のサブ整理', '曜日', '2032-05-01', '', true);
+  確かめる('最新のサブ整理にその馬のサブが無ければ、前の期間から引き継ぐ',
+    サブ(w3.id) === サブ(w2.id) && /前の期間/.test(w3.サブの元), JSON.stringify(w3));
+  G.adminDeleteSubTerm(T, s3.id);
+
+  // まとめて作るときも同じ
+  const r = G.chiefSavePlanForHorses(C, [X.id, Y.id], { term: 'まとめて合わせる', mode: '曜日', from: '2031-01-01', min: 1, max: 1, 最新に合わせる: true });
+  r.作った.forEach((x) => 作った計画.push(x.id));
+  const 計画を引く = (h) => G.loadPlans().filter((p) => p.horseId === h.id && p.term === 'まとめて合わせる')[0];
+  確かめる('まとめて作るときも「最新のサブ整理に合わせる」が効く',
+    r.作った.length === 2 && サブ(計画を引く(X).id) === 並べ([D]) && サブ(計画を引く(Y).id) === 並べ([D]) &&
+    r.作った.every((x) => /後期/.test(x.サブの元)), JSON.stringify(r.作った));
+
+  // 入れるのは作るときだけ
+  G.adminSaveBaseSubs(T, s2.id, { [X.id]: [A, B] });
+  確かめる('あとで副将が直しても、作ってある期間のサブは変わらない', サブ(w2.id) === 並べ([D]));
+
+  const なし = G.chiefSavePlan(C, { horseId: X.id, term: '開始日なし', mode: '曜日', min: 1, max: 1 });
+  作った計画.push(なし.id);
+  確かめる('開始日の無い曜日の期間も作れる（開いたままの古い画面のため）', !!なし.id && G.findPlan(なし.id).from === '', JSON.stringify(G.findPlan(なし.id)));
+  投げるはず('開始日の形がおかしければ止まる', () => G.chiefSavePlan(C, { horseId: X.id, term: 'へんな日', mode: '曜日', from: 'あした' }), '開始日');
+
+  // 開始日の無い曜日の期間に、あとから開始日を入れる。集めた◎○×は消えない
+  G.chiefSaveSubs(C, なし.id, [A]);
+  G.submitCareVote(なし.id, A, { 月: '○', 火: '○', 水: '○', 木: '○', 金: '○', 土: '○', 日: '○' });
+  const p = G.findPlan(なし.id);
+  const 入れた = G.chiefSavePlan(C, { id: p.id, horseId: p.horseId, term: p.term, mode: '曜日', from: '2030-06-01', min: 1, max: 1 });
+  確かめる('開始日の無い曜日の期間に、あとから開始日を入れられて、票は消えない',
+    !入れた.票を消した && G.loadCareVotes(なし.id).length === 7 && G.findPlan(なし.id).from === '2030-06-01', JSON.stringify(入れた));
+
+  投げるはず('無いサブ整理には保存できない', () => G.adminSaveBaseSubs(T, 'でたらめ', { [X.id]: [A] }), 'もうありません');
+  投げるはず('何も送らなければ止まる（サブ整理）', () => G.adminSaveBaseSubs(T, s1.id, {}), '変えたところ');
+  const 直した = G.adminSaveSubTerm(T, { id: s1.id, name: '前期（直した）', from: '2030-03-01' });
+  確かめる('名前と開始日を直せる', 直した.all.subTerms.some((t) => t.id === s1.id && t.from === '2030-03-01' && t.name === '前期（直した）'));
+  投げるはず('直すときも、同じ開始日を2つにはできない', () => G.adminSaveSubTerm(T, { id: s1.id, name: 'x', from: '2030-10-01' }), 'もうあります');
+  const 消した = G.adminDeleteSubTerm(T, s2.id);
+  確かめる('サブ整理を消すと、その基本のサブも消える',
+    !消した.all.subTerms.some((t) => t.id === s2.id) && G.loadBaseSubs().every((x) => x.subTermId !== s2.id));
+  確かめる('消したら、ひとつ前のサブ整理が最新になる', (G.chiefLoadAll(C).最新のサブ整理 || {}).id === s1.id);
+  確かめる('サブ整理を消しても、作ってある期間のサブは残る', サブ(w2.id) === 並べ([D]));
+  確かめる('外から呼べる',
+    ['adminLoadSubTerms', 'adminSaveSubTerm', 'adminDeleteSubTerm', 'adminSaveBaseSubs'].every((n) => G.外から呼べる関数.indexOf(n) >= 0));
+  確かめる('サブ整理専用のログインは無い（副将画面のトークンを使う）', G.外から呼べる関数.indexOf('loginAndLoadSubTerms') < 0);
+
+  // 片づけ
+  作った計画.forEach((id) => G.chiefDeletePlan(C, id));
+  G.adminDeleteSubTerm(T, s1.id);
 }
 
 // ----- 画面とURL -----

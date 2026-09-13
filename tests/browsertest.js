@@ -165,6 +165,51 @@ function 模擬で答える(req) {
     });
     return 答える(req, 200, { ok: true, value: { ok: true } }, 模擬.削除の遅れ);
   }
+  // 当番の副将画面（サブ整理タブを見るのに開く）。人員表にも同じ名前の関数があるので、呼び先で分ける
+  if (どこ === '当番' && 本文.fn === 'loginAndLoad') return 返す({ token: 'a_test', all: 模擬.当番の全部() });
+  if (どこ === '当番' && 本文.fn === 'adminLoadAll') return 返す(模擬.当番の全部());
+  // 手入れのサブ整理（副将画面のタブ）
+  if (本文.fn === 'adminLoadSubTerms') return 返す(模擬.サブ整理);
+  if (本文.fn === 'adminSaveSubTerm') {
+    const x = 本文.args[1] || {};
+    const s = 模擬.サブ整理;
+    if (x.id) {
+      s.subTerms.forEach((t) => { if (t.id === x.id) { t.name = x.name; t.from = x.from; } });
+      return 返す({ ok: true, id: x.id, 写した: '', all: s });
+    }
+    const id = 'sp' + (s.subTerms.length + 1);
+    const 前 = s.subTerms.filter((t) => t.from < x.from).slice(-1)[0];
+    const 写す = x.写す !== false && 前;
+    s.subTerms.push({ id: id, name: x.name, from: x.from, note: '' });
+    s.subTerms.sort((a, b) => (a.from < b.from ? -1 : 1));
+    s.subs[id] = 写す ? JSON.parse(JSON.stringify(s.subs[前.id] || {})) : {};
+    return 返す({ ok: true, id: id, 写した: 写す ? 前.name : '', all: s });
+  }
+  if (本文.fn === 'adminSaveBaseSubs') {
+    模擬.基本のサブ保存 = 本文.args.slice(1);
+    const s = 模擬.サブ整理;
+    s.subs[本文.args[1]] = Object.assign({}, s.subs[本文.args[1]] || {}, 本文.args[2]);
+    return 返す({ ok: true, 変えた: Object.keys(本文.args[2]).length, all: s });
+  }
+  if (本文.fn === 'adminDeleteSubTerm') {
+    const s = 模擬.サブ整理;
+    s.subTerms = s.subTerms.filter((t) => t.id !== 本文.args[1]);
+    delete s.subs[本文.args[1]];
+    return 返す({ ok: true, all: s });
+  }
+  // チーフ：期間をまとめて作る・1つの期間を開く・決まりを保存する
+  if (本文.fn === 'chiefSavePlanForHorses') {
+    模擬.まとめて作る = 本文.args.slice(1);
+    return 返す({
+      作った: 本文.args[1].map((h) => ({ horseId: h, name: h, id: 'pn_' + h, 引き継いだ: true, サブの元: '前の期間「前期」' })),
+      飛ばした: [], だめ: [],
+    });
+  }
+  if (本文.fn === 'chiefLoadPlan') return 返す(模擬.計画);
+  if (本文.fn === 'chiefSavePlan') {
+    模擬.期間の保存 = 本文.args[1];
+    return 返す({ ok: true, id: 本文.args[1].id || 'pnew', 票を消した: false, 引き継いだ: false, サブの元: '' });
+  }
   if (本文.fn === 'chiefSaveSubsBulk') {
     模擬.まとめて保存 = 本文.args[1];
     const subs = Object.assign({}, 模擬.chiefのBASE.subs || {}, 本文.args[1]);
@@ -448,6 +493,135 @@ function 模擬で答える(req) {
 
   await page.select('#termSelect', '前期');
   確かめる('期間を切り替えると、その期間の馬とサブになる', JSON.stringify(await 付いている()) === JSON.stringify(['p3|m_002']), JSON.stringify(await 付いている()));
+
+  // ---------- 8.65 チーフ：最新のサブ整理に合わせる（サブをまとめて直す） ----------
+  console.log(String.fromCharCode(10) + '== チーフ：最新のサブ整理に合わせる（まとめて直す） ==');
+  // 8.6 の続き。保存ずみは p1（北叡・後期）: 美浦、p2（北冴・後期）: 美浦
+  模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, {
+    最新のサブ整理: { id: 'sp2', name: '後期', from: '2030-10-01', subs: { h1: ['m_001'], h2: ['m_002'] } },
+  });
+  await page.goto(元 + '/teire-subs.html?term=' + encodeURIComponent('後期'));
+  await page.waitForSelector('table.subs-grid', { timeout: 15000 });
+  const 最新ボタン = () => page.$eval('#latestBtn', (el) => el.textContent);
+  確かめる('ボタンに最新のサブ整理の日付が出る', /^最新（10月1日）のサブ整理に合わせる$/.test(await 最新ボタン()), await 最新ボタン());
+  模擬.呼ばれた = [];
+  await page.click('#latestBtn');
+  確かめる('押すと表の上だけ合わせ、まだ送らない',
+    JSON.stringify(await 付いている()) === JSON.stringify(['p1|m_001', 'p2|m_002']) && !模擬.呼ばれた.some((x) => /chiefSaveSubsBulk/.test(x)),
+    JSON.stringify(await 付いている()));
+  確かめる('変わったマスに印が付く（北冴の2マス）', (await page.$$('td.changed')).length === 2);
+  確かめる('まだ保存していないと知らせる', /まだ保存していません/.test(await 保存の知らせ()), await 保存の知らせ());
+  await page.click('#saveBtn');   // 北冴から美浦が外れるので確かめの窓が出る（8.5 で付けた dialog が受ける）
+  await page.waitForFunction(() => /保存しました/.test(document.getElementById('saveMsg').textContent), { timeout: 15000 });
+  確かめる('保存すると、変わった馬だけを送る', JSON.stringify(模擬.まとめて保存) === JSON.stringify({ p2: ['m_002'] }), JSON.stringify(模擬.まとめて保存));
+
+  模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, { 最新のサブ整理: null });
+  await page.goto(元 + '/teire-subs.html');
+  await page.waitForSelector('table.subs-grid', { timeout: 15000 });
+  await page.click('#latestBtn');
+  確かめる('サブ整理が無いときは、押すと理由を出す（表は変えない）', /サブ整理がまだありません/.test(await 保存の知らせ()), await 保存の知らせ());
+
+  // ---------- 8.66 チーフ：期間を作る・開始日を入れ直す ----------
+  console.log(String.fromCharCode(10) + '== チーフ：期間を作る・開始日を入れ直す ==');
+  模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, {
+    最新のサブ整理: { id: 'sp2', name: '後期', from: '2030-10-01', subs: {} },
+  });
+  await page.goto(元 + '/teire-chief.html');
+  await page.waitForSelector('#horseSelect option[value="h1"]', { timeout: 15000 });
+  await page.select('#horseSelect', 'h1');
+  await page.$eval('#termCard details.fold', (el) => { el.open = true; });
+  確かめる('期間を作る欄に「最新（10月1日）のサブ整理に合わせる」が出て、最初は外れている',
+    /最新（10月1日）のサブ整理に合わせる/.test(await page.$eval('#useLatestText', (el) => el.textContent)) &&
+    !(await page.$eval('#useLatest', (el) => el.checked)));
+  確かめる('曜日のときも開始日の欄が出て、終了日は出ない',
+    !!(await page.$('#fromDate')) && (await page.$eval('#toWrap', (el) => el.style.display)) === 'none');
+  await page.$eval('#termName', (el) => { el.value = '秋'; });
+  await page.click('#hAllBtn');
+  模擬.呼ばれた = [];
+  await page.click('#newPlanBtn');
+  確かめる('開始日が無いと期間を作らずに知らせる',
+    /開始日を入れてください/.test(await page.$eval('#termMsg', (el) => el.textContent)) && !模擬.呼ばれた.some((x) => /chiefSavePlan/.test(x)));
+  await page.$eval('#fromDate', (el) => { el.value = '2030-11-01'; });
+  await page.click('#useLatest');
+  await page.click('#newPlanBtn');
+  await page.waitForFunction(() => /作りました/.test(document.getElementById('termMsg').textContent), { timeout: 15000 });
+  const 作る中身 = (模擬.まとめて作る || [])[1] || {};
+  確かめる('チェックすると「最新に合わせる」を付けて送る（曜日でも開始日を送る）',
+    作る中身.最新に合わせる === true && 作る中身.from === '2030-11-01' && 作る中身.mode === '曜日', JSON.stringify(模擬.まとめて作る));
+  確かめる('どこからサブを入れたかを知らせる', /前の期間「前期」/.test(await page.$eval('#termMsg', (el) => el.textContent)));
+
+  // 開始日の無い曜日の期間（p1）を開いて、開始日を入れ直す
+  const 七日 = ['月', '火', '水', '木', '金', '土', '日'].map((w) => ({ key: w, label: w + '曜' }));
+  模擬.計画 = {
+    plan: { id: 'p1', horseId: 'h1', term: '後期', mode: '曜日', from: '', to: '', min: 1, max: null, chiefRatio: null, note: '' },
+    horse: { id: 'h1', name: '北叡', active: true, chief: '美浦' }, keys: 七日, keyError: '',
+    members: 模擬.chiefのBASE.members, subs: ['m_001'], chiefMemberId: 'm_001',
+    チーフ倍率: 2, 既定のチーフ倍率: 2, votes: [], cells: [], warnings: [],
+  };
+  await page.click('[data-open="p1"]');
+  await page.waitForFunction(() => document.getElementById('planPane').style.display === 'block', { timeout: 15000 });
+  確かめる('開始日の無い曜日の期間は「開始日がまだ入っていません」と出る',
+    /開始日がまだ入っていません/.test(await page.$eval('#planPeriod', (el) => el.textContent)));
+  確かめる('この期間の決まりに開始日の欄が出る', (await page.$eval('#editFromWrap', (el) => el.style.display)) === 'block');
+  await page.$eval('#editFrom', (el) => { el.value = '2030-04-01'; });
+  await page.click('#savePlanBtn');
+  await page.waitForFunction(() => /保存しました/.test(document.getElementById('planMsg').textContent), { timeout: 15000 });
+  確かめる('開始日を入れ直して送れる（方式は曜日のまま）',
+    (模擬.期間の保存 || {}).id === 'p1' && 模擬.期間の保存.from === '2030-04-01' && 模擬.期間の保存.mode === '曜日', JSON.stringify(模擬.期間の保存));
+
+  // ---------- 8.67 副将：サブ整理タブ ----------
+  console.log(String.fromCharCode(10) + '== 副将：サブ整理タブ ==');
+  模擬.当番の全部 = () => ({
+    terms: [{ id: 't1', name: '前期', open: true }], termId: 't1',
+    members: [{ id: 'm_001', name: '美浦', grade: 2, joinYear: 2029, note: '' }, { id: 'm_002', name: '相棒', grade: 1, joinYear: 2030, note: '' }],
+    duties: [], slots: [], votes: [], cells: [],
+    settings: { 個人下限: 1, 個人上限: 1, チーフ倍率: 2, 同曜日禁止: true, 連日回避: true, マル絶対: false },
+    days: ['月', '火', '水', '木', '金', '土', '日'], 希望の数: 4, warnings: [],
+  });
+  模擬.サブ整理 = {
+    members: [{ id: 'm_001', name: '美浦', grade: 2 }, { id: 'm_002', name: '相棒', grade: 1 }],
+    horses: [{ id: 'h1', name: '北叡', active: true, chief: '美浦' }, { id: 'h2', name: '北冴', active: true, chief: '' }],
+    subTerms: [{ id: 'sp1', name: '前期', from: '2030-04-01', note: '' }],
+    subs: { sp1: { h1: ['m_001'] } },
+  };
+  const 基本のチェック = () => page.$$eval('#stGrid input:checked',
+    (els) => els.map((e) => e.dataset.sthorse + '|' + e.dataset.stmember).sort());
+  const 副将のエラーの数 = 画面のエラー.length;
+
+  await page.goto(元 + '/touban-admin.html');
+  await page.waitForSelector('#pw', { visible: true, timeout: 15000 });
+  await page.type('#pw', 'test');
+  await page.click('#loginBtn');
+  await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 15000 });
+  確かめる('副将画面にサブ整理のタブがある', !!(await page.$('[data-tab="subterms"]')));
+  模擬.呼ばれた = [];
+  await page.click('[data-tab="subterms"]');
+  await page.waitForSelector('#stGrid table.subs-grid', { timeout: 15000 });
+  確かめる('タブを開いたときに読む', 模擬.呼ばれた.indexOf('当番 adminLoadSubTerms') >= 0, JSON.stringify(模擬.呼ばれた));
+  確かめる('いちばん新しいサブ整理が開く', /前期/.test(await page.$eval('#stOpenTitle', (el) => el.textContent)));
+  確かめる('基本のサブにチェックが付く', JSON.stringify(await 基本のチェック()) === JSON.stringify(['h1|m_001']), JSON.stringify(await 基本のチェック()));
+  確かめる('サブが0人の馬は0人と出る', /0人/.test(await page.$eval('[data-stcol="h2"]', (el) => el.textContent)));
+
+  await page.click('input[data-sthorse="h2"][data-stmember="m_002"]');
+  確かめる('直したマスに印が付く（サブ整理）', (await page.$$('#stGrid td.changed')).length === 1);
+  await page.click('#stSaveBtn');
+  await page.waitForFunction(() => /保存しました/.test(document.getElementById('stSaveMsg').textContent), { timeout: 15000 });
+  確かめる('変えた馬だけを送る', JSON.stringify(模擬.基本のサブ保存) === JSON.stringify(['sp1', { h2: ['m_002'] }]), JSON.stringify(模擬.基本のサブ保存));
+  確かめる('保存したら直した印が消える（サブ整理）', (await page.$$('#stGrid td.changed')).length === 0);
+
+  await page.$eval('#stNewFold', (el) => { el.open = true; });
+  模擬.呼ばれた = [];
+  await page.click('#stNewBtn');
+  確かめる('開始日が無いと送らずに知らせる（サブ整理）',
+    /開始日を入れてください/.test(await page.$eval('#stNewMsg', (el) => el.textContent)) && !模擬.呼ばれた.some((x) => /adminSaveSubTerm/.test(x)));
+  await page.type('#stNewName', '後期');
+  await page.$eval('#stNewFrom', (el) => { el.value = '2030-10-01'; });
+  await page.click('#stNewBtn');
+  await page.waitForFunction(() => /後期/.test(document.getElementById('stOpenTitle').textContent), { timeout: 15000 });
+  確かめる('作ると開いて、写したサブにチェックが付く', JSON.stringify(await 基本のチェック()) === JSON.stringify(['h1|m_001', 'h2|m_002']), JSON.stringify(await 基本のチェック()));
+  const 一覧の文 = await page.$eval('#stList', (el) => el.textContent);
+  確かめる('前期の範囲が後期の前日までになり、後期に「最新」が付く', /2030-09-30 まで/.test(一覧の文) && /後期.*最新/.test(一覧の文), 一覧の文);
+  確かめる('副将画面でエラーが起きていない', 画面のエラー.length === 副将のエラーの数, 画面のエラー.slice(副将のエラーの数).join(' / '));
 
   // ---------- 8.7 休み（副将）：バイトはバイト先ごとのカレンダーで入れる ----------
   console.log('\n== 休み副将：バイトのカレンダー ==');

@@ -566,6 +566,36 @@ a.hub-link {
 .wholine { font-size: var(--text-base); margin: var(--space-xs) 0 0; line-height: 1.7; }
 .wholine b { font-size: var(--text-md); }
 .wholine .hint { display: block; margin-top: var(--space-3xs); }
+
+/* ===== 部員×馬のチェック表（2026-09-13） =====
+   チーフの「サブをまとめて直す」（subs.html）と、副将画面の「サブ整理」タブで使う。
+   行＝部員、列＝馬。1マス＝「この人をこの馬のサブにするか」。 */
+.subs-wrap { max-height: 72vh; overflow: auto; }   /* 枠の中で縦にも動かして、見出しを上に貼り付ける */
+table.subs-grid { border-collapse: separate; border-spacing: 0; width: auto; min-width: 100%; }
+table.subs-grid th, table.subs-grid td {
+  border: 1px solid var(--rule-strong); border-width: 0 1px 1px 0;
+  padding: 0; text-align: center; vertical-align: middle;
+}
+table.subs-grid thead th {
+  position: sticky; top: 0; z-index: var(--z-raised); background: var(--paper-3);
+  padding: var(--space-xs); min-width: 112px; vertical-align: bottom; line-height: 1.4;
+}
+table.subs-grid .sub { display: block; font-size: var(--text-xs); font-weight: 400; color: var(--muted); }
+table.subs-grid .sub.ng { color: var(--danger); font-weight: 700; }
+table.subs-grid th.rowhead {
+  position: sticky; left: 0; z-index: calc(var(--z-raised) + 1); background: var(--paper-3);
+  text-align: left; padding: var(--space-xs) var(--space-sm); white-space: nowrap;
+}
+table.subs-grid thead th.rowhead { z-index: calc(var(--z-raised) + 2); }
+table.subs-grid td label {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2xs);
+  margin: 0; min-height: var(--tap); padding: var(--space-2xs) var(--space-xs); cursor: pointer; font-weight: 400;
+}
+table.subs-grid td label:hover { background: var(--accent-soft); }
+table.subs-grid td.on { background: var(--care-soft); }
+/* 保存していないマス。色だけでなく太い内枠でも分かる */
+table.subs-grid td.changed { box-shadow: inset 0 0 0 3px var(--warning); }
+table.subs-grid .tag { font-size: var(--text-xs); font-weight: 700; color: var(--care); }
 </style>
 <style>
 /* 「マイページに戻る」は**いつでも左上**に出す（2026-09-13にユーザーが決めた）。
@@ -648,6 +678,7 @@ a.donehome:hover { background: var(--accent-dark); }
       <button data-tab="votes">投票状況</button>
       <button data-tab="table">当番表</button>
       <button data-tab="care">手入れ</button>
+      <button data-tab="subterms">サブ整理</button>
     </div>
 
     <!-- ===== 部員 ===== -->
@@ -865,9 +896,12 @@ a.donehome:hover { background: var(--accent-dark); }
         <h2>手入れの期間</h2>
         <p class="hint">
           チーフ画面と同じものです。どちらから作っても同じところに入ります。<br>
-          サブ選び・◎○×の集計・手入れ表づくりは<b>チーフ画面</b>で行ってください。
+          サブ選び・◎○×の集計・手入れ表づくりは<b>チーフ画面</b>で行ってください。<br>
+          開始日ごとの、馬ごとの基本のサブは<b>「サブ整理」タブ</b>で決めます。
+          曜日の期間で開始日が入っていないものは、下の一覧で開始日を入れ直せます。
         </p>
         <div id="planListAdmin"></div>
+        <div id="planAdminMsg" role="status" aria-live="polite"></div>
       </div>
 
       <div class="card">
@@ -885,10 +919,13 @@ a.donehome:hover { background: var(--accent-dark); }
           <label class="inline"><input type="radio" name="cmode" value="曜日" checked> 曜日で作る</label>
           <label class="inline"><input type="radio" name="cmode" value="カレンダー"> カレンダーで作る</label>
         </div>
-        <p class="hint">曜日＝毎週おなじ担当。カレンダー＝日付ごとに決める（最長400日）。</p>
-        <div class="row" id="cDateRow" style="display:none;">
-          <div><label for="cFrom">開始日</label><input type="date" id="cFrom"></div>
-          <div><label for="cTo">終了日</label><input type="date" id="cTo"></div>
+        <p class="hint">
+          曜日＝毎週おなじ担当。カレンダー＝日付ごとに決める（最長400日）。<br>
+          <b>開始日は曜日でも入れてください。</b>サブは同じ馬の前の期間から引き継ぎます。
+        </p>
+        <div class="row" id="cDateRow">
+          <div><label for="cFrom">開始日<span class="req">必須</span></label><input type="date" id="cFrom"></div>
+          <div id="cToWrap" style="display:none;"><label for="cTo">終了日</label><input type="date" id="cTo"></div>
         </div>
         <div class="row">
           <div><label for="cMin">1日の下限（人）</label><input type="number" id="cMin" value="1" min="0"></div>
@@ -902,6 +939,62 @@ a.donehome:hover { background: var(--accent-dark); }
         <div style="margin-top:16px;"><button id="cNewBtn">この設定で作る</button></div>
         <div id="careMsg" role="status" aria-live="polite"></div>
         </div></details>
+      </div>
+    </section>
+
+    <!-- ===== サブ整理（副将が開始日ごとに決める、馬ごとの基本のサブ。2026-09-13） ===== -->
+    <section data-pane="subterms" style="display:none;">
+      <div class="card">
+        <h2>サブ整理</h2>
+        <p class="hint">
+          サブ整理は、<b>開始日ごと</b>に決める馬ごとの<b>基本のサブ</b>です。チーフが決める手入れの期間とは別のものです。<br>
+          チーフが期間を作るときの「最新（○月○日）のサブ整理に合わせる」と、サブをまとめて直すページの同じボタンを押すと、
+          <b>いちばん新しいサブ整理</b>のサブがその馬に入ります。押さなければ、今までどおり前の期間から引き継ぎます。<br>
+          ここを直しても、作ってある期間のサブは変わりません。
+        </p>
+        <div id="stList"></div>
+        <div id="stMsg" role="status" aria-live="polite"></div>
+
+        <details class="fold" id="stNewFold">
+          <summary>サブ整理を新しく作る</summary>
+          <div class="fold-body">
+            <div class="row">
+              <div><label for="stNewName">名前（なくてもよい）</label><input type="text" id="stNewName" placeholder="例：後期"></div>
+              <div><label for="stNewFrom">開始日<span class="req">必須</span></label><input type="date" id="stNewFrom"></div>
+            </div>
+            <label class="inline" style="margin-top:12px;"><input type="checkbox" id="stNewCopy" checked> 直前のサブ整理のサブを写して作る</label>
+            <div style="margin-top:12px;"><button id="stNewBtn">サブ整理を作る</button></div>
+            <div id="stNewMsg" role="status" aria-live="polite"></div>
+          </div>
+        </details>
+      </div>
+
+      <div id="stOpenPane" style="display:none;">
+        <div class="card">
+          <h2 id="stOpenTitle"></h2>
+          <p class="hint" id="stOpenRange"></p>
+          <div class="row">
+            <div><label for="stEditName">名前</label><input type="text" id="stEditName"></div>
+            <div><label for="stEditFrom">開始日</label><input type="date" id="stEditFrom"></div>
+            <div style="flex:0 0 auto;"><button id="stSaveTermBtn" class="secondary">名前と開始日を保存</button></div>
+          </div>
+          <div id="stEditMsg" role="status" aria-live="polite"></div>
+        </div>
+
+        <div class="card">
+          <h2>馬ごとの基本のサブ</h2>
+          <p class="hint">
+            縦が部員、横が馬です。<b>チーフ本人もサブに入れてください</b>（入れないと「チーフ2：ほかのサブ1」が効きません）。<br>
+            サブが0人の馬は、チーフがボタンを押してもそのままです。ここで人を外しても、作ってある期間の◎○×や手入れ表は消えません。
+          </p>
+          <div class="grid-wrap subs-wrap" id="stGrid"></div>
+          <div id="stDirty" role="status" aria-live="polite"></div>
+          <div class="row tight" style="margin-top:16px;">
+            <button id="stSaveBtn">基本のサブを保存</button>
+            <button id="stDiscardBtn" class="secondary">直したのを取り消す</button>
+          </div>
+          <div id="stSaveMsg" role="status" aria-live="polite"></div>
+        </div>
       </div>
     </section>
   </div>
@@ -1065,6 +1158,12 @@ document.querySelector('.tabs').addEventListener('click', async (e) => {
     手入れを読んだ = true;
     try { await loadCare(); }
     catch (err) { 手入れを読んだ = false; msgIn('careMsg', 'error', (err && err.message) || err); }
+  }
+  // サブ整理も同じく、タブを開いたときだけ読む
+  if (b.dataset.tab === 'subterms' && !サブ整理を読んだ) {
+    サブ整理を読んだ = true;
+    try { await サブ整理を読む(); }
+    catch (err) { サブ整理を読んだ = false; msgIn('stMsg', 'error', (err && err.message) || err); }
   }
 });
 
@@ -1701,15 +1800,40 @@ function renderPlansAdmin() {
     '<div class="list-item">' +
     '<span style="flex:1 1 320px;"><b>' + esc(馬名(p.horseId)) + '</b>　' + esc(p.term) +
     '<div class="muted">' +
-    (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと') +
+    (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to)
+      : '曜日ごと' + (p.from ? '（' + esc(p.from) + ' から）' : '<b style="color:var(--danger);">（開始日なし）</b>')) +
     '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人' +
     '　チーフの割合 ' + (p.chiefRatio === null ? '既定（' + CARE.既定のチーフ倍率 + '）' : p.chiefRatio) +
     '</div></span>' +
-    '<span><button class="small danger" data-delplan="' + esc(p.id) + '">削除</button></span>' +
+    '<span class="row tight" style="align-items:flex-end;">' +
+    // 曜日の期間だけ、ここで開始日を入れ直せる（カレンダーは日付を変えると集めた◎○×が合わなくなるので直さない）
+    (p.mode === 'カレンダー' ? '' :
+      '<span><label for="pf_' + esc(p.id) + '" style="margin:0;font-size:var(--text-sm);">開始日</label>' +
+      '<input type="date" id="pf_' + esc(p.id) + '" data-pfrom="' + esc(p.id) + '" value="' + esc(p.from) + '" style="width:auto;"></span>' +
+      '<button class="small secondary" data-savefrom="' + esc(p.id) + '">開始日を保存</button>') +
+    '<button class="small danger" data-delplan="' + esc(p.id) + '">削除</button></span>' +
     '</div>').join('');
 }
 
 $('planListAdmin').addEventListener('click', async (e) => {
+  // 曜日の期間の開始日を入れ直す（前に作った期間は開始日が空のため。2026-09-13）
+  const sf = e.target.closest('[data-savefrom]');
+  if (sf) {
+    const p = CARE.plans.filter((x) => x.id === sf.dataset.savefrom)[0];
+    const v = document.querySelector('[data-pfrom="' + p.id + '"]').value;
+    const h = CARE.horses.filter((x) => x.id === p.horseId)[0];
+    if (!v) return void msgIn('planAdminMsg', 'error', '開始日を入れてから「開始日を保存」を押してください。');
+    try {
+      // 日付以外はそのまま送る（曜日の期間は開始日を変えても、集めた◎○×は消えない）
+      await call('chiefSavePlan', TOKEN, {
+        id: p.id, horseId: p.horseId, term: p.term, mode: p.mode, from: v, to: p.to,
+        min: p.min, max: p.max === null ? '' : p.max, chiefRatio: p.chiefRatio === null ? '' : p.chiefRatio, note: p.note,
+      });
+      await loadCare();
+      msgIn('planAdminMsg', 'success', (h ? h.name : '?') + ' の「' + p.term + '」の開始日を ' + v + ' にしました。');
+    } catch (err) { msgIn('planAdminMsg', 'error', (err && err.message) || err); }
+    return;
+  }
   const b = e.target.closest('[data-delplan]');
   if (!b) return;
   const p = CARE.plans.filter((x) => x.id === b.dataset.delplan)[0];
@@ -1722,28 +1846,273 @@ $('planListAdmin').addEventListener('click', async (e) => {
   } catch (err) { msgIn('careMsg', 'error', (err && err.message) || err); }
 });
 
-document.querySelector('input[name=cmode][value=カレンダー]').addEventListener('change', () => { $('cDateRow').style.display = 'flex'; });
-document.querySelector('input[name=cmode][value=曜日]').addEventListener('change', () => { $('cDateRow').style.display = 'none'; });
+// 開始日はどちらの方式でも入れる。終了日はカレンダーだけ
+document.querySelector('input[name=cmode][value=カレンダー]').addEventListener('change', () => { $('cToWrap').style.display = 'block'; });
+document.querySelector('input[name=cmode][value=曜日]').addEventListener('change', () => { $('cToWrap').style.display = 'none'; });
 
 $('cNewBtn').addEventListener('click', async () => {
   const mode = document.querySelector('input[name=cmode]:checked').value;
+  if (!$('cFrom').value) {
+    return void msgIn('careMsg', 'error', '開始日を入れてください。曜日で作るときも入れます（サブ整理を当てるのに使います）。');
+  }
   try {
     const r = await call('chiefSavePlan', TOKEN, {
       horseId: $('cHorse').value, term: $('cTerm').value, mode: mode,
-      from: mode === 'カレンダー' ? $('cFrom').value : '',
+      from: $('cFrom').value,
       to: mode === 'カレンダー' ? $('cTo').value : '',
       min: $('cMin').value, max: $('cMax').value, chiefRatio: $('cRatio').value,
     });
     $('cTerm').value = '';
     await loadCare();
     msgIn('careMsg', 'success', '作りました。' +
-      (r.引き継いだ ? '同じ馬の前の期間からサブを引き継いでいます。' : '') +
+      (r.サブの元 ? r.サブの元 + 'のサブを最初から入れてあります。' : '') +
       'サブ選びと◎○×の集計はチーフ画面で行ってください。');
   } catch (e) { msgIn('careMsg', 'error', (e && e.message) || e); }
 });
 
+// ===================== サブ整理（2026-09-13） =====================
+/*
+  副将が開始日ごとに決める、馬ごとの「基本のサブ」。チーフが決める手入れの期間とは別物。
+  使われるのはいちばん新しいサブ整理だけで、チーフが「最新（○月○日）のサブ整理に合わせる」を押したときに入る。
+  表の形はチーフの「サブをまとめて直す」と同じ（行＝部員、列＝馬）。
+  この画面には当番表などほかの表もあるので、要素の名前はすべて st で始めて混ざらないようにしてある。
+*/
+let ST = null;           // adminLoadSubTerms の返り
+let st開いている = '';   // 開いているサブ整理のID
+let st今 = {};           // 馬ID → { 部員ID: true }。画面で直しているぶん
+let サブ整理を読んだ = false;
+
+const st列 = () => ST.horses.filter((h) => h.active);
+const st開いた = () => ST.subTerms.filter((t) => t.id === st開いている)[0] || null;
+const st保存ずみ = (horseId) => ((ST.subs[st開いている] || {})[horseId]) || [];
+const st名 = (t) => t.name || (t.from + ' から');
+const st最新か = (t) => t === ST.subTerms[ST.subTerms.length - 1];
+function st前の日(key) {
+  const p = key.split('-').map(Number);
+  const d = new Date(p[0], p[1] - 1, p[2] - 1);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+}
+function st範囲(t) {
+  const 次 = ST.subTerms[ST.subTerms.indexOf(t) + 1];
+  return t.from + ' から' + (次 ? ' ' + st前の日(次.from) + ' まで' : '（次のサブ整理を作るまで）');
+}
+
+async function サブ整理を読む() {
+  ST = await call('adminLoadSubTerms', TOKEN);
+  const 最後 = ST.subTerms[ST.subTerms.length - 1];
+  if (最後) return void st開く(最後.id, true);
+  st一覧を描く();
+  $('stOpenPane').style.display = 'none';
+  $('stNewFold').open = true;
+}
+
+function st一覧を描く() {
+  if (!ST.subTerms.length) {
+    $('stList').innerHTML = '<div class="muted">まだサブ整理がありません。下の「サブ整理を新しく作る」から作ってください。</div>';
+    return;
+  }
+  $('stList').innerHTML = ST.subTerms.map((t) =>
+    '<div class="list-item">' +
+    '<span><b>' + esc(st名(t)) + '</b>　<span class="muted">' + esc(st範囲(t)) + '</span>' +
+    (st最新か(t) ? ' <span class="pill yes">最新</span>' : '') +
+    (t.id === st開いている ? ' <span class="pill">開いています</span>' : '') + '</span>' +
+    '<span class="row tight">' +
+    '<button class="small secondary" data-stopen="' + esc(t.id) + '">開く</button>' +
+    '<button class="small danger" data-stdel="' + esc(t.id) + '">削除</button>' +
+    '</span></div>').join('');
+}
+
+// 確かめない＝保存していない直しがあっても聞かない（保存・作成・取り消しのあとに開き直すとき）
+function st開く(id, 確かめない) {
+  if (!確かめない && st変わった馬().length && !confirm('保存していない直しがあります。ほかのサブ整理を開くと消えます。よろしいですか？')) return;
+  st開いている = id;
+  st今 = {};
+  st列().forEach((h) => {
+    st今[h.id] = {};
+    st保存ずみ(h.id).forEach((m) => { st今[h.id][m] = true; });
+  });
+  msgIn('stSaveMsg', '', '');
+  msgIn('stEditMsg', '', '');
+  st一覧を描く();
+  st見出しを描く();
+  st描く();
+}
+
+function st見出しを描く() {
+  const t = st開いた();
+  if (!t) { $('stOpenPane').style.display = 'none'; return; }
+  $('stOpenPane').style.display = 'block';
+  $('stOpenTitle').textContent = '「' + st名(t) + '」のサブ';
+  $('stEditName').value = t.name;
+  $('stEditFrom').value = t.from;
+  $('stOpenRange').innerHTML = esc(st範囲(t)) + '。' + (st最新か(t)
+    ? '<b>いちばん新しいサブ整理です。</b>チーフが「最新のサブ整理に合わせる」を押すと、ここのサブが入ります。'
+    : 'もっと新しいサブ整理があるので、チーフのボタンではここのサブは入りません。');
+}
+
+$('stList').addEventListener('click', async (e) => {
+  const o = e.target.closest('[data-stopen]');
+  if (o) return void st開く(o.dataset.stopen);
+  const d = e.target.closest('[data-stdel]');
+  if (!d) return;
+  const t = ST.subTerms.filter((x) => x.id === d.dataset.stdel)[0];
+  if (!confirm('「' + st名(t) + '」を削除します。\n馬ごとの基本のサブも消えます（作ってある各馬の期間のサブは変わりません）。よろしいですか？')) return;
+  try {
+    const r = await call('adminDeleteSubTerm', TOKEN, t.id);
+    ST = r.all;
+    if (st開いている === t.id) {
+      st開いている = '';
+      st今 = {};
+      const 最後 = ST.subTerms[ST.subTerms.length - 1];
+      if (最後) st開く(最後.id, true);
+      else { st一覧を描く(); st見出しを描く(); }
+    } else {
+      st一覧を描く();
+      st見出しを描く();
+    }
+    msgIn('stMsg', 'success', '「' + st名(t) + '」を削除しました。');
+  } catch (err) { msgIn('stMsg', 'error', '削除できませんでした：' + ((err && err.message) || err)); }
+});
+
+$('stNewBtn').addEventListener('click', async () => {
+  if (!$('stNewFrom').value) return void msgIn('stNewMsg', 'error', '開始日を入れてください。');
+  if (st変わった馬().length && !confirm('保存していない直しがあります。新しいサブ整理を開くと消えます。よろしいですか？')) return;
+  try {
+    const r = await call('adminSaveSubTerm', TOKEN, { name: $('stNewName').value, from: $('stNewFrom').value, 写す: $('stNewCopy').checked });
+    ST = r.all;
+    $('stNewName').value = '';
+    $('stNewFrom').value = '';
+    st開く(r.id, true);
+    msgIn('stNewMsg', 'success', 'サブ整理を作りました。' + (r.写した ? '「' + r.写した + '」のサブを写してあります。' : ''));
+  } catch (e) { msgIn('stNewMsg', 'error', (e && e.message) || e); }
+});
+
+$('stSaveTermBtn').addEventListener('click', async () => {
+  if (!$('stEditFrom').value) return void msgIn('stEditMsg', 'error', '開始日を入れてください。');
+  try {
+    const r = await call('adminSaveSubTerm', TOKEN, { id: st開いている, name: $('stEditName').value, from: $('stEditFrom').value });
+    ST = r.all;              // 表で直している途中のぶん（st今）はそのまま残す
+    st一覧を描く();
+    st見出しを描く();
+    st数を出し直す();
+    msgIn('stEditMsg', 'success', '名前と開始日を保存しました。');
+  } catch (e) { msgIn('stEditMsg', 'error', (e && e.message) || e); }
+});
+
+function st描く() {
+  if (!st開いた()) return;
+  const cols = st列();
+  const 前の位置 = { x: $('stGrid').scrollLeft, y: $('stGrid').scrollTop };
+
+  const 頭 = '<thead><tr><th class="rowhead" scope="col">部員<span class="sub">担当する馬の数</span></th>' +
+    cols.map((h) => '<th scope="col">' + esc(h.name) +
+      '<span class="sub" data-stcol="' + esc(h.id) + '"></span></th>').join('') +
+    '</tr></thead>';
+
+  const 体 = ST.members.map((m) => '<tr>' +
+    '<th class="rowhead" scope="row">' + esc(m.name) +
+    (m.grade ? ' <span class="muted">' + m.grade + '年</span>' : '') +
+    '<span class="sub" data-strow="' + esc(m.id) + '"></span></th>' +
+    cols.map((h) => {
+      const on = !!st今[h.id][m.id];
+      const チーフ = !!h.chief && h.chief === m.name;
+      return '<td data-stcell="' + esc(h.id + '|' + m.id) + '"><label>' +
+        '<input type="checkbox" data-sthorse="' + esc(h.id) + '" data-stmember="' + esc(m.id) + '"' +
+        (on ? ' checked' : '') +
+        ' aria-label="' + esc(m.name + ' を ' + h.name + ' の基本のサブにする' + (チーフ ? '（チーフ）' : '')) + '">' +
+        (チーフ ? '<span class="tag" aria-hidden="true">チーフ</span>' : '') +
+        '</label></td>';
+    }).join('') + '</tr>').join('');
+
+  $('stGrid').innerHTML = '<table class="subs-grid">' + 頭 + '<tbody>' + 体 + '</tbody></table>';
+  $('stGrid').scrollLeft = 前の位置.x;
+  $('stGrid').scrollTop = 前の位置.y;
+  st数を出し直す();
+}
+
+// 表を描き直さずに、数・印・知らせだけ合わせる（描き直すとキーボードの位置が飛ぶため）
+function st数を出し直す() {
+  const 馬で引く = {};
+  st列().forEach((h) => { 馬で引く[h.id] = h; });
+
+  document.querySelectorAll('[data-stcol]').forEach((el) => {
+    const h = 馬で引く[el.dataset.stcol];
+    const ids = Object.keys(st今[h.id] || {});
+    const 文 = [ids.length + '人'];
+    let だめ = false;
+    if (!h.chief) {
+      文.push('チーフ未定');
+    } else if (ids.length) {
+      const チーフ = ST.members.filter((m) => m.name === h.chief)[0];
+      if (!チーフ) { 文.push('チーフ「' + h.chief + '」が名簿にない'); だめ = true; }
+      else if (!st今[h.id][チーフ.id]) { 文.push('チーフが入っていない'); だめ = true; }
+    }
+    el.textContent = 文.join('・');
+    el.className = 'sub' + (だめ ? ' ng' : '');
+  });
+
+  document.querySelectorAll('[data-strow]').forEach((el) => {
+    const id = el.dataset.strow;
+    el.textContent = st列().filter((h) => (st今[h.id] || {})[id]).length + '頭';
+  });
+
+  document.querySelectorAll('[data-stcell]').forEach((td) => {
+    const p = td.dataset.stcell.split('|');
+    const on = !!(st今[p[0]] || {})[p[1]];
+    const 前 = st保存ずみ(p[0]).indexOf(p[1]) >= 0;
+    td.className = (on ? 'on' : '') + (on !== 前 ? ' changed' : '');
+  });
+
+  const 変わった = st変わった馬();
+  msgIn('stDirty', 変わった.length ? 'warning' : '', 変わった.length
+    ? 'まだ保存していない馬：' + 変わった.map((h) => h.name).join('、') + '（' + 変わった.length + '頭）'
+    : '');
+}
+
+function st変わった馬() {
+  if (!ST || !st開いている) return [];
+  return st列().filter((h) => {
+    const 前 = st保存ずみ(h.id);
+    const 後 = st今[h.id] || {};
+    return 前.length !== Object.keys(後).length || 前.some((id) => !後[id]);
+  });
+}
+
+$('stGrid').addEventListener('change', (e) => {
+  const c = e.target.closest('input[data-sthorse]');
+  if (!c) return;
+  if (c.checked) st今[c.dataset.sthorse][c.dataset.stmember] = true;
+  else delete st今[c.dataset.sthorse][c.dataset.stmember];
+  msgIn('stSaveMsg', '', '');
+  st数を出し直す();
+});
+
+$('stSaveBtn').addEventListener('click', async () => {
+  const 変わった = st変わった馬();
+  if (!変わった.length) {
+    return void msgIn('stSaveMsg', 'warning', '変えたところがありません。チェックを付けたり外したりしてから押してください。');
+  }
+  const 送る = {};
+  変わった.forEach((h) => { 送る[h.id] = Object.keys(st今[h.id]); });
+  try {
+    const r = await call('adminSaveBaseSubs', TOKEN, st開いている, 送る);
+    ST = r.all;
+    st開く(st開いている, true);
+    msgIn('stSaveMsg', 'success', 変わった.length + '頭ぶんの基本のサブを保存しました（' +
+      変わった.map((h) => h.name).join('、') + '）。');
+  } catch (e) {
+    msgIn('stSaveMsg', 'error', '保存できませんでした：' + ((e && e.message) || e));
+  }
+});
+
+$('stDiscardBtn').addEventListener('click', () => {
+  if (!st変わった馬().length) return void msgIn('stSaveMsg', 'warning', '取り消す直しはありません。');
+  if (!confirm('直したのを取り消して、保存されているサブに戻します。よろしいですか？')) return;
+  st開く(st開いている, true);
+});
+
 window.addEventListener('beforeunload', (e) => {
-  if (!DIRTY) return;
+  if (!DIRTY && !st変わった馬().length) return;
   e.preventDefault();
   e.returnValue = '';
 });

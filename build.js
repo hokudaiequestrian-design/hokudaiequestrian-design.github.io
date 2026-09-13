@@ -53,8 +53,7 @@ const ページ = [
   { 出す: 'touban-admin.html', 元: 当番 + '/admin.html', api: API.当番, 題: '当番をまとめる' },
   { 出す: 'teire-chief.html', 元: 当番 + '/chief.html', api: API.当番, 題: '手入れをまとめる' },
   // 全部の馬のサブを1つの表で直す（2026-09-13）
-  { 出す: 'teire-subs.html', 元: 当番 + '/subs.html', api: API.当番, 題: '手入れのサブをまとめて直す' },
-  { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
+  { 出す: 'teire-subs.html', 元: 当番 + '/subs.html', api: API.当番, 題: '手入れのサブをまとめて直す' },  { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
   { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: '休みをまとめる' },
   // みんなのカレンダー（手入れ・休み）。入口のマイページから入る（2026-09-13）
   { 出す: 'calendar.html', 元: 当番 + '/calendar.html', api: API.当番, 題: 'カレンダーを見る' },

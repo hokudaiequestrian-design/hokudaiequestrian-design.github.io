@@ -3,39 +3,12 @@
 <head>
 <base target="_top">
 <?!= include('style') ?>
-<style>
-/*
+<!--
   サブをまとめて直す（2026-09-13）。
   行＝部員、列＝選んだ期間がある馬。1マス＝「この人をこの馬のサブにするか」。
   チーフ画面は1頭ずつ開くので、期の変わり目に全部の馬を入れ替えると頭数ぶん往復していた。
-*/
-.subs-wrap { max-height: 72vh; overflow: auto; }   /* 枠の中で縦にも動かして、見出しを上に貼り付ける */
-table.subs-grid { border-collapse: separate; border-spacing: 0; width: auto; min-width: 100%; }
-table.subs-grid th, table.subs-grid td {
-  border: 1px solid var(--rule-strong); border-width: 0 1px 1px 0;
-  padding: 0; text-align: center; vertical-align: middle;
-}
-table.subs-grid thead th {
-  position: sticky; top: 0; z-index: var(--z-raised); background: var(--paper-3);
-  padding: var(--space-xs); min-width: 112px; vertical-align: bottom; line-height: 1.4;
-}
-table.subs-grid .sub { display: block; font-size: var(--text-xs); font-weight: 400; color: var(--muted); }
-table.subs-grid .sub.ng { color: var(--danger); font-weight: 700; }
-table.subs-grid th.rowhead {
-  position: sticky; left: 0; z-index: calc(var(--z-raised) + 1); background: var(--paper-3);
-  text-align: left; padding: var(--space-xs) var(--space-sm); white-space: nowrap;
-}
-table.subs-grid thead th.rowhead { z-index: calc(var(--z-raised) + 2); }
-table.subs-grid td label {
-  display: flex; align-items: center; justify-content: center; gap: var(--space-2xs);
-  margin: 0; min-height: var(--tap); padding: var(--space-2xs) var(--space-xs); cursor: pointer; font-weight: 400;
-}
-table.subs-grid td label:hover { background: var(--accent-soft); }
-table.subs-grid td.on { background: var(--care-soft); }
-/* 保存していないマス。色だけでなく太い内枠でも分かる */
-table.subs-grid td.changed { box-shadow: inset 0 0 0 3px var(--warning); }
-table.subs-grid .tag { font-size: var(--text-xs); font-weight: 700; color: var(--care); }
-</style>
+  表の見た目（table.subs-grid）は、副将画面の「サブ整理」タブと同じなので style.html に置いてある。
+-->
 </head>
 <body>
 <div id="busy">通信中です…</div>
@@ -66,8 +39,12 @@ table.subs-grid .tag { font-size: var(--text-xs); font-weight: 700; color: var(-
       <h2>2. サブにする人にチェック</h2>
       <p class="hint">
         縦が部員、横が馬です。<b>チーフ本人もサブに入れてください</b>（入れないと「チーフ2：ほかのサブ1」が効きません）。<br>
-        サブから外した人の、その馬の◎○×と手入れ表に入っているぶんは、保存したときに消えます。
+        サブから外した人の、その馬の◎○×と手入れ表に入っているぶんは、保存したときに消えます。<br>
+        「最新（○月○日）のサブ整理に合わせる」を押すと、副将が決めたいちばん新しいサブ整理のサブに表を合わせます（保存するまで入れ替わりません）。
       </p>
+      <div class="row tight" style="margin-bottom:8px;">
+        <button id="latestBtn" class="secondary">最新のサブ整理に合わせる</button>
+      </div>
       <div class="grid-wrap subs-wrap" id="gridBox"></div>
       <div id="dirtyText" role="status" aria-live="polite"></div>
       <div class="row tight" style="margin-top:16px;">
@@ -155,6 +132,7 @@ $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn'
 
 function 始める(base) {
   BASE = base;
+  最新ボタンを合わせる();
   $('loginCard').style.display = 'none';
   $('app').style.display = 'block';
   const 名前たち = BASE.期間名 || [];
@@ -295,6 +273,39 @@ $('gridBox').addEventListener('change', (e) => {
   else delete 今[c.dataset.plan][c.dataset.member];
   msgIn('saveMsg', '', '');
   数を出し直す();
+});
+
+// ===================== 最新のサブ整理に合わせる（2026-09-13） =====================
+// 副将のいちばん新しいサブ整理の、馬ごとのサブに表を合わせる。表の上だけで、保存するまで送らない。
+// サブ整理にサブが無い馬はそのままにする。外れる人は、保存するときにいつもどおり確かめる。
+
+const 月日 = (key) => { const p = String(key || '').split('-'); return p.length === 3 ? Number(p[1]) + '月' + Number(p[2]) + '日' : String(key || ''); };
+
+function 最新ボタンを合わせる() {
+  const t = BASE.最新のサブ整理;
+  $('latestBtn').textContent = t ? '最新（' + 月日(t.from) + '）のサブ整理に合わせる' : '最新のサブ整理に合わせる';
+}
+
+$('latestBtn').addEventListener('click', () => {
+  const t = BASE.最新のサブ整理;
+  if (!t) {
+    return void msgIn('saveMsg', 'warning', '副将のサブ整理がまだありません。副将画面の「サブ整理」タブで作ってもらってください。');
+  }
+  const 合わせた = [];
+  const 無い = [];
+  列().forEach((c) => {
+    const 部員 = (t.subs || {})[c.horse.id] || [];
+    if (!部員.length) { 無い.push(c.horse.name); return; }
+    今[c.plan.id] = {};
+    部員.forEach((id) => { 今[c.plan.id][id] = true; });
+    合わせた.push(c.horse.name);
+  });
+  描く();
+  const 何 = '最新（' + 月日(t.from) + '）のサブ整理' + (t.name ? '「' + t.name + '」' : '');
+  msgIn('saveMsg', 'warning', 合わせた.length
+    ? 何 + 'に合わせました（' + 合わせた.join('、') + '）。まだ保存していません。変わったマスを確かめて「サブをまとめて保存」を押してください。' +
+      (無い.length ? '　サブ整理にサブが無い馬はそのままです：' + 無い.join('、') + '。' : '')
+    : 何 + 'に、この期間の馬のサブがありません。表は変えていません。');
 });
 
 // ===================== 保存 =====================
