@@ -216,7 +216,11 @@ function 模擬で答える(req) {
     模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, { subs: subs });
     return 返す({ ok: true, 変えた: Object.keys(本文.args[1]).length, 外れた: 1, subs: subs });
   }
-  if (本文.fn === 'adminLoadAll') return 返す(模擬.adminの全部);
+  if (本文.fn === 'adminLoadAll') {
+    // 返事を送った時刻を覚える（「API の返事より先に画面が開いたか」を、時計の速さに頼らず比べるため）
+    setTimeout(() => { 模擬.全部を返した時刻 = Date.now(); }, 模擬.遅れ);
+    return 返す(模擬.adminの全部);
+  }
   if (本文.fn === 'adminShareUrl') return 返す({ memberUrl: 'https://hokudaiequestrian-design.github.io/taikai.html', adminUrl: '', manual: false });
   return 答える(req, 200, { ok: false, error: '模擬に無い：' + 本文.fn }, 10);
 }
@@ -342,11 +346,19 @@ function 模擬で答える(req) {
     localStorage.setItem('jinin:admin:all', JSON.stringify(all));
   }, 全部('覚えていた人'));
   模擬.adminの全部 = 全部('新しい人');
-  模擬.遅れ = 1500;
+  模擬.遅れ = 3000;
+  模擬.全部を返した時刻 = 0;
   始め = Date.now();
   await page.goto(元 + '/taikai-admin.html');
   await page.waitForFunction(() => document.getElementById('appView').style.display === 'block', { timeout: 10000 });
-  確かめる('覚えていたぶんで、API を待たずに開く（' + (Date.now() - 始め) + 'ms）', Date.now() - 始め < 1200);
+  /*
+    「何ms以内に開く」ではなく「API の返事が届く前に開いた」で確かめる（2026-09-14）。
+    前は 1.2秒以内で見ていたが、PC が重いと 1.4〜1.5秒になって落ちた（画面の作りは同じ）。
+  */
+  const 開いた時刻 = Date.now();
+  確かめる('覚えていたぶんで、API を待たずに開く（' + (開いた時刻 - 始め) + 'ms、模擬の返事は ' + 模擬.遅れ + 'ms 後）',
+    !模擬.全部を返した時刻 || 開いた時刻 < 模擬.全部を返した時刻,
+    '開いた ' + 開いた時刻 + ' ／ 返事 ' + 模擬.全部を返した時刻);
   確かめる('覚えていた中身が出る', (await page.$eval('#memberList', (el) => el.textContent)).indexOf('覚えていた人') >= 0);
   await page.waitForFunction(() => /新しい人/.test(document.getElementById('memberList').textContent), { timeout: 10000 });
   確かめる('届いたら新しい中身に差し替わる', true);
@@ -373,15 +385,22 @@ function 模擬で答える(req) {
     列幅: { 2: 50, 3: 58 },
   };
   let 落とせた = null;
-  try {
-    await page.evaluate((表) => エクセルにして渡す(表), 見本);
-    for (let i = 0; i < 40 && !落とせた; i++) {
-      await 待つ(250);
-      落とせた = fs.readdirSync(落とし先).filter((f) => f.endsWith('.xlsx'))[0] || null;
+  // Excel を作る部品は cdnjs から読むので、通信のゆらぎで1回落ちることがある。1回だけやり直す（2026-09-14）
+  let 最後のエラー = null;
+  for (let 回 = 0; 回 < 2 && !落とせた; 回++) {
+    try {
+      await page.evaluate((表) => エクセルにして渡す(表), 見本);
+      最後のエラー = null;
+      for (let i = 0; i < 40 && !落とせた; i++) {
+        await 待つ(250);
+        落とせた = fs.readdirSync(落とし先).filter((f) => f.endsWith('.xlsx'))[0] || null;
+      }
+    } catch (e) {
+      最後のエラー = e;
+      await 待つ(2000);
     }
-  } catch (e) {
-    確かめる('Excel を作れる', false, e.message);
   }
+  if (最後のエラー) 確かめる('Excel を作れる', false, 最後のエラー.message);
   確かめる('xlsx ファイルが落ちてくる', !!落とせた, fs.readdirSync(落とし先).join(','));
   if (落とせた) {
     const ExcelJS = require('exceljs');
@@ -683,25 +702,40 @@ function 模擬で答える(req) {
   確かめる('画面でエラーが起きていない', 画面のエラー.length === 0, 画面のエラー.join(' / '));
 
   // ---------- 9. 本物の API に keepalive で届くか ----------
+  /*
+    **それまでの場面とは別のブラウザで確かめる**（2026-09-14）。
+    上の場面では送信の切断を真似る（keepalive の送信を途中で打ち切る）ので、同じブラウザのままだと
+    その後始末が残って、本物の API への keepalive が「Failed to fetch」で落ちることがあった。
+    同じ送り方を Chrome だけで試すと6回とも届く（サイトの不具合ではない）。
+    通信のゆらぎで落ちないよう、1回だけやり直す。
+  */
   console.log('\n== 本物：keepalive で Cloudflare の API に届くか ==');
-  const 素のページ = await browser.newPage();
-  await 素のページ.goto(元 + '/robots.txt');
-  const 本物 = await 素のページ.evaluate(async (url) => {
-    const 始め = Date.now();
-    try {
-      const res = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify({ fn: 'getMyPage', args: ['__存在しない__'] }), keepalive: true,
-      });
-      const text = await res.text();
-      return { ok: res.ok, text: text.slice(0, 80), ms: Date.now() - 始め };
-    } catch (e) {
-      return { ok: false, text: String(e), ms: Date.now() - 始め };
-    }
-  }, API元 + '/jinin');
+  await browser.close();
+  const 別のブラウザ = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run'] });
+  let 本物 = null;
+  for (let 回 = 0; 回 < 2; 回++) {
+    const 素のページ = await 別のブラウザ.newPage();
+    await 素のページ.goto(元 + '/robots.txt');
+    本物 = await 素のページ.evaluate(async (url) => {
+      const 始め = Date.now();
+      try {
+        const res = await fetch(url, {
+          method: 'POST', headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify({ fn: 'getMyPage', args: ['__存在しない__'] }), keepalive: true,
+        });
+        const text = await res.text();
+        return { ok: res.ok, text: text.slice(0, 80), ms: Date.now() - 始め };
+      } catch (e) {
+        return { ok: false, text: String(e), ms: Date.now() - 始め };
+      }
+    }, API元 + '/jinin');
+    await 素のページ.close();
+    if (本物.ok && /^\{"ok":/.test(本物.text)) break;
+    if (回 === 0) await 待つ(2000);
+  }
   確かめる('keepalive でも本物から JSON が返る（' + 本物.ms + 'ms）', 本物.ok && /^\{"ok":/.test(本物.text), JSON.stringify(本物));
 
-  await browser.close();
+  await 別のブラウザ.close();
   srv.close();
   console.log('\n' + (失敗.length ? '✗ ' + 失敗.length + '件失敗' : '✓ ぜんぶ通った') + '（' + ok + '/' + (ok + 失敗.length) + '）');
   if (失敗.length) process.exit(1);
