@@ -349,10 +349,14 @@ function renderPlanList() {
     $('planList').innerHTML = '<div class="muted">この馬の期間はまだありません。下から作ってください。</div>';
     return;
   }
-  // 期間の名前そのものを押して開く。削除は乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
+  // 期間の行のどこを押しても開く（名前はキーボードで押せるようボタンのまま）。
+  // 名前の横の鉛筆で、その期間の「期間の編集」（決まり・サブ）へ飛ぶ。人員表の大会一覧と同じ置き方（2026-09-15 ユーザーの指示）。
+  // 削除は乗せた行にだけアイコンで出す（ヒント3）
   $('planList').innerHTML = list.map((p) =>
-    '<div class="list-item is-row">' +
-    '<span><button type="button" class="linklike" data-open="' + esc(p.id) + '"' +(P && P.plan && P.plan.id === p.id ? ' aria-current="true"' : '') + '>' + esc(p.term) + '</button> <span class="muted">' +
+    '<div class="list-item is-row plan-row" data-openrow="' + esc(p.id) + '">' +
+    '<span><button type="button" class="linklike" data-open="' + esc(p.id) + '"' +(P && P.plan && P.plan.id === p.id ? ' aria-current="true"' : '') + '>' + esc(p.term) + '</button>' +
+    '<span class="row-actions" style="margin:0 4px;vertical-align:middle;">' + 部品.アイコンボタン('edit', p.term + 'の決まり・サブを編集', { 'data-editp': p.id }) + '</span>' +
+    ' <span class="muted">' +
     (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと' + (p.from ? '（' + esc(p.from) + ' から）' : '')) +
     '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人</span></span>' +
     '<span class="row-actions">' +
@@ -409,6 +413,14 @@ $('newPlanBtn').addEventListener('click', async () => {
 });
 
 $('planList').addEventListener('click', async (e) => {
+  const 鉛筆 = e.target.closest('[data-editp]');
+  if (鉛筆) {
+    const id = 鉛筆.dataset.editp;
+    if (!(P && P.plan && P.plan.id === id) && !(await openPlan(id))) return;
+    $('planEditFold').open = true;
+    $('planEditFold').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   const o = e.target.closest('[data-open]');
   if (o) return void openPlan(o.dataset.open);
   const d = e.target.closest('[data-delp]');
@@ -442,8 +454,16 @@ $('planList').addEventListener('click', async (e) => {
   }
 });
 
+// 行の余白（名前・鉛筆・削除以外）を押しても、その期間を開く
+$('planList').addEventListener('click', (e) => {
+  if (e.target.closest('button, a, details')) return;
+  const 行 = e.target.closest('[data-openrow]');
+  if (行) openPlan(行.dataset.openrow);
+});
+
+// 開けたら true を返す（鉛筆から開いたとき、開けたら続けて期間の編集を広げるため）
 async function openPlan(planId) {
-  if (DIRTY && !confirm('保存していない直しがあります。ほかの期間を開くと消えます。よろしいですか？')) return;
+  if (DIRTY && !confirm('保存していない直しがあります。ほかの期間を開くと消えます。よろしいですか？')) return false;
   msgIn('planOpenMsg', '', '');
   let データ;
   try {
@@ -476,6 +496,7 @@ async function openPlan(planId) {
     $('planEditFold').hidden = false;
     $('planEditFold').open = !SUBS.length;
     (SUBS.length ? $('planPane') : $('planEditFold')).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
   } catch (e) {
     // 画面を組み立てる途中で転んでも、何が起きたか分かるようにする
     $('planPane').style.display = 'block';

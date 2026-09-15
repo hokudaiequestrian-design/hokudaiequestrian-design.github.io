@@ -318,7 +318,8 @@ function 模擬で答える(req) {
 
     // 手入れ表の編集（2026-09-15）：「編集」を押して、カレンダーの日を押すと、サブだけのプルダウン（◎→○→×）
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.$eval('#planList button.linklike[data-open="p1"]', (b) => b.click());
+    // 名前ではなく、行の日付のあたりを押しても開く（2026-09-15）
+    await page.$eval('#planList [data-openrow="p1"] .muted', (el) => el.click());
     await page.waitForFunction(() => document.getElementById('planPane').style.display === 'block', { timeout: 5000 });
     // 期間の編集（2026-09-15）：決まりとサブは「2. 期間を選ぶ」の中に畳んである
     確かめる('期間を開くと「2. 期間を選ぶ」に「期間の編集」が出て、決まりとサブが入っている',
@@ -327,7 +328,15 @@ function 模擬で答える(req) {
     確かめる('期間を開いた下には、決まり・サブのカードはもう無い（投票状況から）',
       await page.$eval('#planPane', (p) => !p.querySelector('#subSheet') && !p.querySelector('#savePlanBtn') && p.textContent.indexOf('3. 投票状況') >= 0));
     確かめる('開いている期間に印が付く', await page.$eval('#planList [data-open="p1"]', (b) => b.getAttribute('aria-current') === 'true'));
-    await page.$eval('#planEditFold', (d) => { d.open = true; d.scrollIntoView({ block: 'start' }); });
+    // 名前の横の鉛筆で、期間の編集が開く
+    確かめる('期間名のすぐ横に鉛筆（編集）がある', await page.$eval('#planList [data-openrow="p1"]', (r) => { const b = r.querySelector('[data-editp="p1"]'); return !!b && b.closest('span').previousElementSibling === r.querySelector('[data-open="p1"]'); }));
+    await page.$eval('#planList [data-editp="p1"]', (b) => b.click());
+    await page.waitForFunction(() => document.getElementById('planEditFold').open, { timeout: 3000 });
+    確かめる('鉛筆を押すと「期間の編集」が開く', true);
+    await page.$eval('#planEditFold', (d) => { d.scrollIntoView({ block: 'start' }); });
+    await 待つ(700);
+    await page.$eval('#newPlanFold', (d) => { d.open = false; });
+    await page.$eval('#termCard', (c) => { c.scrollIntoView({ block: 'start', behavior: 'instant' }); window.scrollBy(0, -90); });
     await 写す('4a-チーフ-期間の編集');
     await page.$eval('#planEditFold', (d) => { d.open = false; });
     確かめる('「担当を足す」は無く、「編集」ボタンがある', !(await page.$('#addPersonBtn')) && !!(await page.$('#editTableBtn')));
