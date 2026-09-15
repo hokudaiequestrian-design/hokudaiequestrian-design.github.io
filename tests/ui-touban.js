@@ -195,11 +195,13 @@ function 模擬で答える(req) {
 
     // ---------- 部員・馬匹管理 ----------
     console.log('\n== 部員・馬匹管理 ==');
+    // 2026-09-15 副将は入口でだけパスワードを入れる。鍵が無いと、画面はパスワードの欄ではなく入口への案内を出す
     await page.goto(元 + '/buin.html');
-    await page.waitForSelector('#pw', { visible: true, timeout: 10000 });
+    await page.waitForSelector('#loginCard a[href="index.html?role=admlinks"]', { visible: true, timeout: 10000 });
+    確かめる('副将の鍵が無いと、パスワードの欄ではなく副将の入口への案内が出る', !(await page.$('#pw')));
     確かめる('題は「部員・馬匹管理（副将）」', /部員・馬匹管理（副将）/.test(await page.$eval('header.appbar', (h) => h.textContent)));
-    await page.type('#pw', 'x');
-    await page.click('#loginBtn');
+    await page.evaluate(() => sessionStorage.setItem('fukusho:touban', 'a_t'));   // 入口でログインした状態
+    await page.goto(元 + '/buin.html');
     await page.waitForSelector('#memberList [data-row="美浦"]', { timeout: 10000 });
     確かめる('タブは 部員・馬とチーフ・サブ整理・サブをまとめて直す', JSON.stringify(await page.$$eval('.tabs button', (bs) => bs.map((b) => b.textContent))) ===
       JSON.stringify(['部員', '馬とチーフ', 'サブ整理', 'サブをまとめて直す']));
@@ -268,9 +270,7 @@ function 模擬で答える(req) {
 
     // ---------- 当番の副将画面 ----------
     console.log('\n== 当番の副将画面 ==');
-    await page.goto(元 + '/touban-admin.html');
-    await page.type('#pw', 'x');
-    await page.click('#loginBtn');
+    await page.goto(元 + '/touban-admin.html');   // 入口の鍵があるので、パスワードは聞かれない
     await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 10000 });
     確かめる('部員・サブ整理のタブは無く、当番の設定から開く',
       !(await page.$('[data-tab="members"]')) && !(await page.$('[data-tab="subterms"]')) && (await page.$eval('.tabs button.active', (b) => b.dataset.tab)) === 'duties');
@@ -308,8 +308,6 @@ function 模擬で答える(req) {
     // ---------- バイト・休みをまとめる ----------
     console.log('\n== バイト・休みをまとめる ==');
     await page.goto(元 + '/yasumi-admin.html');
-    await page.type('#pw', 'x');
-    await page.click('#loginBtn');
     await page.waitForSelector('#applyTable [data-do="承認"]', { timeout: 10000 });
     確かめる('題は「バイト・休みをまとめる」', /バイト・休みをまとめる/.test(await page.$eval('header.appbar', (h) => h.textContent)));
     確かめる('見えている文字のボタンは「了承する」だけ', JSON.stringify(await page.$$eval('#applyTable button', (bs) => bs.filter((b) => b.checkVisibility()).map((b) => b.textContent.trim()))) === '["了承する"]');
@@ -352,8 +350,26 @@ function 模擬で答える(req) {
 
     // ---------- 入口 ----------
     console.log('\n== 入口 ==');
+    await page.evaluate(() => sessionStorage.clear());
     await page.goto(元 + '/?role=admlinks');
-    await page.waitForSelector('#hub-groups a.hub-link', { timeout: 10000 });
+    await page.waitForSelector('#fkPw', { visible: true, timeout: 10000 });
+    確かめる('副将の入口：ログインするまで、まとめるほうのリンクは隠れていて、パスワードの欄が出る',
+      await page.$eval('a.hub-link[href="touban-admin.html"]', (a) => !a.checkVisibility()));
+    await page.type('#fkPw', 'x');
+    await page.click('#fkBtn');
+    await page.waitForSelector('a.hub-link[href="touban-admin.html"]', { visible: true, timeout: 5000 });
+    確かめる('ログインすると、当番・手入れと人員表の鍵をこのタブに覚えて、リンクが出る',
+      await page.evaluate(() => !!sessionStorage.getItem('fukusho:touban') && !!sessionStorage.getItem('fukusho:jinin')));
+    await page.click('a.hub-link[href="touban-admin.html"]');
+    await page.waitForFunction(() => document.getElementById('app') && document.getElementById('app').style.display === 'block', { timeout: 10000 });
+    確かめる('入口から開いた副将画面では、パスワードを聞かない', !(await page.$('#pw')) && (await page.$eval('#loginCard', (c) => c.style.display)) === 'none');
+    模擬.呼ばれた = [];
+    await page.goto(元 + '/teire-chief.html');
+    await page.waitForSelector('#horseSelect option[value="h1"]', { timeout: 10000 });
+    確かめる('手入れをまとめるも、副将の鍵で開く（チーフのパスワードを確かめに行かない）', 模擬.呼ばれた.indexOf('当番 chiefMeta') < 0, JSON.stringify(模擬.呼ばれた));
+    await page.goto(元 + '/?role=admlinks');
+    await page.waitForSelector('.fk-out', { visible: true, timeout: 10000 });
+    確かめる('ログインしたまま入口に戻ると、パスワードの欄は出ない', !(await page.$('#fkPw')));
     const 副将の題 = await page.$$eval('#hub-groups a.hub-link .t', (ts) => ts.map((t) => t.textContent));
     確かめる('副将の入口に「部員・馬匹管理」と「バイト・休みをまとめる」', 副将の題.indexOf('部員・馬匹管理') >= 0 && 副将の題.indexOf('バイト・休みをまとめる') >= 0 && 副将の題.indexOf('休みをまとめる') < 0, JSON.stringify(副将の題));
     確かめる('部員・馬匹管理の印（アイコン）が描ける', await page.$eval('a.hub-link[href="buin.html"] use', (u) => !!document.querySelector(u.getAttribute('href'))));

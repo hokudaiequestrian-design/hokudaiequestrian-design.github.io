@@ -237,6 +237,12 @@ const 思い出す = () => { try { return sessionStorage.getItem(トークンの
 // ===================== ログイン =====================
 
 (async () => {
+  // 副将が入口でログインしていれば、その鍵で開く（チーフパスワードは聞かない。2026-09-15 ユーザーの指示）
+  const 副将 = 部品.副将の鍵();
+  if (副将) {
+    try { TOKEN = 副将; return void await 始める(await call('chiefLoadAll', 副将)); }
+    catch (e) { TOKEN = ''; /* 切れていたら、いつものチーフの入り方へ */ }
+  }
   try {
     const meta = await call('chiefMeta');
     if (meta.要パスワード) {

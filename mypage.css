@@ -118,3 +118,12 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-cal a.off { border-left-color: var(--warning); }
 .me-cal a:hover { background: var(--accent-soft); }
 .me-cal .d { font-weight: 400; font-size: var(--text-sm); color: var(--muted); margin-top: 2px; }
+
+/* 副将のログイン（2026-09-15）。副将の入口でだけ出る。1回入れれば、このタブを閉じるまで副将の画面では聞かない */
+.fk-login { margin: 0 0 var(--space-sm); padding: var(--space-sm) var(--space-md); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); }
+.fk-login label { margin-top: 0; }
+.fk-row { display: flex; gap: var(--space-xs); flex-wrap: wrap; }
+.fk-row input { flex: 1 1 200px; width: auto; }
+.fk-on { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; font-size: var(--text-sm); }
+.fk-out { background: var(--paper-2); color: var(--accent); border-color: var(--accent); min-height: 36px; padding: 4px 14px; font-size: var(--text-sm); }
+.fk-out:hover { background: var(--accent-soft); }

@@ -867,7 +867,17 @@ const 部品 = (() => {
     });
   }, true);
 
-  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる };
+  /*
+    副将のログイン（2026-09-15 ユーザーの指示：副将は入口でだけパスワードを入れ、マイページから行き来するあいだは聞かない）。
+    入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
+    副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
+  */
+  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
+  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
+    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
 })();
 </script>
 <style>
@@ -895,9 +905,17 @@ header.appbar.yasumi { background: var(--ink); }
   transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
 }
 .kindchip:active { transform: translateY(1px); }
-.kindchip.on { border-width: 2px; font-weight: 700; }
-.kindchip.on.k-yuukyuu { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.kindchip.on.k-kisetsu { border-color: var(--care); background: var(--care-soft); color: var(--care); }
+/*
+  2026-09-15 ユーザーの指示：選んでいないほうが真っ白で何の札か分からなかった。
+  選んでいないほうは、その休みの色の薄い地と枠。選んだほうは、濃い塗り＋白い文字＋✓（色だけで伝えない）。
+*/
+.kindchip.k-yuukyuu { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+.kindchip.k-kisetsu { border-color: var(--care); background: var(--care-soft); color: var(--care-dark); }
+.kindchip:hover { filter: brightness(0.97); }
+.kindchip.on { border-width: 2px; font-weight: 700; color: #fff; }
+.kindchip.on::before { content: "✓"; margin-right: var(--space-2xs); }
+.kindchip.on.k-yuukyuu { background: var(--accent); border-color: var(--accent-dark); }
+.kindchip.on.k-kisetsu { background: var(--care); border-color: var(--care-dark); }
 
 /* 月めくり */
 .month-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }

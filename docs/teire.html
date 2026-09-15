@@ -867,7 +867,17 @@ const 部品 = (() => {
     });
   }, true);
 
-  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる };
+  /*
+    副将のログイン（2026-09-15 ユーザーの指示：副将は入口でだけパスワードを入れ、マイページから行き来するあいだは聞かない）。
+    入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
+    副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
+  */
+  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
+  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
+    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
 })();
 </script>
 <style>
@@ -900,21 +910,20 @@ a.donehome:hover { background: var(--accent-dark); }
 <main>
   <div id="loading" class="card muted">読み込んでいます…</div>
 
-  <!-- 進み方。手入れの段は2つ（Narrative Workflow） -->
-  <ol class="steps" id="stepStrip" style="display:none;" aria-label="進み方">
-    <li class="s" data-step="1"><span class="no">1</span>名前</li>
-    <li class="s" data-step="2"><span class="no">2</span>馬ごとに ◎○× を出す</li>
-  </ol>
+  <!--
+    2026-09-15 ユーザーの指示で「1 だれの希望か」の段をなくした（名前は入口のマイページで選ぶ）。
+    選ぶ欄は画面に出さず、覚えた名前を入れておくだけにしてある（下の script が memberSelect を読むため）。
+  -->
+  <select id="memberSelect" hidden aria-hidden="true"></select>
 
-  <section class="card stage-card care" id="pickCard" style="display:none;">
-    <p class="stage"><span class="n">1</span><span class="h">だれの希望か</span></p>
-    <label for="memberSelect">あなたの名前</label>
-    <select id="memberSelect"></select>
-    <p class="hint">あなたが<b>サブに入っている馬</b>の分だけ出てきます。出てこない馬があれば、その馬のチーフに連絡してください。</p>
-  </section>
+  <div class="card" id="noName" style="display:none;">
+    <p style="margin:0;">名前がまだ選ばれていません。<a href="index.html">マイページ</a>で名前を選んでから開いてください。</p>
+  </div>
 
   <section id="planStage" style="display:none;">
-    <p class="stage"><span class="n">2</span><span class="h">馬ごとに ◎○× を出す</span></p>
+    <p class="wholine" id="whoLine"></p>
+    <p class="stage"><span class="h">馬ごとに ◎○× を出す</span></p>
+    <p class="hint">あなたが<b>サブに入っている馬</b>の分だけ出てきます。出てこない馬があれば、その馬のチーフに連絡してください。</p>
     <p class="hint" style="margin-bottom:var(--space-sm);">
       <b>◎ 入りたい</b>　<b>○ 入れる</b>　<b>× 入れない</b>。×の日には入りません。馬ごとに出したら、その馬の「出す」を押してください。
     </p>
@@ -1270,8 +1279,6 @@ async function onMemberChange() {
     const r = await call('getCareMemberData', null);
     DATA.members = r.members || [];
     $('loading').style.display = 'none';
-    $('pickCard').style.display = 'block';
-    $('stepStrip').style.display = 'flex';
     段を塗る(false);
     $('memberSelect').innerHTML = '<option value="">選択してください</option>' +
       DATA.members.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('');
@@ -1280,9 +1287,13 @@ async function onMemberChange() {
     const saved = 覚えた人のID(DATA.members);
     if (saved) {
       $('memberSelect').value = saved;
-      名前は聞かない((DATA.members.filter((m) => m.id === saved)[0] || {}).name);
+      const 名 = (DATA.members.filter((m) => m.id === saved)[0] || {}).name || '';
+      $('whoLine').innerHTML = '<b>' + esc(名) + '</b> さんの希望' +
+        '<span class="hint">ちがう人のときは、左上の「← マイページ」で名前を選び直してください。</span>';
       await onMemberChange();
       その馬まで動かす();
+    } else {
+      $('noName').style.display = 'block';   // 名前を選ばずに直接開いたとき
     }
   } catch (e) {
     $('loading').innerHTML = '<div class="msg error">読み込みに失敗しました：' + esc((e && e.message) || e) + '</div>';

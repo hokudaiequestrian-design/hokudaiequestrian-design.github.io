@@ -346,7 +346,7 @@ function 模擬で答える(req) {
     horses: [], events: [{ id: 'e1', name: 名 + 'の大会', startDate: '', endDate: '' }], competitions: [], jobs: [],
   });
   await page.evaluate((all) => {
-    localStorage.setItem('adminToken', 'T');
+    sessionStorage.setItem('fukusho:jinin', 'T');   // 2026-09-15 副将は入口でログインした状態から（鍵はこのタブにだけ覚える）
     localStorage.setItem('jinin:admin:all', JSON.stringify(all));
   }, 全部('覚えていた人'));
   模擬.adminの全部 = 全部('新しい人');
@@ -486,11 +486,8 @@ function 模擬で答える(req) {
   };
   // 部員・馬匹管理（2026-09-15。「サブをまとめて直す」と「サブ整理」はここへ移した）を副将で開く。tab を渡すとそのタブを開く
   const 部員管理を開く = async (tab) => {
-    await page.evaluate(() => { try { sessionStorage.clear(); } catch (e) { /* 覚えたログインを消して、毎回パスワードから入る */ } });
+    await page.evaluate(() => { sessionStorage.setItem('fukusho:touban', 'a_test'); });   // 副将は入口でログインした状態から（2026-09-15）
     await page.goto(元 + '/buin.html');
-    await page.waitForSelector('#pw', { visible: true, timeout: 15000 });
-    await page.type('#pw', 'test');
-    await page.click('#loginBtn');
     await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 15000 });
     if (tab) await page.click('.tabs [data-tab="' + tab + '"]');
   };
@@ -659,10 +656,8 @@ function 模擬で答える(req) {
 
   // ---------- 8.7 休み（副将）：バイトはバイト先ごとのカレンダーで入れる ----------
   console.log('\n== 休み副将：バイトのカレンダー ==');
+  await page.evaluate(() => sessionStorage.setItem('fukusho:touban', 'a_test'));   // 副将は入口でログインした状態から（2026-09-15）
   await page.goto(元 + '/yasumi-admin.html');
-  await page.waitForSelector('#pw', { timeout: 15000 });
-  await page.type('#pw', 'testtest');
-  await page.click('#loginBtn');
   await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 15000 });
   await page.click('[data-tab="baito"]');
   確かめる('バイトのタブが開く', await page.$eval('#tab-baito', (el) => el.style.display !== 'none'));

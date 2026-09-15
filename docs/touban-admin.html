@@ -867,7 +867,17 @@ const 部品 = (() => {
     });
   }, true);
 
-  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる };
+  /*
+    副将のログイン（2026-09-15 ユーザーの指示：副将は入口でだけパスワードを入れ、マイページから行き来するあいだは聞かない）。
+    入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
+    副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
+  */
+  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
+  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
+    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
 })();
 </script>
 <style>
@@ -902,12 +912,8 @@ a.donehome:hover { background: var(--accent-dark); }
 
 <main class="wide">
   <!-- ログイン -->
-  <div class="card" id="loginCard">
-    <h2>副将パスワード</h2>
-    <input type="password" id="pw" placeholder="パスワード" aria-label="副将パスワード">
-    <div style="margin-top:12px;"><button id="loginBtn">開く</button></div>
-    <div id="loginMsg" role="status" aria-live="polite"></div>
-  </div>
+  <!-- 副将のログインは入口でだけ（2026-09-15）。鍵が無い・切れたときに、入口への案内をここに出す -->
+  <div class="card" id="loginCard" style="display:none;"></div>
 
   <div id="app" style="display:none;">
     <!-- どの期間を編集しているか。当番の設定・投票・当番表はすべてこの期間のもの。 -->
@@ -1184,14 +1190,20 @@ const 曜日クラス = (w) => (w === '土' ? ' sat' : (w === '日' ? ' sun' : '
 
 // ===================== ログイン =====================
 
-$('loginBtn').addEventListener('click', async () => {
+// 副将のログインは入口でだけ（2026-09-15 ユーザーの指示）。入口が置いた鍵で開き、無い・切れたときは入口へ案内する
+function 入口へ案内する(文) {
+  部品.副将の鍵を消す();
+  $('app').style.display = 'none';
+  $('loginCard').innerHTML = 部品.入口へ(文);
+  $('loginCard').style.display = 'block';
+}
+(async () => {
+  const 鍵 = 部品.副将の鍵();
+  if (!鍵) return 入口へ案内する('');
   try {
-    // ログインと最初の読み込みを1往復で済ませる（分けるとそのぶん待ちが倍になる）
-    const 入った = await call('loginAndLoad', $('pw').value, D.termId || null);
-    TOKEN = 入った.token;
-    $('loginCard').style.display = 'none';
+    TOKEN = 鍵;
+    await loadAll(null, await call('adminLoadAll', TOKEN, null));
     $('app').style.display = 'block';
-    await loadAll(D.termId, 入った.all);
     try {
       const u = await call('adminShareUrl', TOKEN);
       const a = $('urlLink');
@@ -1210,10 +1222,9 @@ $('loginBtn').addEventListener('click', async () => {
       });
     } catch (e) { /* URLが取れなくても本体は使える */ }
   } catch (e) {
-    msgIn('loginMsg', 'error', (e && e.message) || e);
+    入口へ案内する(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : '開けませんでした：' + ((e && e.message) || e) + '。');
   }
-});
-$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+})();
 
 document.querySelector('.tabs').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-tab]');

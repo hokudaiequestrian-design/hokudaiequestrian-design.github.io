@@ -144,7 +144,7 @@ function 模擬で答える(req) {
     // ---------- 副将で開く（2026-09-15：「管理者」をやめて副将にそろえ、部員管理は部員・馬匹管理へ移した） ----------
     console.log('\n== 副将：開く ==');
     await page.goto(元 + '/robots.txt');
-    await page.evaluate((all) => { localStorage.clear(); localStorage.setItem('adminToken', 'T'); localStorage.setItem('jinin:admin:all', JSON.stringify(all)); }, 全部);
+    await page.evaluate((all) => { localStorage.clear(); sessionStorage.setItem('fukusho:jinin', 'T'); localStorage.setItem('jinin:admin:all', JSON.stringify(all)); }, 全部);
     await page.goto(元 + '/taikai-admin.html');
     await page.waitForFunction(() => document.getElementById('appView').style.display === 'block', { timeout: 10000 });
     await 待つ(400);

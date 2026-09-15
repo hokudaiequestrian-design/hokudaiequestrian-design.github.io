@@ -582,15 +582,8 @@ a.donehome:hover { background: var(--accent-dark); }
 
 <!-- ===== ログイン ===== -->
 <main id="loginView">
-  <div class="card">
-    <!-- 2026-09-15 ユーザーの指示で「管理者」をやめて副将にそろえた。パスワードも当番・手入れと同じ副将パスワード -->
-    <h1>副将パスワード</h1>
-    <p class="muted">当番・手入れと同じ副将パスワードを入れてください。</p>
-    <label for="pw">パスワード</label>
-    <input type="password" id="pw" autocomplete="current-password">
-    <div style="margin-top:14px;"><button id="loginBtn">ログイン</button></div>
-    <div id="loginMsg"></div>
-  </div>
+  <!-- 副将のログインは入口でだけ（2026-09-15 ユーザーの指示）。鍵が無い・切れたときに、入口への案内をここに出す -->
+  <div class="card" id="loginMsg"></div>
 </main>
 
 <!-- ===== 本体 ===== -->
@@ -605,6 +598,12 @@ a.donehome:hover { background: var(--accent-dark); }
   <!-- 部員管理（部員・部の馬・パスワード）は、2026-09-15 に当番・手入れの「部員・馬匹管理」へ移した（名簿は1つ） -->
   <p class="hint" style="margin:-4px 0 var(--space-md);">部員の名簿と部の馬は <a href="buin.html">部員・馬匹管理</a> に移しました（当番・手入れと1つの名簿です）。</p>
   <section id="tab-events">
+    <!-- 2026-09-15 ユーザーの指示：大会一覧を「大会を追加」より上に出す -->
+    <div class="card">
+      <h2>大会一覧</h2>
+      <div id="eventList" class="muted">読み込み中…</div>
+    </div>
+
     <div class="card">
       <h2 id="eventFormTitle">大会を追加</h2>
       <input type="hidden" id="eventId">
@@ -631,10 +630,6 @@ a.donehome:hover { background: var(--accent-dark); }
       <div id="eventMsg"></div>
     </div>
 
-    <div class="card">
-      <h2>大会一覧</h2>
-      <div id="eventList" class="muted">読み込み中…</div>
-    </div>
   </section>
 
   <!-- 出欠・選手出場 -->
@@ -895,7 +890,10 @@ function attendsOn(map, memberId, date) {
 
 const attendsAny = (map, memberId) => !!map[memberId] && Object.keys(map[memberId]).some((k) => map[memberId][k]);
 
-let TOKEN = localStorage.getItem('adminToken') || '';
+// 副将のログインは入口でだけ（2026-09-15）。入口（副将用）がこのタブに置いた人員表の鍵を使う。タブを閉じると消える
+const 入口の鍵 = () => { try { return sessionStorage.getItem('fukusho:jinin') || ''; } catch (e) { return ''; } };
+let TOKEN = 入口の鍵();
+try { localStorage.removeItem('adminToken'); } catch (e) { /* 前はここにずっと覚えていた */ }
 let ALL = { posts: [], maxGrade: 6, defaultJobs: [], choices: {}, jobColors: {}, academicYear: 0, members: [], horses: [], events: [], competitions: [], jobs: [] };
 const CH = (key) => (ALL.choices && ALL.choices[key]) || [];
 const 学年一覧 = () => { const a = []; for (let i = 1; i <= (ALL.maxGrade || 6); i++) a.push(i); return a; };
@@ -961,29 +959,15 @@ function call(fn) {
 // 期限切れならログイン画面に戻す
 function handleError(el, e) {
   const m = (e && e.message) || String(e);
-  if (/ログインの有効期限/.test(m)) { logout(); return; }
+  if (/ログインの有効期限/.test(m)) { logout('ログインの有効期限が切れました。'); return; }
   show(el, 'error', m);
 }
 
 // ===== ログイン =====
-$('loginBtn').addEventListener('click', doLogin);
-$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
-
-async function doLogin() {
-  const pw = $('pw').value;
-  if (!pw) return show($('loginMsg'), 'error', 'パスワードを入力してください。');
-  $('loginBtn').disabled = true;
-  try {
-    // ログインと最初の読み込みを1往復で済ませる（分けるとそのぶん待ちが倍になる）
-    const r = await call('loginAndLoad', pw);
-    TOKEN = r.token;
-    localStorage.setItem('adminToken', TOKEN);
-    await start(r.all);
-  } catch (e) {
-    show($('loginMsg'), 'error', (e && e.message) || String(e));
-  } finally {
-    $('loginBtn').disabled = false;
-  }
+// パスワードは入口でだけ入れる。ここでは入口への案内を出すだけ
+function 入口へ案内する(文) {
+  $('loginMsg').innerHTML = '<h1>副将のログインが要ります</h1><p style="margin:0;">' + esc(文 || '') +
+    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
 }
 
 /* 前回読んだ中身を覚えておき、開いた瞬間に出す（2026-09-13）。
@@ -1012,17 +996,17 @@ function 大会の覚え(eventId, 中身) {
   管理の覚え.置く('jinin:admin:events', 表);
 }
 
-function logout() {
+// ログアウトは入口の鍵ごと消す（当番・手入れの画面でも入口から入り直しになる）
+function logout(文) {
   TOKEN = '';
-  localStorage.removeItem('adminToken');
+  try { sessionStorage.removeItem('fukusho:jinin'); sessionStorage.removeItem('fukusho:touban'); } catch (e) { /* 消せなくても6時間で切れる */ }
   管理の覚え.全部消す();
   $('appView').style.display = 'none';
   $('loginView').style.display = 'block';
   $('logoutLink').style.display = 'none';
-  $('pw').value = '';
-  show($('loginMsg'), 'warning', 'ログインし直してください。');
+  入口へ案内する(typeof 文 === 'string' ? 文 : '');
 }
-$('logoutLink').addEventListener('click', logout);
+$('logoutLink').addEventListener('click', () => logout('ログアウトしました。'));
 
 // ===== タブ =====
 const TABS = { events: 'tab-events', entries: 'tab-entries', board: 'tab-board' };
@@ -2524,8 +2508,8 @@ function 画面を開く(all) {
 }
 
 (async () => {
-  if (!TOKEN) return;
-  try { await start(); } catch (e) { logout(); }
+  if (!TOKEN) return 入口へ案内する('');
+  try { await start(); } catch (e) { logout(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : ''); }
 })();
 </script>
 <script>

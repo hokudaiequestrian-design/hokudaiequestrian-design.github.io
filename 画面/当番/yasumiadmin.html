@@ -64,12 +64,8 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 <header class="appbar yasumi"><span>バイト・休みをまとめる（副将）</span></header>
 
 <main class="wide">
-  <div class="card" id="loginCard">
-    <h2>副将パスワード</h2>
-    <input type="password" id="pw" placeholder="パスワード" aria-label="副将パスワード">
-    <div style="margin-top:12px;"><button id="loginBtn" type="button">開く</button></div>
-    <div id="loginMsg" role="status" aria-live="polite"></div>
-  </div>
+  <!-- 副将のログインは入口でだけ（2026-09-15）。鍵が無い・切れたときに、入口への案内をここに出す -->
+  <div class="card" id="loginCard" style="display:none;"></div>
 
   <div id="app" style="display:none;">
     <div class="card" style="padding:12px 16px;">
@@ -308,20 +304,20 @@ const 和風 = (key) => {
 };
 
 // ===== ログイン =====
-$('loginBtn').addEventListener('click', async () => {
-  if (!$('pw').value) return 知らせ('loginMsg', 'warning', 'パスワードを入れてください。');
+// 副将のログインは入口でだけ（2026-09-15 ユーザーの指示）。入口が置いた鍵で開き、無い・切れたときは入口へ案内する
+(async () => {
+  const 案内 = (文) => { 部品.副将の鍵を消す(); $('app').style.display = 'none'; $('loginCard').innerHTML = 部品.入口へ(文); $('loginCard').style.display = 'block'; };
+  const 鍵 = 部品.副将の鍵();
+  if (!鍵) return 案内('');
   try {
-    // ログインと最初の読み込みを1往復で済ませる
-    const 入った = await call('loginAndLoadYasumi', $('pw').value, null);
-    TOKEN = 入った.token;
-    $('loginCard').style.display = 'none';
+    TOKEN = 鍵;
+    const all = await call('yasumiLoadAll', TOKEN, null);
     $('app').style.display = 'block';
-    await 読み直す(null, 入った.all);
+    await 読み直す(null, all);
   } catch (e) {
-    知らせ('loginMsg', 'error', ((e && e.message) || e));
+    案内(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : '開けませんでした：' + ((e && e.message) || e) + '。');
   }
-});
-$('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
+})();
 
 // ===== タブ =====
 document.querySelector('.tabs').addEventListener('click', (e) => {

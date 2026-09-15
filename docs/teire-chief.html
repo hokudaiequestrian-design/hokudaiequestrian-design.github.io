@@ -867,7 +867,17 @@ const 部品 = (() => {
     });
   }, true);
 
-  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる };
+  /*
+    副将のログイン（2026-09-15 ユーザーの指示：副将は入口でだけパスワードを入れ、マイページから行き来するあいだは聞かない）。
+    入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
+    副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
+  */
+  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
+  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
+    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
 })();
 </script>
 <style>
@@ -1163,6 +1173,12 @@ const 思い出す = () => { try { return sessionStorage.getItem(トークンの
 // ===================== ログイン =====================
 
 (async () => {
+  // 副将が入口でログインしていれば、その鍵で開く（チーフパスワードは聞かない。2026-09-15 ユーザーの指示）
+  const 副将 = 部品.副将の鍵();
+  if (副将) {
+    try { TOKEN = 副将; return void await 始める(await call('chiefLoadAll', 副将)); }
+    catch (e) { TOKEN = ''; /* 切れていたら、いつものチーフの入り方へ */ }
+  }
   try {
     const meta = await call('chiefMeta');
     if (meta.要パスワード) {

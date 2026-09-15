@@ -28,9 +28,17 @@ header.appbar.yasumi { background: var(--ink); }
   transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
 }
 .kindchip:active { transform: translateY(1px); }
-.kindchip.on { border-width: 2px; font-weight: 700; }
-.kindchip.on.k-yuukyuu { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-.kindchip.on.k-kisetsu { border-color: var(--care); background: var(--care-soft); color: var(--care); }
+/*
+  2026-09-15 ユーザーの指示：選んでいないほうが真っ白で何の札か分からなかった。
+  選んでいないほうは、その休みの色の薄い地と枠。選んだほうは、濃い塗り＋白い文字＋✓（色だけで伝えない）。
+*/
+.kindchip.k-yuukyuu { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+.kindchip.k-kisetsu { border-color: var(--care); background: var(--care-soft); color: var(--care-dark); }
+.kindchip:hover { filter: brightness(0.97); }
+.kindchip.on { border-width: 2px; font-weight: 700; color: #fff; }
+.kindchip.on::before { content: "✓"; margin-right: var(--space-2xs); }
+.kindchip.on.k-yuukyuu { background: var(--accent); border-color: var(--accent-dark); }
+.kindchip.on.k-kisetsu { background: var(--care); border-color: var(--care-dark); }
 
 /* 月めくり */
 .month-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }

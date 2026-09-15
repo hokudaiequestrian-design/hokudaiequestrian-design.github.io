@@ -512,5 +512,68 @@
     }
   }
 
+  /*
+    副将のログイン（2026-09-15 ユーザーの指示：副将は入口でだけパスワードを入れ、マイページから行き来するあいだは聞かない）。
+    副将の入口（?role=admlinks）の「みんなのぶんをまとめる」に、パスワードの欄を1つ置く。
+    入れると当番・手入れと人員表の両方にログインし、鍵をこのタブの sessionStorage に置く（タブを閉じると消える）。
+    副将の各画面は、この鍵で開く（入口の鍵が無いときは、パスワードの欄ではなく入口への案内を出す）。
+    ログインするまでは、まとめるほうのリンクを隠す。
+  */
+  const 副将の鍵の名 = { 当番: 'fukusho:touban', 人員表: 'fukusho:jinin' };
+  const 鍵を読む = (k) => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const 鍵を置く = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) { /* 置けなければ画面ごとに入口へ戻される */ } };
+  const 鍵を消す = () => {
+    try {
+      sessionStorage.removeItem(副将の鍵の名.当番);
+      sessionStorage.removeItem(副将の鍵の名.人員表);
+    } catch (e) { /* 消せなくても6時間で切れる */ }
+  };
+
+  function 副将のログイン() {
+    if (typeof 立場 === 'undefined' || 立場 !== 'admlinks' || typeof sessionStorage === 'undefined') return;
+    const 群 = Array.prototype.filter.call(document.querySelectorAll('#hub-groups .hub-group'),
+      (g) => !!g.querySelector('a.hub-link[href="touban-admin.html"]'))[0];
+    if (!群) return;
+    const 一覧 = 群.querySelector('.hub-list');
+    const 箱 = document.createElement('div');
+    箱.className = 'fk-login';
+    一覧.parentNode.insertBefore(箱, 一覧);
+
+    function 入っている() {
+      一覧.hidden = false;
+      箱.innerHTML = '<p class="fk-on"><span>副将でログインしています。このタブを閉じるまで、下の画面ではパスワードを聞きません。</span>' +
+        '<button type="button" class="fk-out">ログアウト</button></p>';
+      箱.querySelector('.fk-out').addEventListener('click', () => { 鍵を消す(); 入っていない('ログアウトしました。'); });
+    }
+    function 入っていない(文) {
+      一覧.hidden = true;
+      箱.innerHTML = '<label for="fkPw">副将パスワード</label>' +
+        '<div class="fk-row"><input type="password" id="fkPw" autocomplete="current-password"><button type="button" id="fkBtn">ログイン</button></div>' +
+        '<p class="hint">ここで1回入れると、このタブを閉じるまで、当番・バイトと休み・部員・馬匹管理・人員表・手入れの画面ではパスワードを聞きません。</p>' +
+        (文 ? '<p class="me-msg">' + esc(文) + '</p>' : '');
+      const 押す = async () => {
+        const pw = $('fkPw').value;
+        if (!pw) return 入っていない('副将パスワードを入れてください。');
+        try {
+          const 鍵 = await Promise.all([呼ぶ(API.当番, 'login', [pw]), 呼ぶ(API.人員表, 'login', [pw])]);
+          鍵を置く(副将の鍵の名.当番, 鍵[0]);
+          鍵を置く(副将の鍵の名.人員表, 鍵[1]);
+          入っている();
+        } catch (e) { 入っていない(e.message); }
+      };
+      $('fkBtn').addEventListener('click', 押す);
+      $('fkPw').addEventListener('keydown', (e) => { if (e.key === 'Enter') 押す(); });
+    }
+
+    const 当番の鍵 = 鍵を読む(副将の鍵の名.当番);
+    const 人員表の鍵 = 鍵を読む(副将の鍵の名.人員表);
+    if (!当番の鍵 || !人員表の鍵) return 入っていない('');
+    入っている();
+    // 鍵がまだ生きているかを裏で確かめる。切れていたら入れ直してもらう（通信の失敗では消さない）
+    Promise.all([呼ぶ(API.当番, 'adminShareUrl', [当番の鍵]), 呼ぶ(API.人員表, 'adminShareUrl', [人員表の鍵])])
+      .catch((e) => { if (!e.通信) { 鍵を消す(); 入っていない('ログインの有効期限が切れました。もう一度入れてください。'); } });
+  }
+  try { 副将のログイン(); } catch (e) { /* 入口のほかの部分は動かす */ }
+
   始める();
 })();
