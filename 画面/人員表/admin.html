@@ -5,6 +5,28 @@
 <?!= include('style') ?>
 </head>
 <body>
+<!--
+  アイコン（2026-09-15）。線だけの絵にそろえる（入口ページの印と同じ描き方）。
+  絵文字はアイコンの代わりに使わない（design.md）。使うときは アイコン('edit') のように呼ぶ。
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <g id="i-edit" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></g>
+  <g id="i-trash" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></g>
+  <g id="i-x" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></g>
+  <g id="i-plus" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></g>
+  <g id="i-more" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g>
+  <g id="i-lock" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></g>
+  <g id="i-unlock" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/></g>
+  <g id="i-copy" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h4"/></g>
+  <g id="i-paste" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11h6M9 15h4"/></g>
+  <g id="i-clear" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H9l-5-5 9.5-9.5a2 2 0 0 1 2.8 0l3.2 3.2a2 2 0 0 1 0 2.8L12 19"/><path d="M8.5 10.5l5 5"/></g>
+  <g id="i-filldown" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14M12 8v11M8 15l4 4 4-4"/></g>
+  <g id="i-undo" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></g>
+  <g id="i-download" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></g>
+  <g id="i-settings" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></g>
+  <g id="i-spark" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></g>
+  <g id="i-chevron" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></g>
+</defs></svg>
 <div id="busy">通信中です…</div>
 <header class="appbar">
   <span>人員表システム（管理者）</span>
@@ -34,26 +56,17 @@
 
   <!-- 部員管理 -->
   <section id="tab-members">
-    <div class="card">
-      <h2>名簿を貼り付けて一括登録</h2>
-      <p class="hint">スプレッドシートから <b>名前・入部年・役職・備考</b> の4列をコピーして貼り付けてください。1行目が見出しなら読み飛ばします。同じ名前の人は飛ばします。</p>
-      <p class="hint">入部年の欄は <b>2025</b> のような西暦でも、<b>2</b> のような今の学年でも構いません。</p>
-      <textarea id="bulkText" placeholder="名前&#9;入部年&#9;役職&#9;備考&#10;塚原&#9;2023&#9;運営&#10;山本&#9;2023&#9;箱番長"></textarea>
-      <div style="margin-top:10px;"><button id="bulkBtn">貼り付けた内容を登録</button></div>
-      <div id="bulkMsg"></div>
-    </div>
-
-    <!-- 前はスプレッドシートのメニュー「管理者パスワードを変更」でやっていた（2026-09-13、Cloudflare に移すときにこちらへ） -->
-    <div class="card">
-      <h2>管理者パスワードを変える</h2>
-      <p class="hint">運営担当者だけに教えるパスワードです。4文字以上。変えると、次からは新しいパスワードでしか開けません（いま開いている画面はそのまま使えます）。</p>
-      <div class="row tight" style="align-items:center;">
-        <input type="password" id="newPw" placeholder="新しいパスワード" autocomplete="new-password" aria-label="新しいパスワード" style="flex:1 1 200px;">
-        <input type="password" id="newPw2" placeholder="もう一度" autocomplete="new-password" aria-label="新しいパスワード（もう一度）" style="flex:1 1 200px;">
-        <button class="secondary" id="changePwBtn" style="flex:0 0 auto;">変える</button>
+    <!-- 年に1回ほどしか使わないので畳んでおく（2026-09-15、ヒント3：最初に見えるボタンを減らす）。部員が0人のときだけ開いて出す -->
+    <details class="fold" id="bulkFold">
+      <summary><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>名簿を貼り付けて一括登録<span class="muted">年度の初めに</span></summary>
+      <div class="fold-body">
+        <p class="hint">スプレッドシートから <b>名前・入部年・役職・備考</b> の4列をコピーして貼り付けてください。1行目が見出しなら読み飛ばします。同じ名前の人は飛ばします。</p>
+        <p class="hint">入部年の欄は <b>2025</b> のような西暦でも、<b>2</b> のような今の学年でも構いません。</p>
+        <textarea id="bulkText" placeholder="名前&#9;入部年&#9;役職&#9;備考&#10;塚原&#9;2023&#9;運営&#10;山本&#9;2023&#9;箱番長" style="margin-top:var(--space-xs);"></textarea>
+        <div style="margin-top:10px;"><button id="bulkBtn">貼り付けた内容を登録</button></div>
+        <div id="bulkMsg"></div>
       </div>
-      <div id="pwMsg"></div>
-    </div>
+    </details>
 
     <div class="card">
       <h2 id="memberFormTitle">部員を1人ずつ追加</h2>
@@ -110,6 +123,21 @@
       <div id="horseMsg"></div>
       <div id="horseList" class="pill-list" style="margin-top:12px;"></div>
     </div>
+
+    <!-- 前はスプレッドシートのメニュー「管理者パスワードを変更」でやっていた（2026-09-13、Cloudflare に移すときにこちらへ）。
+         めったに使わないので、2026-09-15 にいちばん下へ移して畳んだ -->
+    <details class="fold">
+      <summary><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-chevron"/></svg>管理者パスワードを変える</summary>
+      <div class="fold-body">
+        <p class="hint">運営担当者だけに教えるパスワードです。4文字以上。変えると、次からは新しいパスワードでしか開けません（いま開いている画面はそのまま使えます）。</p>
+        <div class="row tight" style="align-items:center;margin-top:var(--space-xs);">
+          <input type="password" id="newPw" placeholder="新しいパスワード" autocomplete="new-password" aria-label="新しいパスワード" style="flex:1 1 200px;">
+          <input type="password" id="newPw2" placeholder="もう一度" autocomplete="new-password" aria-label="新しいパスワード（もう一度）" style="flex:1 1 200px;">
+          <button class="secondary" id="changePwBtn" style="flex:0 0 auto;">パスワードを変える</button>
+        </div>
+        <div id="pwMsg"></div>
+      </div>
+    </details>
   </section>
 
   <!-- 大会・競技設定 -->
@@ -153,7 +181,7 @@
       <p class="hint">このURLを部員に配ると、出欠を入力してもらえます。ふだんは入口（マイページ）のURLを配れば、そこからこの画面にも入れます。</p>
       <div class="row tight" style="align-items:center;">
         <input type="text" id="shareUrl" readonly style="flex:1 1 320px;">
-        <button class="secondary small" id="copyUrlBtn" style="flex:0 0 auto;">コピー</button>
+        <button class="secondary" id="copyUrlBtn" style="flex:0 0 auto;"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-copy"/></svg>URLをコピー</button>
       </div>
       <div id="shareMsg"></div>
     </div>
@@ -200,14 +228,22 @@
   <!-- 人員表 -->
   <section id="tab-board" style="display:none;">
     <div class="card">
+      <!-- 主な操作（自動生成）だけをボタンで出し、たまに使うものは ⋯ にしまう（2026-09-15、ヒント3） -->
       <div class="row">
         <div><label for="boardEventSelect">大会を選択</label><select id="boardEventSelect"></select></div>
-        <div style="flex:0 0 auto;"><button class="secondary" id="editEventBtn" title="この大会の競技や仕事を直します">大会を編集</button></div>
-        <div style="flex:0 0 auto;"><button id="generateBtn">自動生成</button></div>
-        <div style="flex:0 0 auto;"><button class="secondary" id="exportBtn">Excelに書き出す</button></div>
+        <div style="flex:0 0 auto;"><button id="generateBtn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-spark"/></svg>自動生成</button></div>
+        <div style="flex:0 0 auto;">
+          <details class="menu" id="boardMenu">
+            <summary class="icon-btn menu-btn" aria-label="その他の操作" title="その他の操作（大会を編集・Excelに書き出す）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" id="editEventBtn" title="この大会の競技や仕事を直します"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>大会を編集</button>
+              <button type="button" class="menu-item" role="menuitem" id="exportBtn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>Excelに書き出す</button>
+            </div>
+          </details>
+        </div>
       </div>
       <div id="boardMsg"></div>
-      <p class="hint">「自動生成」は結果を保存します。🔒で固定したマスは残したまま組み直します。まだ出欠を出していない人を下の欄で仮に「来る」にしておくと、その前提で組めます（出欠シートには書き込まれません）。</p>
+      <p class="hint">「自動生成」は結果を保存します。固定したマス（左に茶色の線）は残したまま組み直します。まだ出欠を出していない人を下の欄で仮に「来る」にしておくと、その前提で組めます（出欠シートには書き込まれません）。</p>
     </div>
 
     <div class="card" id="assumeCard" style="display:none;">
@@ -228,37 +264,48 @@
     <div class="card">
       <h2>人員表</h2>
       <p class="hint">
-        クリックで選択、ドラッグや Shift+クリックで範囲選択。矢印・Tab・Home・End・PageUp/Down で移動（Ctrl+矢印で端まで）。<br>
-        <b>ダブルクリックか Enter で編集</b>。<b>Ctrl+C / Ctrl+V</b> でコピー・貼り付け、<b>Ctrl+D</b> で一番上の行を下へ写す、Delete で空に、<b>Ctrl+L</b> で固定の切り替え、<b>Ctrl+Z / Ctrl+Y</b> で元に戻す・やり直す。<br>
-        固定したマスは自動生成で動きません。名前の横の🔒はその人を丸ごと固定します。<br>
-        <b>行けないと答えている日のマス（灰色）も手で入れられます。</b>自動生成では入りませんが、手で入れたぶんは固定されるので組み直しても消えません。
+        クリックで選び、<b>ダブルクリックか Enter で編集</b>。<b>マスを右クリックすると、できることの一覧</b>が出ます。
+        固定したマスは自動生成で動きません。名前の横の錠前はその人を丸ごと固定します。
       </p>
+      <details class="howto">
+        <summary>キーボードでの操作と、灰色のマスについて</summary>
+        <p>
+          ドラッグや <kbd>Shift</kbd>+クリックで範囲選択。矢印・<kbd>Tab</kbd>・<kbd>Home</kbd>・<kbd>End</kbd>・<kbd>PageUp</kbd>/<kbd>PageDown</kbd> で移動（<kbd>Ctrl</kbd>+矢印で端まで）。<br>
+          <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> でコピー・貼り付け、<kbd>Ctrl</kbd>+<kbd>D</kbd> で一番上の行を下へ写す、<kbd>Delete</kbd> で空に、<kbd>Ctrl</kbd>+<kbd>L</kbd> で固定の切り替え、<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> で元に戻す・やり直す。<br>
+          <b>行けないと答えている日のマス（灰色）も手で入れられます。</b>自動生成では入りませんが、手で入れたぶんは固定されるので組み直しても消えません。
+        </p>
+      </details>
       <div class="legend">
-        <span><span class="swatch" style="background:#fff;border:1px solid #fecaca;"></span><b style="color:#c00000;">赤字の馬名</b>＝その競技に出る人</span>
-        <span><span class="swatch" style="background:#fff;border:1px solid #d1d5db;"></span>黒字の馬名＝その馬の手伝い（馬付き）</span>
+        <span><span class="swatch" style="border-color:var(--danger);"></span><b style="color:var(--rider);">赤字の馬名</b>＝その競技に出る人</span>
+        <span><span class="swatch"></span><b>黒字の馬名</b>＝その馬の手伝い（馬付き）</span>
         <span><span class="swatch abs"></span>右上の角印＝その日は来られないと答えている（手で入れられます）</span>
-        <span><span class="swatch" style="background:#fef2f2;border:1px solid #fecaca;"></span>人数が足りない競技</span>
-        <span><span class="swatch" style="background:#fffbeb;border:1px solid #fde68a;"></span>未保存の変更</span>
-        <span><span class="swatch" style="background:#fff;border-left:3px solid #b45309;"></span>固定したマス</span>
+        <span><span class="swatch" style="background:var(--danger-soft);border-color:var(--danger);border-bottom:3px solid #f08a8a;"></span>人数が足りない競技</span>
+        <span><span class="swatch" style="background:var(--warning-soft);border-color:var(--warning);"></span>未保存の変更</span>
+        <span><span class="swatch" style="border-left:3px solid var(--warning);"></span>固定したマス</span>
       </div>
       <label class="row-filter">
         <input type="checkbox" id="showAllRows">
         行けない人・未回答の人も表に出す
         <span class="muted">（全日行けないと答えた人や、まだ出欠を出していない人の行も出します）</span>
       </label>
-      <div class="cell-tools" id="cellTools" style="display:none;">
-        <span><span id="cellCount" class="muted"></span> <span id="cellMsg" class="muted"></span></span>
-        <span>
-          <button class="secondary small" id="lockBtn" title="Ctrl+L">🔒 固定を切り替え</button>
-          <button class="secondary small" id="copyBtn" title="Ctrl+C">コピー</button>
-          <button class="secondary small" id="pasteBtn" title="Ctrl+V">貼り付け</button>
-          <button class="secondary small" id="clearBtn" title="Delete">空にする</button>
+      <!-- 選んだマスの操作。文字のボタン4つをアイコンにした（2026-09-15、ヒント3）。何のボタンかは乗せると出る -->
+      <!-- 選ぶ前から場所を取っておく（visibility で出し入れ）。display で出し入れすると、
+           最初にマスを選んだ瞬間に表がこの帯の高さぶん下へずれ、右クリックが1段上の見出しに当たっていた（2026-09-15） -->
+      <div class="cell-tools" id="cellTools" style="visibility:hidden;">
+        <span><span id="cellCount" class="muted" style="color:var(--accent-dark);font-weight:700;"></span> <span id="cellMsg" class="muted"></span></span>
+        <span class="tools">
+          <button type="button" class="icon-btn" id="editCellBtn" aria-label="編集する（Enter）" title="編集する（Enter）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-edit"/></svg></button>
+          <button type="button" class="icon-btn" id="lockBtn" aria-label="固定を切り替える（Ctrl+L）" title="固定を切り替える（Ctrl+L）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg></button>
+          <button type="button" class="icon-btn" id="copyBtn" aria-label="コピー（Ctrl+C）" title="コピー（Ctrl+C）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-copy"/></svg></button>
+          <button type="button" class="icon-btn" id="pasteBtn" aria-label="貼り付け（Ctrl+V）" title="貼り付け（Ctrl+V）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-paste"/></svg></button>
+          <button type="button" class="icon-btn danger" id="clearBtn" aria-label="空にする（Delete）" title="空にする（Delete）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-clear"/></svg></button>
+          <button type="button" class="icon-btn" id="cellMoreBtn" aria-label="ほかの操作（右クリックでも開けます）" title="ほかの操作（右クリックでも開けます）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
         </span>
       </div>
       <div id="matrixBox" tabindex="0" style="margin-top:10px;" class="muted">大会を選択してください</div>
-      <div class="saving-bar" id="savingBar">
+      <div class="saving-bar" id="savingBar" role="status">
         <span id="dirtyCount" class="muted"></span>
-        <span>
+        <span class="actions">
           <button class="secondary" id="discardBtn">変更を捨てる</button>
           <button id="saveCellsBtn">変更を保存</button>
         </span>
@@ -267,10 +314,47 @@
   </section>
 </main>
 
+<!-- マスの右クリックで出るメニュー（2026-09-15、ヒント3：操作が多いところはコンテキストメニューに） -->
+<div class="menu-list ctx" id="cellMenu" role="menu" aria-label="マスの操作" hidden>
+  <button type="button" class="menu-item" role="menuitem" data-do="edit"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-edit"/></svg>編集する<span class="kbd">Enter</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-do="lock"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-lock"/></svg>固定を切り替える<span class="kbd">Ctrl+L</span></button>
+  <div class="menu-sep"></div>
+  <button type="button" class="menu-item" role="menuitem" data-do="copy"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-copy"/></svg>コピー<span class="kbd">Ctrl+C</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-do="paste"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-paste"/></svg>貼り付け<span class="kbd">Ctrl+V</span></button>
+  <button type="button" class="menu-item" role="menuitem" data-do="fill"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-filldown"/></svg>一番上の行を下へ写す<span class="kbd">Ctrl+D</span></button>
+  <div class="menu-sep"></div>
+  <button type="button" class="menu-item" role="menuitem" data-do="undo"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-undo"/></svg>元に戻す<span class="kbd">Ctrl+Z</span></button>
+  <button type="button" class="menu-item danger" role="menuitem" data-do="clear"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-clear"/></svg>空にする<span class="kbd">Delete</span></button>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const show = (el, cls, text) => { el.innerHTML = '<div class="msg ' + cls + '">' + esc(text) + '</div>'; };
+
+// ===== アイコンと、触ったところへの応え（2026-09-15） =====
+const アイコン = (名) => '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-' + 名 + '"/></svg>';
+
+/**
+ * 文字のボタンの代わりのアイコンボタン。アイコンだけでは何のボタンか分からないので、
+ * 説明を aria-label（読み上げ）と title（マウスを乗せたとき）の両方に入れる。
+ */
+function アイコンボタン(名, 説明, onclick, cls) {
+  return '<button type="button" class="icon-btn' + (cls ? ' ' + cls : '') + '" aria-label="' + esc(説明) + '" title="' + esc(説明) +
+    '" onclick="' + onclick + '">' + アイコン(名) + '</button>';
+}
+
+/** 保存したところを一瞬光らせる。何が変わったかを目で追えるように（ヒント7） */
+function 光らせる(els) {
+  Array.prototype.forEach.call(els || [], (el) => {
+    if (!el) return;
+    el.classList.remove('flash');
+    void el.offsetWidth;   // 同じ所を続けて光らせても、もう一度始まるように
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1000);
+  });
+}
+const 行を光らせる = (箱, id) => { if (id) 光らせる([箱.querySelector('[data-row="' + id + '"]')]); };
 
 // ===== プルダウン（候補から選ぶ／無ければ「その他」で手入力） =====
 const OTHER = '__other__';
@@ -480,6 +564,7 @@ $('saveMemberBtn').addEventListener('click', async () => {
     });
     resetMemberForm();
     renderMembers();
+    行を光らせる($('memberList'), (ALL.members.filter((x) => x.name === name)[0] || {}).id);
   } catch (e) { handleError($('memberMsg'), e); }
 });
 
@@ -522,7 +607,11 @@ window.deleteMember = async (id) => {
 
 function renderMembers() {
   $('memberCount').textContent = ALL.members.length ? ALL.members.length + '人' : '';
-  if (!ALL.members.length) { $('memberList').innerHTML = 'まだ登録されていません。上の欄に名簿を貼り付けてください。'; return; }
+  if (!ALL.members.length) {
+    $('bulkFold').open = true;   // 最初は名簿を貼るところから始めるので、畳んでいた欄を開いておく
+    $('memberList').innerHTML = 'まだ登録されていません。上の「名簿を貼り付けて一括登録」に貼り付けてください。';
+    return;
+  }
 
   const byPost = {};
   ALL.members.forEach((m) => { (byPost[m.post || '役職なし'] = byPost[m.post || '役職なし'] || []).push(m); });
@@ -531,13 +620,15 @@ function renderMembers() {
   $('memberList').innerHTML = order.filter((p) => byPost[p]).map((post) =>
     '<h3 style="margin-top:14px;">' + esc(post) + ' <span class="muted">' + byPost[post].length + '人</span></h3>' +
     byPost[post].map((m) =>
-      '<div class="list-item"><div><strong>' + esc(m.name) + '</strong> <span class="muted">' +
+      // 編集・削除は文字のボタンを並べず、乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
+      '<div class="list-item is-row" data-row="' + m.id + '"><div><strong>' + esc(m.name) + '</strong> <span class="muted">' +
       (m.grade ? m.grade + '年（' + m.joinYear + '年入部）' : '入部年 未設定') + '</span>' +
       (m.grade > 6 ? ' <span class="pill no">卒業済み？</span>' : '') +
       (m.note ? ' <span class="muted">／ ' + esc(m.note) + '</span>' : '') +
-      '</div><div style="flex:0 0 auto;">' +
-      '<button class="secondary small" onclick="editMember(\'' + m.id + '\')">編集</button> ' +
-      '<button class="danger small" onclick="deleteMember(\'' + m.id + '\')">削除</button></div></div>'
+      '</div><div class="row-actions">' +
+      アイコンボタン('edit', m.name + 'を編集', 'editMember(\'' + m.id + '\')') +
+      アイコンボタン('trash', m.name + 'を削除', 'deleteMember(\'' + m.id + '\')', 'danger') +
+      '</div></div>'
     ).join('')
   ).join('');
 }
@@ -565,6 +656,7 @@ $('saveHorseBtn').addEventListener('click', async () => {
     });
     resetHorseForm();
     renderHorses();
+    行を光らせる($('horseList'), (ALL.horses.filter((x) => x.name === name)[0] || {}).id);
   } catch (e) { handleError($('horseMsg'), e); }
 });
 
@@ -593,13 +685,14 @@ window.deleteHorse = async (id) => {
 function renderHorses() {
   if (!ALL.horses.length) { $('horseList').innerHTML = '<span class="muted">まだ登録されていません。</span>'; return; }
   $('horseList').innerHTML = ALL.horses.map((h) =>
-    '<span class="pill' + (h.active ? ' yes' : '') + '" style="' + (h.active ? '' : 'opacity:.55;') + '">' +
-    esc(h.name) + (h.active ? '' : '<span class="muted">／使っていない</span>') +
+    '<span class="pill horse' + (h.active ? ' yes' : ' off') + '" data-row="' + h.id + '">' +
+    '<b>' + esc(h.name) + '</b>' + (h.active ? '' : '<span class="muted">／使っていない</span>') +
     (h.chief ? '<span class="muted">／チーフ ' + esc(h.chief) + '</span>' : '') +
     (h.note ? '<span class="muted">／' + esc(h.note) + '</span>' : '') +
-    ' <a style="cursor:pointer;text-decoration:underline;" onclick="editHorse(\'' + h.id + '\')">編集</a>' +
-    ' <a style="cursor:pointer;text-decoration:underline;color:var(--danger);" onclick="deleteHorse(\'' + h.id + '\')">削除</a>' +
-    '</span>').join('');
+    '<span class="row-actions">' +
+    アイコンボタン('edit', h.name + 'を編集', 'editHorse(\'' + h.id + '\')', 'tiny') +
+    アイコンボタン('trash', h.name + 'を一覧から消す', 'deleteHorse(\'' + h.id + '\')', 'danger tiny') +
+    '</span></span>').join('');
 }
 
 // ===== 大会・競技 =====
@@ -608,26 +701,27 @@ function compRow(c) {
   return '<div class="row tight comp-row" style="margin-bottom:6px;">' +
     pickHtml('comp-name', CH('競技名'), c.name || '', '競技名を選択', 'flex:1 1 200px;') +
     '<input type="hidden" class="comp-id" value="' + esc(c.id || '') + '">' +
-    '<button class="danger small remove-comp">削除</button></div>';
+    '<button type="button" class="icon-btn danger remove-comp" aria-label="この競技を消す" title="この競技を消す">' + アイコン('x') + '</button></div>';
 }
 
 // 1日ぶんのまとまり。この日の競技と、この日の仕事の必要人数を一緒に持つ。
 function dayBlock(date, comps, jobs) {
   const cs = (comps && comps.length ? comps : [{}]).map(compRow).join('');
   const js = (jobs && jobs.length ? jobs : ALL.defaultJobs).map(jobRow).join('');
-  return '<div class="card day-block" data-date="' + esc(date || '') + '" style="background:#fafbfc;">' +
+  return '<div class="card day-block" data-date="' + esc(date || '') + '">' +
     '<h3 class="day-heading">' + esc(prettyDate(date)) + '</h3>' +
     '<label>この日の競技</label>' +
     '<p class="hint">競技を<b>開催順</b>に並べてください。この順番がそのまま人員表の列の並びになります。競技順は道馬連のHPで確認してください。</p>' +
     '<div class="comp-list">' + cs + '</div>' +
-    '<button class="secondary small add-comp">＋ 競技を追加</button>' +
+    '<button type="button" class="secondary small add-comp">' + アイコン('plus') + '競技を追加</button>' +
     '<label style="margin-top:18px;">この日の仕事と必要人数</label>' +
     '<p class="hint">「就ける役職」「就ける学年」「就ける人」は<b>締め出す</b>条件です。空欄なら誰でも入れます。' +
     '真駒内や早来のように行ける人が決まっている仕事は、就ける人に名前を入れてください。' +
     '「優先する学年」は<b>その学年から先に入れる</b>だけで、足りなければ他の学年からも入れます（使役を1・2年中心にする、など）。最高人数は空欄で上限なし。</p>' +
     '<div class="job-list">' + js + '</div>' +
-    '<button class="secondary small add-job">＋ 仕事を追加</button> ' +
-    '<button class="secondary small copy-prev">前の日の仕事をコピー</button>' +
+    '<div class="row tight" style="gap:var(--space-xs);">' +
+    '<button type="button" class="secondary small add-job">' + アイコン('plus') + '仕事を追加</button>' +
+    '<button type="button" class="secondary small copy-prev">' + アイコン('copy') + '前の日の仕事をコピー</button></div>' +
     '</div>';
 }
 
@@ -666,7 +760,7 @@ function jobRow(j) {
     '<input type="number" class="job-min" style="flex:0 0 110px;" min="0" placeholder="最低人数" value="' + esc(min) + '">' +
     '<input type="number" class="job-max" style="flex:0 0 110px;" min="0" placeholder="最高人数" value="' + esc(max) + '">' +
     '<input type="hidden" class="job-id" value="' + esc(j.id || '') + '">' +
-    '<button class="danger small remove-job">削除</button></div>' +
+    '<button type="button" class="icon-btn danger remove-job" aria-label="この仕事を消す" title="この仕事を消す">' + アイコン('x') + '</button></div>' +
     '<div class="muted">就ける役職：' + posts2 + '</div>' +
     '<div class="muted" style="margin-top:4px;">就ける学年：' + grades2 + '</div>' +
     '<div class="muted" style="margin-top:4px;">優先する学年：' + grades3 + '</div>' +
@@ -681,7 +775,9 @@ function appendHtml(container, html) {
 }
 
 $('tab-events').addEventListener('click', (e) => {
-  const t = e.target;
+  // ボタンの中にアイコン（svg）があるので、押された所から持ち主のボタンまでさかのぼる
+  const t = e.target.closest ? e.target.closest('button') : null;
+  if (!t) return;
   if (t.classList.contains('remove-comp')) t.closest('.comp-row').remove();
   else if (t.classList.contains('remove-job')) t.closest('.job-row').remove();
   else if (t.classList.contains('add-comp')) appendHtml(t.closest('.day-block').querySelector('.comp-list'), compRow());
@@ -831,6 +927,7 @@ $('saveEventBtn').addEventListener('click', async () => {
     renderEvents();
     fillEventSelects();
     show($('eventMsg'), 'success', '保存しました。');
+    行を光らせる($('eventList'), (ALL.events.filter((x) => x.name === body.name)[0] || {}).id);
   } catch (e) { handleError($('eventMsg'), e); } finally { $('saveEventBtn').disabled = false; }
 });
 
@@ -894,11 +991,12 @@ function renderEvents() {
     const 期間 = dates.length
       ? prettyDate(dates[0]) + (dates.length > 1 ? '〜' + prettyDate(dates[dates.length - 1]) : '') + '（' + dates.length + '日）'
       : '期間なし';
-    return '<div class="list-item"><div><strong>' + esc(ev.name) + '</strong><br><span class="muted">' +
+    return '<div class="list-item is-row" data-row="' + ev.id + '"><div><strong>' + esc(ev.name) + '</strong><br><span class="muted">' +
       esc(期間) + '／全' + comps.length + '競技／仕事' + jobs.length + '件</span></div>' +
-      '<div style="flex:0 0 auto;">' +
-      '<button class="secondary small" onclick="editEvent(\'' + ev.id + '\')">編集</button> ' +
-      '<button class="danger small" onclick="deleteEvent(\'' + ev.id + '\')">削除</button></div></div>';
+      '<div class="row-actions">' +
+      アイコンボタン('edit', ev.name + 'を編集', 'editEvent(\'' + ev.id + '\')') +
+      アイコンボタン('trash', ev.name + 'を削除', 'deleteEvent(\'' + ev.id + '\')', 'danger') +
+      '</div></div>';
   }).join('');
 }
 
@@ -1161,12 +1259,14 @@ function renderEntriesTab() {
   $('entryList').innerHTML = EV.entries.length ? EV.entries.map((x) => {
     const m = ALL.members.filter((mm) => mm.id === x.memberId)[0];
     const c = compById[x.competitionId];
-    return '<div class="list-item"><div><strong>' + esc(m ? m.name : '不明') + '</strong> <span class="muted">' +
+    return '<div class="list-item is-row" data-row="' + x.id + '"><div><strong>' + esc(m ? m.name : '不明') + '</strong> <span class="muted">' +
       (c ? esc(prettyDate(c.date)) + '：' + esc(c.name) : '（削除された競技）') + '</span> ' +
       '<span class="rider-tag">' + esc(x.horse || '出場') + '</span>' +
-      '</div><div style="flex:0 0 auto;">馬付き ' +
-      '<input type="number" min="0" max="9" value="' + x.helpers + '" data-helpers="' + x.id + '" style="width:64px;display:inline-block;padding:4px;"> 人 ' +
-      '<button class="danger small" onclick="deleteEntry(\'' + x.id + '\')">削除</button></div></div>';
+      '</div><div style="flex:0 0 auto;display:flex;align-items:center;gap:var(--space-xs);">馬付き ' +
+      '<input type="number" min="0" max="9" value="' + x.helpers + '" data-helpers="' + x.id + '" aria-label="馬付きの人数" style="width:72px;display:inline-block;"> 人' +
+      '<span class="row-actions">' +
+      アイコンボタン('trash', (m ? m.name : '') + 'の出場を消す', 'deleteEntry(\'' + x.id + '\')', 'danger') +
+      '</span></div></div>';
   }).join('') : '<span class="muted">まだ登録されていません。部員が出欠と一緒に出すと、ここに並びます。</span>';
 
   $('entryList').querySelectorAll('input[data-helpers]').forEach((el) => {
@@ -1423,7 +1523,7 @@ function updateToolbar() {
   const bar = $('cellTools');
   if (!bar) return;
   const 数 = SEL ? (SEL.r2 - SEL.r1 + 1) * (SEL.c2 - SEL.c1 + 1) : 0;
-  bar.style.display = 数 ? 'flex' : 'none';
+  bar.style.visibility = 数 ? 'visible' : 'hidden';   // 場所は取ったまま。表をずらさない
   if (!数) return;
   $('cellCount').textContent = 数 === 1
     ? GRID.rows[SEL.r1].name + '／' + GRID.comps[SEL.c1].name
@@ -1655,8 +1755,10 @@ let 引きずり中 = false;
 $('matrixBox').addEventListener('mousedown', (e) => {
   const td = e.target.closest ? e.target.closest('td[data-r]') : null;
   if (!td || 編集中) return;
+  // 右クリックが選んである範囲の中なら、選択はそのまま（範囲に対してメニューを出すため）
+  if (e.button === 2 && 選択に入っているか(Number(td.dataset.r), Number(td.dataset.c))) return;
   選ぶ(Number(td.dataset.r), Number(td.dataset.c), e.shiftKey);
-  引きずり中 = true;
+  引きずり中 = e.button === 0;
   選択を塗り直す();
   try { $('matrixBox').focus({ preventScroll: true }); } catch (err) { $('matrixBox').focus(); }
   e.preventDefault();
@@ -1820,10 +1922,11 @@ function renderMatrix() {
     }).join('');
     // 名前の下に、来ない人だと分かる短い印だけ添える（色は付けず控えめに）
     const 状態 = !att[m.id] ? '未回答' : (!attendsAny(att, m.id) ? '全日欠' : '');
-    return '<tr><td class="rowhead">' +
-      '<button class="small ' + (locked ? '' : 'secondary') + '" style="padding:1px 5px;font-size:11px;" data-lock="' + m.id + '" title="この人を丸ごと固定する（自動生成で動かさない）">' +
-      (locked ? '🔒' : '🔓') + '</button> ' + esc(m.name) +
-      '<br><span class="post-tag post-' + esc(m.post || '') + '">' + esc(m.post || '未設定') + '</span>' +
+    return '<tr><td class="rowhead"><div class="who">' +
+      '<button type="button" class="icon-btn tiny" data-lock="' + m.id + '" aria-pressed="' + (locked ? 'true' : 'false') + '"' +
+      ' aria-label="' + esc(m.name) + 'を丸ごと固定する" title="この人を丸ごと固定する（自動生成で動かさない）">' +
+      アイコン(locked ? 'lock' : 'unlock') + '</button>' + esc(m.name) + '</div>' +
+      '<span class="post-tag post-' + esc(m.post || '') + '">' + esc(m.post || '未設定') + '</span>' +
       (状態 ? ' <span class="off-tag">' + 状態 + '</span>' : '') +
       '</td>' + tds + '</tr>';
   }).join('');
@@ -1852,8 +1955,8 @@ function renderMatrix() {
         if (horseAt[key]) return;
         if (CELLS[key]) { CELLS[key].locked = !isLocked; DIRTY[key] = true; マスを描き直す(ri, ci); }
       });
-      btn.textContent = isLocked ? '🔓' : '🔒';
-      btn.className = 'small' + (isLocked ? ' secondary' : '');
+      btn.innerHTML = アイコン(isLocked ? 'unlock' : 'lock');
+      btn.setAttribute('aria-pressed', isLocked ? 'false' : 'true');
       updateDirtyBar();
     });
   });
@@ -1870,6 +1973,113 @@ $('lockBtn').addEventListener('click', () => { 鍵を切り替える(); 表に�
 $('copyBtn').addEventListener('click', () => { コピーする(); 表に戻す(); });
 $('pasteBtn').addEventListener('click', () => { 貼り付ける(); 表に戻す(); });
 $('clearBtn').addEventListener('click', () => { 選択を消す(); 表に戻す(); });
+$('editCellBtn').addEventListener('click', () => { if (ANCHOR) 編集を始める(ANCHOR.r, ANCHOR.c); });
+
+// ===== メニュー（2026-09-15、ヒント3） =====
+/*
+  2つある。
+    ・⋯（details.menu）…… たまに使う操作をしまっておく。details なのでキーボードでも開ける
+    ・マスの右クリック（#cellMenu）…… 選んだマスにできることを、ショートカットと並べて出す
+  どちらも、外を押す・Esc・項目を押すと閉じる。上下の矢印で項目を移れる。
+*/
+function 右クリックのメニューを開く(x, y) {
+  if (!GRID || !SEL) return;
+  const m = $('cellMenu');
+  const 一マス = SEL.r1 === SEL.r2 && SEL.c1 === SEL.c2;
+  // できない操作は押せない形にして、なぜかは項目の名前で分かるようにしてある（貼り付け＝まだコピーしていない など）
+  m.querySelector('[data-do="edit"]').disabled = !(一マス && !GRID.horseAt[マスのキー(SEL.r1, SEL.c1)]);
+  m.querySelector('[data-do="paste"]').disabled = !CLIP;
+  m.querySelector('[data-do="fill"]').disabled = SEL.r1 === SEL.r2;
+  m.querySelector('[data-do="undo"]').disabled = !履歴.length;
+  m.hidden = false;
+  // 画面の端からはみ出さないように寄せる
+  m.style.left = Math.max(8, Math.min(x, window.innerWidth - m.offsetWidth - 8)) + 'px';
+  m.style.top = Math.max(8, Math.min(y, window.innerHeight - m.offsetHeight - 8)) + 'px';
+  const 最初 = m.querySelector('.menu-item:not(:disabled)');
+  if (最初) { try { 最初.focus({ preventScroll: true }); } catch (e) { 最初.focus(); } }
+}
+
+function 右クリックのメニューを閉じる(表へ) {
+  const m = $('cellMenu');
+  if (m.hidden) return;
+  m.hidden = true;
+  if (表へ) 表に戻す();
+}
+
+$('matrixBox').addEventListener('contextmenu', (e) => {
+  const td = e.target.closest ? e.target.closest('td[data-r]') : null;
+  if (!td || 編集中) return;
+  e.preventDefault();
+  const r = Number(td.dataset.r);
+  const c = Number(td.dataset.c);
+  if (!選択に入っているか(r, c)) { 選ぶ(r, c, false); 選択を塗り直す(); }
+  右クリックのメニューを開く(e.clientX, e.clientY);
+});
+
+$('cellMoreBtn').addEventListener('click', () => {
+  // ボタンの右端にメニューの右端をそろえたいが、閉じている間は幅が測れない。
+  // 開く側で画面の端に収まるよう寄せるので、ここではボタンの左端を渡す
+  const r = $('cellMoreBtn').getBoundingClientRect();
+  右クリックのメニューを開く(r.left, r.bottom + 4);
+});
+
+$('cellMenu').addEventListener('click', (e) => {
+  const b = e.target.closest ? e.target.closest('[data-do]') : null;
+  if (!b || b.disabled) return;
+  右クリックのメニューを閉じる(false);
+  const 何 = b.dataset.do;
+  if (何 === 'edit') { 編集を始める(ANCHOR.r, ANCHOR.c); return; }
+  if (何 === 'lock') 鍵を切り替える();
+  else if (何 === 'copy') コピーする();
+  else if (何 === 'paste') 貼り付ける();
+  else if (何 === 'fill') 下へ埋める();
+  else if (何 === 'undo') 戻す(やり直し, 履歴, '元に戻しました。');
+  else if (何 === 'clear') 選択を消す();
+  表に戻す();
+});
+
+// 外を押したら閉じる。右クリックで別のマスを押したときも、いったん閉じてから開き直す
+document.addEventListener('mousedown', (e) => {
+  if (!(e.target.closest && e.target.closest('#cellMenu'))) 右クリックのメニューを閉じる(false);
+}, true);
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('details.menu[open]').forEach((d) => {
+    if (!d.contains(e.target) || (e.target.closest && e.target.closest('.menu-item'))) d.open = false;
+  });
+});
+window.addEventListener('resize', () => 右クリックのメニューを閉じる(false));
+$('matrixBox').addEventListener('scroll', () => 右クリックのメニューを閉じる(false), true);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (!$('cellMenu').hidden) { 右クリックのメニューを閉じる(true); e.preventDefault(); return; }
+    document.querySelectorAll('details.menu[open]').forEach((d) => { d.open = false; d.querySelector('summary').focus(); });
+    return;
+  }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  if (!e.target.closest) return;
+  // メニューの項目の上か、開いている ⋯ の上で押したときだけ（人員表のマスの矢印移動を邪魔しない）
+  const 開いた = e.target.closest('details.menu[open]');
+  const 箱 = e.target.closest('.menu-list') || (開いた ? 開いた.querySelector('.menu-list') : null);
+  if (!箱) return;
+  const 項目 = Array.prototype.slice.call(箱.querySelectorAll('.menu-item:not(:disabled)'));
+  if (!項目.length) return;
+  const i = 項目.indexOf(document.activeElement);
+  const 次 = 項目[(i + (e.key === 'ArrowDown' ? 1 : -1) + 項目.length) % 項目.length];
+  次.focus();
+  e.preventDefault();
+});
+
+/** 変わったマスだけを光らせる（保存・自動生成のあと。ヒント7） */
+function マスを光らせる(鍵たち) {
+  光らせる((鍵たち || []).map((k) => $('matrixBox').querySelector('td.cell[data-key="' + CSS.escape(k) + '"]')));
+}
+function 変わったマス(前, 後) {
+  const 全部 = {};
+  Object.keys(前 || {}).concat(Object.keys(後 || {})).forEach((k) => { 全部[k] = true; });
+  const 中身 = (x) => (x && (x.jobId || x.horse) ? JSON.stringify([x.jobId || null, x.horse || null]) : '');
+  return Object.keys(全部).filter((k) => 中身((前 || {})[k]) !== 中身((後 || {})[k]));
+}
 
 $('saveCellsBtn').addEventListener('click', async () => {
   if (!EV) return;
@@ -1877,8 +2087,10 @@ $('saveCellsBtn').addEventListener('click', async () => {
   try {
     const r = await call('adminSaveCells', TOKEN, EV.eventId, CELLS);
     EV.cells = JSON.parse(JSON.stringify(CELLS));
+    const 保存したマス = Object.keys(DIRTY);
     DIRTY = {};
     renderMatrix();
+    マスを光らせる(保存したマス);
     renderWarnings(r.warnings);
     show($('boardMsg'), 'success', '保存しました。');
   } catch (e) { handleError($('boardMsg'), e); } finally { $('saveCellsBtn').disabled = false; }
@@ -1895,19 +2107,21 @@ async function 組む() {
   if (!EV) return show($('boardMsg'), 'error', '大会を選択してください。');
   if (Object.keys(DIRTY).length && !confirm('保存していない変更があります。捨てて組み直しますか？')) return;
   if (Object.keys(EV.cells).length &&
-      !confirm('人員表を組み直して保存します。🔒で固定したマスはそのまま残ります。よろしいですか？')) return;
+      !confirm('人員表を組み直して保存します。固定したマスはそのまま残ります。よろしいですか？')) return;
 
   const 仮定 = 仮定の一覧();
   const btn = $('generateBtn');
   btn.disabled = true;
   try {
     const r = await call('adminGenerate', TOKEN, EV.eventId, 仮定, true);
+    const 前のマス = EV.cells;
     CELLS = JSON.parse(JSON.stringify(r.cells));
     EV.cells = r.cells;
     DIRTY = {};
     履歴 = [];
     やり直し = [];
     renderMatrix();
+    マスを光らせる(変わったマス(前のマス, r.cells));
     renderWarnings(r.warnings);
     show($('boardMsg'), 'success', '生成して保存しました。'
       + (仮定.length ? '仮に置いた出欠 ' + 仮定.length + '件を含みます（出欠シートには書いていません）。' : '')

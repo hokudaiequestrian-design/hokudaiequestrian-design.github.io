@@ -158,6 +158,8 @@ let 返事の表 = null;      // 写しから取れた自分の返事 {版, memb
 let 返事を読む番 = 0;     // 読んでいるあいだに選び直されたら、古いほうの結果は捨てる
 let 読み込み中 = true;    // 開いてすぐの読み込みが終わるまでは、手元のぶんを出すだけにする（写しで返事も一緒に来るので、別に聞きに行かない）
 
+let 今押した = -1;        // いま押した日の番号。その日の札と出場欄だけを動かす（描き直すたびに全部が動かないように）
+
 const 行けない日 = () => DAYS.filter((d) => ANSWERS[d.date] === false);
 const 未入力の日 = () => DAYS.filter((d) => ANSWERS[d.date] === undefined);
 
@@ -170,7 +172,7 @@ function renderDays() {
     // 行ける日だけ、出る競技と馬を聞く。
     // 同じ競技に2頭で出ることがあるので、馬を選ぶと下に空の枠が増えていく。
     const 出場欄 = (v === true && comps.length)
-      ? '<div class="ride-box"><div class="muted" style="margin-bottom:6px;">この日に<b>選手として出る競技</b>があれば、乗る馬を選んでください。出ない競技はそのままで構いません。<br>同じ競技に2頭以上で出る場合は、馬を選ぶと下に欄が増えます。</div>' +
+      ? '<div class="ride-box' + (今押した === i ? ' just' : '') + '"><div class="muted" style="margin-bottom:6px;">この日に<b>選手として出る競技</b>があれば、乗る馬を選んでください。出ない競技はそのままで構いません。<br>同じ競技に2頭以上で出る場合は、馬を選ぶと下に欄が増えます。</div>' +
         comps.map((c) => {
           const 馬たち = (RIDES[c.id] || []).slice();
           馬たち.push(''); // いつでも1つ空きを出しておく
@@ -185,14 +187,18 @@ function renderDays() {
         }).join('') + '</div>'
       : '';
 
-    return '<div class="day-vote' + (v === false ? ' no' : '') + '">' +
+    // 札は押せる部品なので button にする（キーボードでも選べる・読み上げに「押されている」が伝わる）。
+    // 押したばかりの札にだけ just を付けて、少し膨らませる（2026-09-15、ヒント7）
+    const 押した = 今押した === i;
+    return '<div class="day-vote' + (v === false ? ' no' : (v === true ? ' yes' : '')) + '">' +
       '<div class="day-name">' + esc(d.label) + '</div>' +
       (plan ? '<div class="day-plan">' + plan + '</div>' : '') +
-      '<div class="radio-list" style="margin-top:8px;">' +
-      '<div class="chip' + (v === true ? ' selected' : '') + '" data-day="' + i + '" data-val="1">行ける</div>' +
-      '<div class="chip' + (v === false ? ' selected' : '') + '" data-day="' + i + '" data-val="0">行けない</div>' +
+      '<div class="radio-list" role="group" aria-label="' + esc(d.label) + 'の出欠" style="margin-top:8px;">' +
+      '<button type="button" class="chip' + (v === true ? ' selected' + (押した ? ' just' : '') : '') + '" aria-pressed="' + (v === true) + '" data-day="' + i + '" data-val="1">行ける</button>' +
+      '<button type="button" class="chip' + (v === false ? ' selected no-chip' + (押した ? ' just' : '') : '') + '" aria-pressed="' + (v === false) + '" data-day="' + i + '" data-val="0">行けない</button>' +
       '</div>' + 出場欄 + '</div>';
   }).join('');
+  今押した = -1;
 
   $('dayVotes').querySelectorAll('select[data-ride]').forEach((sel) => {
     sel.addEventListener('change', () => {
@@ -220,6 +226,7 @@ $('dayVotes').addEventListener('click', (e) => {
   触った = true;
   const day = DAYS[Number(chip.dataset.day)];
   const 行ける = chip.dataset.val === '1';
+  今押した = ANSWERS[day.date] === 行ける ? -1 : Number(chip.dataset.day);   // 同じ札を押し直したときは動かさない
   ANSWERS[day.date] = 行ける;
   // 行けなくした日の出場は取り下げる
   if (!行ける) (day.competitions || []).forEach((c) => { delete RIDES[c.id]; });
