@@ -416,13 +416,14 @@ $('planList').addEventListener('click', async (e) => {
   const 鉛筆 = e.target.closest('[data-editp]');
   if (鉛筆) {
     const id = 鉛筆.dataset.editp;
+    編集を広げる期間 = id;   // 読み込み中の返事があとから届いても、畳まないように
     if (!(P && P.plan && P.plan.id === id) && !(await openPlan(id))) return;
     $('planEditFold').open = true;
     $('planEditFold').scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
   const o = e.target.closest('[data-open]');
-  if (o) return void openPlan(o.dataset.open);
+  if (o) { 編集を広げる期間 = null; return void openPlan(o.dataset.open); }
   const d = e.target.closest('[data-delp]');
   if (d) {
     const p = BASE.plans.filter((x) => x.id === d.dataset.delp)[0];
@@ -458,17 +459,28 @@ $('planList').addEventListener('click', async (e) => {
 $('planList').addEventListener('click', (e) => {
   if (e.target.closest('button, a, details')) return;
   const 行 = e.target.closest('[data-openrow]');
-  if (行) openPlan(行.dataset.openrow);
+  if (行) { 編集を広げる期間 = null; openPlan(行.dataset.openrow); }
 });
 
 // 開けたら true を返す（鉛筆から開いたとき、開けたら続けて期間の編集を広げるため）
+/*
+  続けて押したとき用（2026-09-15）。行を押して読み込んでいる途中に鉛筆を押すと、
+  あとから届いた読み込みが「期間の編集」を畳んでしまっていた。
+  ・開く番号：いちばん新しく押した期間の返事だけ使う（古い返事は捨てる）
+  ・編集を広げる期間：鉛筆で押した期間は、読み込みが終わっても期間の編集を広げたままにする
+*/
+let 開く番号 = 0;
+let 編集を広げる期間 = null;
 async function openPlan(planId) {
   if (DIRTY && !confirm('保存していない直しがあります。ほかの期間を開くと消えます。よろしいですか？')) return false;
+  const 番号 = ++開く番号;
   msgIn('planOpenMsg', '', '');
   let データ;
   try {
     データ = await call('chiefLoadPlan', TOKEN, planId);
+    if (番号 !== 開く番号) return false;   // もっと新しく押した期間がある
   } catch (e) {
+    if (番号 !== 開く番号) return false;
     // 畳んだ中ではなく、押したボタンのすぐ下に出す
     return void msgIn('planOpenMsg', 'error', '開けませんでした：' + ((e && e.message) || e));
   }
@@ -493,9 +505,11 @@ async function openPlan(planId) {
     renderTable();
     renderSteps(SUBS.length ? ((P.votes || []).length ? 4 : 3) : 2);
     // 期間の編集は、サブがまだいない（まず決めることがある）ときだけ開いておく
+    // 鉛筆から開いたときも広げる
+    const 広げる = !SUBS.length || 編集を広げる期間 === planId;
     $('planEditFold').hidden = false;
-    $('planEditFold').open = !SUBS.length;
-    (SUBS.length ? $('planPane') : $('planEditFold')).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('planEditFold').open = 広げる;
+    (広げる ? $('planEditFold') : $('planPane')).scrollIntoView({ behavior: 'smooth', block: 'start' });
     return true;
   } catch (e) {
     // 画面を組み立てる途中で転んでも、何が起きたか分かるようにする

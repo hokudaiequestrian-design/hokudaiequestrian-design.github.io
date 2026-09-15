@@ -337,6 +337,8 @@ function 模擬で答える(req) {
     await 待つ(700);
     await page.$eval('#newPlanFold', (d) => { d.open = false; });
     await page.$eval('#termCard', (c) => { c.scrollIntoView({ block: 'start', behavior: 'instant' }); window.scrollBy(0, -90); });
+    await 待つ(400);
+    確かめる('鉛筆で広げた「期間の編集」は、前に押した読み込みがあとから届いても畳まれない', await page.$eval('#planEditFold', (d) => d.open));
     await 写す('4a-チーフ-期間の編集');
     await page.$eval('#planEditFold', (d) => { d.open = false; });
     確かめる('「担当を足す」は無く、「編集」ボタンがある', !(await page.$('#addPersonBtn')) && !!(await page.$('#editTableBtn')));
