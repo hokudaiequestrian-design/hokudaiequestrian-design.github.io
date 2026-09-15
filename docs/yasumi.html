@@ -617,6 +617,8 @@ table.subs-grid .tag { font-size: var(--text-xs); font-weight: 700; color: var(-
    ===================================================================== */
 
 /* ボタンの中にアイコン（svg）を入れられるように */
+/* hidden を付けたものは必ず隠す。button などに display を付けると hidden が効かなくなり、バイトの「保存」「やめる」がいつも出ていた（2026-09-16） */
+[hidden] { display: none !important; }
 button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-xs); }
 button svg, summary svg { width: 20px; height: 20px; flex: 0 0 auto; }
 

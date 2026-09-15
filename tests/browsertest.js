@@ -657,12 +657,15 @@ function 模擬で答える(req) {
     (await page.$$('#baitoCountGrid [data-count]')).length === 2 &&
     await page.$eval('#baitoCountGrid .grade-grid', (g) => getComputedStyle(g).gridTemplateColumns.split(' ').length === 4));
   確かめる('ふだんは回数の欄に入力欄も行ごとのボタンも無い', !(await page.$('#baitoCountGrid input')) && !(await page.$('#baitoCountGrid button')));
+  確かめる('ふだんは「回数を編集」だけが見え、「保存」「やめる」は見えない', await page.evaluate(() => document.getElementById('baitoCountEdit').checkVisibility() && !document.getElementById('baitoCountSave').checkVisibility() && !document.getElementById('baitoCountCancel').checkVisibility()));
   await page.click('#baitoCountEdit');
+  確かめる('編集中は「保存」「やめる」だけが見え、「回数を編集」は隠れる', await page.evaluate(() => !document.getElementById('baitoCountEdit').checkVisibility() && document.getElementById('baitoCountSave').checkVisibility() && document.getElementById('baitoCountCancel').checkVisibility()));
   確かめる('回数を編集を押すと、全員ぶんの入力欄が出る', (await page.$$('#baitoCountGrid .baito-adj')).length === 2);
   await page.$eval('.baito-adj[data-who="m_001"]', (el) => { el.value = '5'; });
   await page.click('#baitoCountSave');
   await page.waitForFunction(() => /直しました/.test(document.getElementById('baitoCountMsg').textContent), { timeout: 15000 });
   確かめる('手で足したぶんが保存される', 模擬.baito.調整.m_001 === 5, JSON.stringify(模擬.baito.調整));
+  確かめる('保存すると「保存」「やめる」は隠れて「回数を編集」に戻る', await page.evaluate(() => document.getElementById('baitoCountEdit').checkVisibility() && !document.getElementById('baitoCountSave').checkVisibility() && !document.getElementById('baitoCountCancel').checkVisibility()));
   確かめる('回数は 入れたぶん＋手で足したぶん',
     (await page.$eval('#baitoCountGrid [data-count="m_001"] .n', (el) => el.textContent)) === '6');
 
