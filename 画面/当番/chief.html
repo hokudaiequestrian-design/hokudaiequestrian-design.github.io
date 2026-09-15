@@ -209,6 +209,7 @@ let P = null;          // 開いている計画（chiefLoadPlan の返り）
 let SUBS = [];         // チェックしているサブ
 let TABLE = [];        // 画面で直している手入れ表
 let DIRTY = false;
+let 表を編集中 = false;   // 手入れ表の「編集」を押しているあいだ（カレンダーの日を押すと担当を選べる。2026-09-15）
 let PROXY = null;
 let PROXY_MARKS = {};
 let busyCount = 0;
@@ -227,7 +228,10 @@ function call(fn) {
   });
 }
 
-const 名 = (id) => { const m = BASE.members.filter((x) => x.id === id)[0]; return m ? m.name : '（消えた人）'; };
+// 手入れ表には、一覧から選ばずに名前を書いた人もいる（部員IDが「自由:名前」。2026-09-15）
+const 自由記述の頭 = '自由:';
+const 自由記述の名前 = (id) => (String(id || '').indexOf(自由記述の頭) === 0 ? String(id).slice(自由記述の頭.length) : '');
+const 名 = (id) => { const m = BASE.members.filter((x) => x.id === id)[0]; return m ? m.name : (自由記述の名前(id) || '（消えた人）'); };
 
 // サブをまとめて直す画面と行き来するたびにパスワードを聞かないよう、同じタブのあいだだけ覚えておく
 const トークンの鍵 = 'teire:chiefToken';
@@ -775,18 +779,34 @@ function renderTable() {
       ? 'チーフ（' + 名(P.chiefMemberId) + '）は、ほかのサブの' + 倍率 + '倍の日数で回します。'
       : 'チーフ' + 倍率 + '：ほかのサブ1で回す決まりですが、この馬のチーフが決まっていないので効いていません。');
 
-  // カレンダー方式は、まず月ごとの絵で全体を見せる
-  $('calPreview').innerHTML = P.plan.mode === 'カレンダー'
-    ? カレンダー(P.keys, (k) => {
-        const 人 = 日の人(k.key);
-        const 足りない = 人.length < 下限;
-        return '<span class="calday' + (足りない ? ' m0' : '') + '">' +
-          '<span class="d">' + Number(k.key.slice(8)) + '</span>' +
-          (人.length
-            ? 人.map((c) => '<span class="who">' + esc(名(c.memberId)) + (c.locked ? '<span class="visually-hidden">（鍵）</span><span aria-hidden="true" style="display:inline-block;width:14px;height:14px;vertical-align:-2px;color:var(--warning);">' + 部品.アイコン('lock') + '</span>' : '') + '</span>').join('')
-            : '<span class="m">・</span>') + '</span>';
-      })
-    : '';
+  /*
+    手入れ表のカレンダー（2026-09-15 ユーザーの指示で作り直した）。
+    前は下の「＋ 担当を足す」で日と人を選んでいたが、「編集」を押すとカレンダーの日をそのまま押して、
+    その日の担当をプルダウンで選び替えられるようにした。プルダウンはサブだけで、本人の希望の ◎→○→× の順に分けて並べる。
+    曜日の期間は、月〜日の1段のカレンダーで同じように触れる。
+  */
+  const 鍵の印 = '<span class="visually-hidden">（鍵）</span><span aria-hidden="true" style="display:inline-block;width:14px;height:14px;vertical-align:-2px;color:var(--warning);">' + 部品.アイコン('lock') + '</span>';
+  const 日のマス = (k) => {
+    const 人 = 日の人(k.key);
+    const 足りない = 人.length < 下限;
+    const 中 = '<span class="d">' + (P.plan.mode === 'カレンダー' ? Number(k.key.slice(8)) : esc(k.key)) + '</span>' +
+      (人.length
+        ? 人.map((c) => '<span class="who">' + esc(名(c.memberId)) + (c.locked ? 鍵の印 : '') + '</span>').join('')
+        : '<span class="m">・</span>');
+    if (!表を編集中) return '<span class="calday' + (足りない ? ' m0' : '') + '">' + 中 + '</span>';
+    return '<button type="button" class="calday editable' + (足りない ? ' m0' : '') + '" data-editkey="' + esc(k.key) + '"' +
+      ' aria-label="' + esc(k.label) + 'の担当を選ぶ（いまは ' + esc(人.map((c) => 名(c.memberId)).join('、') || 'なし') + '）">' + 中 + '</button>';
+  };
+  const 足りない日の数 = P.keys.filter((k) => 日の人(k.key).length < 下限).length;
+  $('calPreview').innerHTML =
+    '<div class="row tight" style="margin-bottom:10px;align-items:center;">' +
+      '<button type="button" id="editTableBtn" class="' + (表を編集中 ? '' : 'secondary') + '" aria-pressed="' + 表を編集中 + '">' +
+        部品.アイコン(表を編集中 ? 'check' : 'edit') + (表を編集中 ? '編集を終える' : '編集') + '</button>' +
+      '<span class="muted">' + (表を編集中
+        ? 'カレンダーの日を押すと、その日の担当をサブから選べます（◎ 入りたい → ○ 入れる → × 入れない の順）。'
+        : (足りない日の数 ? '決まっていない日が' + 足りない日の数 + '日あります。' : '')) + '</span>' +
+    '</div>' +
+    (P.plan.mode === 'カレンダー' ? カレンダー(P.keys, 日のマス) : 週のカレンダー(P.keys, 日のマス));
 
   const rows = P.keys.map((k) => {
     const 人 = 日の人(k.key);
@@ -814,31 +834,8 @@ function renderTable() {
       '</td></tr>';
   }).join('');
 
-  // 「人を足す」は各マスに置かず、表の外にまとめて1つだけ置く。
-  // 30日ぶんプルダウンが並ぶと、それだけで画面が埋まってしまうため。
-  const 足りない日 = P.keys.filter((k) => 日の人(k.key).length < 下限);
+  // 担当を変えるのは上のカレンダーの「編集」から。ここは日ごとの一覧（鍵をかける・外す）だけ
   $('tableBody').innerHTML =
-    '<div class="row tight" style="margin-bottom:10px;">' +
-    '<button type="button" class="secondary" id="addPersonBtn">' + 部品.アイコン('plus') + '担当を足す</button>' +
-    (足りない日.length
-      ? '<span class="muted" style="align-self:center;">決まっていない日が' + 足りない日.length + '日あります</span>'
-      : '') +
-    '</div>' +
-    '<div id="addPersonBox" style="display:none;" class="card">' +
-    '<div class="row">' +
-    '<div><label for="addDay">日</label><select id="addDay">' +
-    P.keys.map((k) => {
-      const n = 日の人(k.key).length;
-      return '<option value="' + esc(k.key) + '">' + esc(k.label) +
-        '（今 ' + n + '人' + (n < 下限 ? '・足りない' : '') + '）</option>';
-    }).join('') + '</select></div>' +
-    '<div><label for="addWho">だれを</label><select id="addWho">' +
-    SUBS.map((id) => '<option value="' + esc(id) + '">' + esc(名(id)) + '</option>').join('') +
-    '</select></div>' +
-    '<div style="flex:0 0 auto;"><button type="button" id="addDoBtn">この日に入れる</button></div>' +
-    '</div>' +
-    '<p class="hint" id="addHint"></p>' +
-    '</div>' +
     '<div class="grid-wrap"><table>' +
     '<thead><tr><th style="width:130px;">日</th><th>担当（記号は本人の希望）</th></tr></thead>' +
     '<tbody>' + rows + '</tbody></table></div>';
@@ -883,55 +880,108 @@ $('tableBody').addEventListener('click', (e) => {
   }
 });
 
-// 「担当を足す」。押すと日と人を選ぶ欄が出る。
-$('tableBody').addEventListener('click', (e) => {
-  if (e.target.closest('#addPersonBtn')) {
-    const box = $('addPersonBox');
-    const 開く = box.style.display === 'none';
-    box.style.display = 開く ? 'block' : 'none';
-    if (開く) {
-      // 決まっていない日があれば、その最初の日を初めから選んでおく
-      const 空き = P.keys.filter((k) => 日の人(k.key).length < P.plan.min)[0];
-      if (空き) $('addDay').value = 空き.key;
-      更新addHint();
-    }
+// 曜日の期間の、月〜日の1段のカレンダー（手入れ表の編集で、カレンダーの期間と同じように日を押せるようにする）
+function 週のカレンダー(keys, 中身を作る) {
+  return '<div class="cal"><table class="cal-grid"><thead><tr>' +
+    keys.map((k) => '<th' + (k.key === '土' ? ' class="sat"' : (k.key === '日' ? ' class="sun"' : '')) + '>' + esc(k.key) + '</th>').join('') +
+    '</tr></thead><tbody><tr>' + keys.map((k) => '<td>' + 中身を作る(k) + '</td>').join('') + '</tr></tbody></table></div>';
+}
+
+// その人のその日の希望（◎○×。出していなければ空）
+const その日の希望 = (memberId, key) => ((P.votes || []).filter((v) => v.memberId === memberId && v.key === key)[0] || {}).mark || '';
+
+$('calPreview').addEventListener('click', (e) => {
+  if (e.target.closest('#editTableBtn')) {
+    表を編集中 = !表を編集中;
+    renderTable();
     return;
   }
-  const go = e.target.closest('#addDoBtn');
-  if (go) {
-    const key = $('addDay').value;
-    const who = $('addWho').value;
-    if (!key || !who) return;
-    if (TABLE.some((c) => c.key === key && c.memberId === who)) {
-      $('addHint').textContent = 名(who) + ' さんはもうその日に入っています。';
-      return;
-    }
-    TABLE.push({ key: key, memberId: who, mark: '', locked: true });
-    DIRTY = true;
-    const ラベル = (P.keys.filter((k) => k.key === key)[0] || {}).label || key;
-    renderTable();
-    // 出し直したあとも欄を開いたままにして、続けて足せるようにする
-    $('addPersonBox').style.display = 'block';
-    $('addDay').value = key;
-    $('addHint').textContent = ラベル + ' に ' + 名(who) + ' さんを入れました。続けて足せます。';
-  }
+  const マス = e.target.closest('[data-editkey]');
+  if (!マス || !表を編集中) return;
+  日の担当を選ぶ(マス);
 });
 
-// 選んだ人がその日を×にしていないか、その場で知らせる
-function 更新addHint() {
-  const key = $('addDay') && $('addDay').value;
-  const who = $('addWho') && $('addWho').value;
-  if (!key || !who || !$('addHint')) return;
-  const v = (P.votes || []).filter((x) => x.memberId === who && x.key === key)[0];
-  const ラベル = (P.keys.filter((k) => k.key === key)[0] || {}).label || key;
-  $('addHint').innerHTML = v
-    ? esc(名(who)) + ' さんは ' + esc(ラベル) + ' を <b>' + esc(v.mark) + '</b> にしています。' +
-      (v.mark === '×' ? '<b style="color:var(--danger);">入れない日です。</b>' : '')
-    : esc(名(who)) + ' さんは ' + esc(ラベル) + ' の希望を出していません。';
+/**
+ * 押した日のマスをプルダウンに変える。サブだけを、本人の希望で ◎→○→×→まだ の順に分けて並べる。
+ * 選ぶと、その日の担当（1人目）を入れ替える（ほかに入っている人はそのまま）。「この日を空にする」で全員外す。
+ * 手で入れたぶんは鍵をかけて入れる（作り直しても動かない。前の「担当を足す」と同じ）。
+ */
+function 日の担当を選ぶ(マス) {
+  const key = マス.dataset.editkey;
+  const k = P.keys.filter((x) => x.key === key)[0] || { label: key };
+  const 今 = 日の人(key);
+  const 組 = [['◎', '◎ 入りたい'], ['○', '○ 入れる'], ['×', '× 入れない'], ['', 'まだ出していない']];
+  const 選んである = 今[0] ? 今[0].memberId : '';
+  const sel = document.createElement('select');
+  sel.className = 'day-pick';
+  sel.setAttribute('aria-label', k.label + 'の担当');
+  sel.innerHTML = '<option value="">' + esc(k.label) + ' の担当を選ぶ</option>' +
+    組.map((g) => {
+      const 人 = SUBS.filter((id) => その日の希望(id, key) === g[0]);
+      if (!人.length) return '';
+      return '<optgroup label="' + esc(g[1]) + '">' + 人.map((id) =>
+        '<option value="' + esc(id) + '"' + (id === 選んである ? ' selected' : '') + '>' +
+          (g[0] || '・') + '　' + esc(名(id)) + (id === P.chiefMemberId ? '（チーフ）' : '') + '</option>').join('') + '</optgroup>';
+    }).join('') +
+    '<option value="__自由">✎ 名前を書く（一覧にない人など）</option>' +
+    (今.length ? '<option value="__空">— この日を空にする</option>' : '');
+  マス.replaceWith(sel);
+  sel.focus();
+  if (sel.showPicker) { try { sel.showPicker(); } catch (err) { /* 対応していない環境では、そのまま選んでもらう */ } }
+
+  let 選んだ = false;
+  // 決めた担当を表に入れる（プルダウンで選んだ人も、書いた名前も同じ道を通る）
+  const 入れる = (v) => {
+    if (v === '__空') {
+      TABLE = TABLE.filter((c) => c.key !== key);
+    } else {
+      const i = TABLE.findIndex((c) => c.key === key);
+      const 行 = { key: key, memberId: v, mark: その日の希望(v, key), locked: true };
+      if (TABLE.some((c) => c.key === key && c.memberId === v)) { /* もう入っている人。何もしない */ }
+      else if (i >= 0) TABLE[i] = 行;
+      else TABLE.push(行);
+    }
+    DIRTY = true;
+    renderTable();
+    部品.光らせる([$('calPreview').querySelector('[data-editkey="' + key + '"]')]);
+    msgIn('genMsg', v !== '__空' && その日の希望(v, key) === '×' ? 'warning' : '',
+      v !== '__空' && その日の希望(v, key) === '×' ? 名(v) + ' さんは ' + k.label + ' を × （入れない）にしています。' : '');
+  };
+  sel.addEventListener('change', () => {
+    const v = sel.value;
+    if (!v || v === 選んである) return;
+    選んだ = true;
+    if (v !== '__自由') return void 入れる(v);
+    // 自由記述：プルダウンを文字の欄に変える。Enter か欄を離れたときに決まる（空なら元に戻す）
+    const 欄 = document.createElement('input');
+    欄.type = 'text';
+    欄.className = 'day-pick';
+    欄.maxLength = 30;
+    欄.placeholder = '名前を書いて Enter';
+    欄.setAttribute('aria-label', k.label + 'の担当の名前');
+    欄.value = 自由記述の名前(選んである);
+    sel.replaceWith(欄);
+    欄.focus();
+    let 済 = false;
+    const 決める = () => {
+      if (済) return;
+      済 = true;
+      const 名前 = 欄.value.trim().replace(/s+/g, ' ');
+      if (!名前) return void renderTable();
+      // 一覧にいる人の名前を書いたら、その人として入れる（票や日数の数え方が効くように）
+      const 部員 = BASE.members.filter((m) => m.name === 名前)[0];
+      入れる(部員 && SUBS.indexOf(部員.id) >= 0 ? 部員.id : 自由記述の頭 + 名前);
+    };
+    欄.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); 決める(); }
+      if (e.key === 'Escape') { e.stopPropagation(); 済 = true; renderTable(); }
+    });
+    欄.addEventListener('blur', 決める);
+  });
+  // 何も選ばずに離れたら、元のマスに戻す（自由記述に切り替えたときは、欄のほうが面倒を見る）
+  sel.addEventListener('blur', () => { if (!選んだ) renderTable(); });
+  sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); renderTable(); } });
 }
-$('tableBody').addEventListener('change', (e) => {
-  if (e.target.closest('#addDay') || e.target.closest('#addWho')) 更新addHint();
-});
 
 $('genBtn').addEventListener('click', () => 作る(true));
 $('genPreviewBtn').addEventListener('click', () => 作る(false));

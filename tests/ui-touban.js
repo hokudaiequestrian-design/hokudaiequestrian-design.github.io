@@ -88,6 +88,15 @@ const チーフの全部 = {
   plans: [{ id: 'p1', horseId: 'h1', term: '後期', mode: '曜日', from: '2030-10-01', to: '', min: 1, max: null, chiefRatio: null }],
   members: 当番の部員, 期間名: ['後期'], 既定のチーフ倍率: 2, 最新のサブ整理: null, subs: { p1: ['m1'] },
 };
+// チーフ画面で開く手入れの期間（カレンダー3日。1日目は美浦が × で入っている）
+const 手入れの期間 = () => ({
+  plan: { id: 'p1', horseId: 'h1', term: '後期', mode: 'カレンダー', from: '2030-10-01', to: '2030-10-03', min: 1, max: 1, chiefRatio: null, note: '' },
+  horse: { id: 'h1', name: '北叡', active: true, chief: '美浦' },
+  keys: ['2030-10-01', '2030-10-02', '2030-10-03'].map((k) => ({ key: k, label: Number(k.slice(5, 7)) + '/' + Number(k.slice(8)) })),
+  keyError: '', members: 当番の部員, subs: ['m1', 'm2'], chiefMemberId: 'm1', チーフ倍率: 2, 既定のチーフ倍率: 2,
+  votes: [{ memberId: 'm1', key: '2030-10-01', mark: '×' }, { memberId: 'm2', key: '2030-10-01', mark: '◎' }, { memberId: 'm1', key: '2030-10-02', mark: '○' }],
+  cells: [{ key: '2030-10-01', memberId: 'm1', mark: '×', locked: false }], warnings: [],
+});
 const 休みの全部 = () => ({
   members: 当番の部員, year: 2030, years: [2030], from: '2030-04-01', to: '2031-03-31', today: '2030-09-15',
   kinds: ['有給休暇', 'バイト', '季節休み'], states: ['申請中', '承認', '却下', '取消'],
@@ -138,7 +147,8 @@ function 模擬で答える(req) {
     case 'chiefSavePlanForHorses':
       模擬.送った.期間 = a.slice(1);
       return 返す({ 作った: [{ horseId: 'h1', name: '北叡', id: 'pn', サブの元: '' }], 飛ばした: [], だめ: [] });
-    case 'chiefLoadPlan': return 返す(null);
+    case 'chiefLoadPlan': return 返す(手入れの期間());
+    case 'chiefSaveTable': 模擬.送った.表 = a[2]; return 返す({ ok: true, count: (a[2] || []).length, warnings: [] });
     // 休み
     case 'loginAndLoadYasumi': return 返す({ token: 'a_t', all: 休みの全部() });
     case 'yasumiLoadAll': return 返す(休みの全部());
@@ -304,6 +314,48 @@ function 模擬で答える(req) {
     await page.waitForFunction(() => /期間を作りました/.test(document.getElementById('termMsg').textContent), { timeout: 5000 });
     確かめる('上で選んだ馬（h1）だけの期間を作る', JSON.stringify((模擬.送った.期間 || [])[0]) === '["h1"]', JSON.stringify(模擬.送った.期間));
     await 写す('4-チーフ画面');
+
+    // 手入れ表の編集（2026-09-15）：「編集」を押して、カレンダーの日を押すと、サブだけのプルダウン（◎→○→×）
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.$eval('#planList button.linklike[data-open="p1"]', (b) => b.click());
+    await page.waitForFunction(() => document.getElementById('planPane').style.display === 'block', { timeout: 5000 });
+    確かめる('「担当を足す」は無く、「編集」ボタンがある', !(await page.$('#addPersonBtn')) && !!(await page.$('#editTableBtn')));
+    確かめる('編集を押すまでは、日のマスは押せない', !(await page.$('#calPreview [data-editkey]')));
+    await page.click('#editTableBtn');
+    await page.waitForSelector('#calPreview [data-editkey="2030-10-01"]', { timeout: 3000 });
+    await page.click('#calPreview [data-editkey="2030-10-01"]');
+    await page.waitForSelector('#calPreview select.day-pick', { timeout: 3000 });
+    const 並び = await page.$$eval('#calPreview select.day-pick optgroup', (gs) => gs.map((g) => g.label + '：' + Array.from(g.children).map((o) => o.textContent).join('、')));
+    確かめる('日を押すと、サブだけのプルダウンが出て、◎ 入りたい → × 入れない の順に分かれている',
+      並び.length === 2 && /^◎ 入りたい：◎　相棒$/.test(並び[0]) && /^× 入れない：×　美浦（チーフ）$/.test(並び[1]), JSON.stringify(並び));
+    確かめる('いまの担当（美浦）がはじめから選ばれている', (await page.$eval('#calPreview select.day-pick', (s) => s.value)) === 'm1');
+    await 写す('4b-チーフ-日の担当を選ぶ');
+    await page.select('#calPreview select.day-pick', 'm2');
+    await 待つ(150);
+    const 一日 = await page.$eval('#calPreview [data-editkey="2030-10-01"]', (b) => b.textContent);
+    確かめる('選ぶと、その日の担当が入れ替わる', /相棒/.test(一日) && !/美浦/.test(一日), 一日);
+    確かめる('選んだ日は光り、保存していない帯が出る',
+      await page.$eval('#calPreview [data-editkey="2030-10-01"]', (b) => b.classList.contains('flash')) && await page.$eval('#savingBar', (b) => b.classList.contains('on')));
+    await page.click('#calPreview [data-editkey="2030-10-02"]');
+    await page.waitForSelector('#calPreview select.day-pick', { timeout: 3000 });
+    await page.select('#calPreview select.day-pick', 'm1');
+    await 待つ(150);
+    確かめる('空いていた日も、選ぶと担当が入る', /美浦/.test(await page.$eval('#calPreview [data-editkey="2030-10-02"]', (b) => b.textContent)));
+    // 自由記述：プルダウンの「名前を書く」で、一覧にない人も入れられる
+    await page.click('#calPreview [data-editkey="2030-10-03"]');
+    await page.waitForSelector('#calPreview select.day-pick', { timeout: 3000 });
+    確かめる('プルダウンに「名前を書く」がある', await page.$eval('#calPreview select.day-pick', (s) => Array.from(s.options).some((o) => o.value === '__自由')));
+    await page.select('#calPreview select.day-pick', '__自由');
+    await page.waitForSelector('#calPreview input.day-pick', { timeout: 3000 });
+    await page.type('#calPreview input.day-pick', 'OB 佐藤');
+    await page.keyboard.press('Enter');
+    await 待つ(150);
+    確かめる('書いた名前がその日の担当に入る', /OB 佐藤/.test(await page.$eval('#calPreview [data-editkey="2030-10-03"]', (b) => b.textContent)));
+    await page.click('#saveTableBtn');
+    await 待つ(200);
+    確かめる('保存すると、書いた名前は「自由:名前」で送る', JSON.stringify(模擬.送った.表 || []).indexOf('"memberId":"自由:OB 佐藤"') >= 0, JSON.stringify(模擬.送った.表));
+    await page.click('#editTableBtn');
+    確かめる('「編集を終える」で、日のマスはまた押せなくなる', !(await page.$('#calPreview [data-editkey]')));
 
     // ---------- バイト・休みをまとめる ----------
     console.log('\n== バイト・休みをまとめる ==');
