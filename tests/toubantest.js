@@ -1450,19 +1450,19 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   {
     const d = G.baitoLoadAll(T2, フロンテア.id);
     const 甲の = d.counts.filter((c) => c.memberId === 甲.id)[0];
-    確かめる('回数は今日までのぶんだけ数える（先の予定は数えない）',
-      甲の.自動 === 1 && 甲の.回数 === 1, JSON.stringify(甲の));
+    確かめる('回数は入れた日を全部数える（先の予定も入れた時点で1回。2026-09-16）',
+      甲の.自動 === 2 && 甲の.回数 === 2, JSON.stringify(甲の));
     const 乙の = d.counts.filter((c) => c.memberId === 乙.id)[0];
-    確かめる('先の予定しか無い人は0回', 乙の.自動 === 0 && 乙の.回数 === 0, JSON.stringify(乙の));
+    確かめる('先の予定だけの人も、入れたぶん数える', 乙の.自動 === 1 && 乙の.回数 === 1, JSON.stringify(乙の));
   }
   G.baitoSaveCount(T2, フロンテア.id, 甲.id, 5);   // システムに入れる前のぶんを足す
   {
     const 甲の = G.baitoLoadAll(T2, フロンテア.id).counts.filter((c) => c.memberId === 甲.id)[0];
-    確かめる('手で足したぶんが乗る', 甲の.自動 === 1 && 甲の.調整 === 5 && 甲の.回数 === 6, JSON.stringify(甲の));
+    確かめる('手で足したぶんが乗る', 甲の.自動 === 2 && 甲の.調整 === 5 && 甲の.回数 === 7, JSON.stringify(甲の));
   }
   G.baitoSaveCount(T2, フロンテア.id, 甲.id, 0);
   確かめる('0にすると調整が消える',
-    G.baitoLoadAll(T2, フロンテア.id).counts.filter((c) => c.memberId === 甲.id)[0].回数 === 1);
+    G.baitoLoadAll(T2, フロンテア.id).counts.filter((c) => c.memberId === 甲.id)[0].回数 === 2);
   確かめる('回数はバイトごとに分かれている',
     G.baitoLoadAll(T2, 牧場.id).counts.every((c) => c.回数 === 0));
 

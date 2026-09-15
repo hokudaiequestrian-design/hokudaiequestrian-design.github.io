@@ -48,7 +48,24 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 .cal-grid .cell.baito-cell.picked { outline: 3px solid var(--accent); outline-offset: -3px; }
 .baito-day-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-bottom: var(--space-xs); }
 .baito-day-list .who { display: inline-flex; align-items: center; gap: 6px; }
-.baito-adj { width: 6rem; }
+/* バイト（2026-09-16 ユーザーの指示）：名前と回数は学年ごとに横4列。パソコンでもスマホでも画面の幅に収める */
+.plus-one { font-size: 1.4rem; font-weight: 700; line-height: 1; }
+.grade-picker { margin-top: var(--space-xs); max-height: 55vh; overflow-y: auto; border: 1px solid var(--rule-strong); border-radius: var(--radius-input); padding: var(--space-xs); background: var(--paper); }
+.grade-group + .grade-group { margin-top: var(--space-xs); }
+.grade-head { font-size: var(--text-xs); font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+.grade-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.pick-name { min-width: 0; width: 100%; min-height: 36px; margin: 0; padding: 2px 4px; font-size: var(--text-xs); font-weight: 400; line-height: 1.3;
+  color: var(--ink); background: var(--paper-2); border: 1px solid var(--rule-strong); border-radius: 6px; overflow-wrap: anywhere; box-shadow: none; }
+.pick-name:hover { background: var(--accent-soft); }
+.pick-name[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+.count-grid { gap: 2px 6px; }
+.cnt-cell { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 4px; min-width: 0; padding: 2px 4px; font-size: var(--text-xs); line-height: 1.4; border-bottom: 1px solid var(--rule); }
+.cnt-cell .nm { min-width: 0; overflow-wrap: anywhere; }
+.cnt-cell .n { font-family: var(--font-num); color: var(--muted); }
+.cnt-cell.has .n { color: var(--ink); font-weight: 700; }
+.cnt-cell .adj-line { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.cnt-cell .auto { color: var(--muted); white-space: nowrap; }
+.cnt-cell .baito-adj { width: 3.2rem; min-width: 0; min-height: 28px; padding: 0 2px; font-size: var(--text-xs); }
 .cal-grid .cell .d { display: block; font-family: var(--font-num); font-size: var(--text-sm); color: var(--muted); }
 .who { display: block; font-size: var(--text-xs); line-height: 1.5; margin-top: var(--space-3xs); border-left: 3px solid var(--rule-strong); padding-left: var(--space-2xs); overflow-wrap: anywhere; }
 .who .m { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-3xs); }
@@ -159,17 +176,17 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
           <b>バイト先ごと</b>にカレンダーを作り、日ごとに人を入れます。入れた日は、その人の休み（バイト）になります。
           <b>回数は副将だけが見られます</b>（部員の画面には出ません）。
         </p>
-        <div class="row">
-          <div>
-            <label for="baitoSelect">どのバイト</label>
-            <select id="baitoSelect"></select>
-          </div>
-          <div>
-            <label for="baitoNew">バイトを作る（決めるのは名前だけ）</label>
-            <div class="row tight">
-              <input type="text" id="baitoNew" maxlength="30" placeholder="例：フロンテア">
-              <button type="button" class="small" id="baitoAddJob">作る</button>
-            </div>
+        <label for="baitoSelect">どのバイト</label>
+        <select id="baitoSelect"></select>
+        <!-- 2026-09-16 ユーザーの指示：「作る」を「どのバイト」の横から下へ。＋ の1文字だけ出し、押すと名前の欄が開く -->
+        <div class="row tight" style="margin-top:8px;align-items:center;">
+          <button type="button" class="icon-btn outline plus-one" id="baitoNewToggle" aria-expanded="false" aria-controls="baitoNewBox" aria-label="バイトを作る" title="バイトを作る">＋</button>
+        </div>
+        <div id="baitoNewBox" hidden style="margin-top:8px;">
+          <label for="baitoNew">バイトを作る（決めるのは名前だけ）</label>
+          <div class="row tight">
+            <input type="text" id="baitoNew" maxlength="30" placeholder="例：フロンテア">
+            <button type="button" class="small" id="baitoAddJob">作る</button>
           </div>
         </div>
         <!-- めったに使わないので、メニューにしまう（2026-09-15、ヒント3） -->
@@ -198,12 +215,14 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
         <div id="baitoDay" style="display:none;margin-top:16px;">
           <h3 id="baitoDayTitle"></h3>
           <div id="baitoDayList"></div>
-          <label for="baitoWho">入れる人（名前を打つと絞り込めます）</label>
-          <div class="row tight">
-            <input type="text" id="baitoWho" list="baitoMembers" maxlength="20" placeholder="名前">
-            <datalist id="baitoMembers"></datalist>
-            <button type="button" class="small" id="baitoAddWho">この日に入れる</button>
+          <!-- 2026-09-16 ユーザーの指示：名前を打てる（自由記述）うえに、学年ごと横4列の一覧から押して入れられる。押した人をもう一度押すと外す -->
+          <label for="baitoWho">入れる人（下の名前を押すとすぐ入ります。名前を打つと絞り込めます）</label>
+          <div class="row tight" style="flex-wrap:nowrap;">
+            <input type="text" id="baitoWho" maxlength="20" placeholder="名前を打つ" autocomplete="off" style="flex:1 1 auto;width:auto;min-width:0;">
+            <button type="button" class="icon-btn outline" id="baitoPickToggle" style="flex:0 0 auto;" aria-expanded="true" aria-controls="baitoPicker" aria-label="名前の一覧を開く・閉じる" title="名前の一覧">▲</button>
+            <button type="button" class="small" id="baitoAddWho" style="flex:0 0 auto;">入れる</button>
           </div>
+          <div id="baitoPicker" class="grade-picker"></div>
           <div id="baitoMsg" role="status" aria-live="polite"></div>
         </div>
       </div>
@@ -211,14 +230,18 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
       <div class="card" id="baitoCountCard" style="display:none;">
         <h2>今まで行った回数</h2>
         <p class="hint">
-          カレンダーに入っている日のうち<b>今日まで</b>のぶんを数えます。
-          システムに入れる前に行ったぶんは「手で足す」に入れてください（マイナスにもできます）。
+          カレンダーに入れた日を数えます（<b>入れた瞬間に1回増え、外すと減ります</b>）。
+          システムに入れる前に行ったぶんは、下の「回数を編集」で足してください（マイナスにもできます）。
           <b>この数は部員には見えません。</b>
         </p>
-        <div id="baitoCountMsg" role="status" aria-live="polite"></div>
-        <div class="grid-wrap">
-          <table class="paid-grid" id="baitoCountTable"></table>
+        <!-- 2026-09-16 ユーザーの指示：省スペースで全員ぶん。学年ごとに横4列、文字は小さめ。手で直すボタンは下に1つだけ -->
+        <div id="baitoCountGrid"></div>
+        <div class="row tight" style="margin-top:12px;">
+          <button type="button" class="secondary" id="baitoCountEdit">回数を編集</button>
+          <button type="button" id="baitoCountSave" hidden>保存</button>
+          <button type="button" class="secondary" id="baitoCountCancel" hidden>やめる</button>
         </div>
+        <div id="baitoCountMsg" role="status" aria-live="polite"></div>
       </div>
     </section>
 
@@ -500,6 +523,7 @@ const 人を名前で引く = (名) => バイトの人().filter((m) => m.name ==
 
 async function バイトを読む(jobId) {
   BAITO = await call('baitoLoadAll', TOKEN, jobId || '');
+  回数を編集中 = false;   // バイトを切り替えたら、編集はやめる
   バイトを描く();
   return BAITO;
 }
@@ -515,10 +539,6 @@ function バイトを描く() {
   $('baitoCalCard').style.display = 今の ? 'block' : 'none';
   $('baitoCountCard').style.display = 今の ? 'block' : 'none';
   if (!今の) return;
-
-  // 名前を打つと絞り込める（候補からも選べる）
-  $('baitoMembers').innerHTML = バイトの人()
-    .map((m) => '<option value="' + esc(m.name) + '">' + (m.grade ? m.grade + '年' : '') + '</option>').join('');
 
   if (!バイト月) バイト月 = (BAITO.today || 今日()).slice(0, 7);
   バイトのカレンダーを出す();
@@ -586,43 +606,121 @@ function その日を出す(day) {
   $('baitoDay').style.display = 'block';
   バイトのカレンダーを出す();
   $('baitoWho').value = '';
+  名前の一覧を出す();
 }
 
-$('baitoDayList').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-off]');
-  if (!b) return;
-  const id = b.dataset.off;
-  // 押した瞬間に消す。戻すのは失敗したときだけ（返事を待たせない）
-  const 元 = BAITO.割当;
-  BAITO.割当 = BAITO.割当.filter((x) => x.id !== id);
-  その日を出す(選んだ日);
-  try {
-    await call('baitoUnassign', TOKEN, id);
-    await バイトを読む(BAITO.job.id);
-    その日を出す(選んだ日);
-  } catch (err) {
-    BAITO.割当 = 元;
-    その日を出す(選んだ日);
-    知らせ('baitoMsg', 'error', (err && err.message) || err);
-  }
-});
+let 名前の一覧を開く = true;
 
-$('baitoAddWho').addEventListener('click', async () => {
+// 学年ごとに分ける（1年から。学年の無い人はいちばん後ろ）。学年の中は名簿の並びのまま
+function 学年ごと(人たち) {
+  const 組 = {};
+  const 順 = [];
+  人たち.forEach((m) => {
+    const g = m.grade ? Number(m.grade) : 0;
+    if (!組[g]) { 組[g] = []; 順.push(g); }
+    組[g].push(m);
+  });
+  return 順.sort((a, b) => (a || 99) - (b || 99)).map((g) => ({ 見出し: g ? g + '年' : '学年なし', 人: 組[g] }));
+}
+
+// 名前の一覧（自由記述つきのプルダウン）。打った文字で絞り込み、その日に入っている人は押された印
+function 名前の一覧を出す() {
+  const box = $('baitoPicker');
+  $('baitoPickToggle').setAttribute('aria-expanded', String(名前の一覧を開く));
+  $('baitoPickToggle').textContent = 名前の一覧を開く ? '▲' : '▼';
+  box.hidden = !名前の一覧を開く;
+  if (!名前の一覧を開く || !選んだ日) return;
+  const 絞る = $('baitoWho').value.trim();
+  const 入っている = {};
+  ((BAITO && BAITO.割当) || []).forEach((x) => { if (x.date === 選んだ日) 入っている[x.memberId] = true; });
+  const 人たち = バイトの人().filter((m) => !絞る || String(m.name).indexOf(絞る) >= 0);
+  box.innerHTML = 人たち.length
+    ? 学年ごと(人たち).map((g) =>
+        '<div class="grade-group"><div class="grade-head">' + esc(g.見出し) + '</div><div class="grade-grid">' +
+        g.人.map((m) =>
+          '<button type="button" class="pick-name" data-pick="' + esc(m.id) + '" aria-pressed="' + !!入っている[m.id] + '"' +
+          ' title="' + esc(m.name) + (入っている[m.id] ? '（押すと外す）' : '（押すと入れる）') + '">' + esc(m.name) + '</button>').join('') +
+        '</div></div>').join('')
+    : '<p class="hint">「' + esc(絞る) + '」に合う人はいません。</p>';
+}
+$('baitoPickToggle').addEventListener('click', () => { 名前の一覧を開く = !名前の一覧を開く; 名前の一覧を出す(); });
+$('baitoWho').addEventListener('input', () => { 名前の一覧を開く = true; 名前の一覧を出す(); });
+
+// 入れた・外したら、返事を待たずにカレンダーと回数を出し直す（2026-09-16 ユーザーの指示：入れた瞬間に回数が増え、外すと減る）
+function 入れた後を出す(memberId) {
+  その日を出す(選んだ日);
+  バイトの回数を出す();
+  const セル = $('baitoCountGrid').querySelector('[data-count="' + memberId + '"]');
+  if (セル) 部品.光らせる([セル]);
+}
+
+async function その日に入れる(m) {
   if (!選んだ日) return 知らせ('baitoMsg', 'warning', 'カレンダーの日を押してください。');
-  const 名 = $('baitoWho').value;
-  const m = 人を名前で引く(名);
-  if (!m) return 知らせ('baitoMsg', 'warning', '「' + 名 + '」は名簿にありません。名前を打つと候補が出ます。');
+  if (BAITO.割当.some((x) => x.date === 選んだ日 && x.memberId === m.id)) {
+    return 知らせ('baitoMsg', 'warning', m.name + 'さんはもうこの日に入っています。');
+  }
+  const 日 = 選んだ日;
+  const 仮 = { id: '仮' + Date.now(), date: 日, memberId: m.id, name: m.name, memo: '' };
+  BAITO.割当 = BAITO.割当.concat([仮]);
+  入れた後を出す(m.id);
+  部品.光らせる([$('baitoGrid').querySelector('[data-day="' + 日 + '"]')]);
   try {
-    await call('baitoAssign', TOKEN, BAITO.job.id, 選んだ日, m.id, '');
-    await バイトを読む(BAITO.job.id);
-    その日を出す(選んだ日);
-    部品.光らせる([$('baitoGrid').querySelector('[data-day="' + 選んだ日 + '"]')]);
+    const r = await call('baitoAssign', TOKEN, BAITO.job.id, 日, m.id, '');
+    仮.id = (r && r.id) || 仮.id;
+    if (選んだ日 === 日) その日を出す(日);
     知らせ('baitoMsg', 'success', m.name + 'さんを入れました。');
   } catch (err) {
+    // 入れられなかったので戻す（回数も戻る）
+    BAITO.割当 = BAITO.割当.filter((x) => x !== 仮);
+    入れた後を出す(m.id);
     知らせ('baitoMsg', 'error', (err && err.message) || err);
   }
+}
+
+async function その日から外す(id) {
+  const 元 = BAITO.割当;
+  const x = 元.filter((y) => y.id === id)[0];
+  if (!x) return;
+  if (String(id).indexOf('仮') === 0) return 知らせ('baitoMsg', 'warning', 'まだ保存しているところです。少し待ってから外してください。');
+  BAITO.割当 = 元.filter((y) => y.id !== id);
+  入れた後を出す(x.memberId);
+  try {
+    await call('baitoUnassign', TOKEN, id);
+    知らせ('baitoMsg', 'success', x.name + 'さんを外しました。');
+  } catch (err) {
+    BAITO.割当 = 元;
+    入れた後を出す(x.memberId);
+    知らせ('baitoMsg', 'error', (err && err.message) || err);
+  }
+}
+
+$('baitoDayList').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-off]');
+  if (b) その日から外す(b.dataset.off);
 });
-$('baitoWho').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('baitoAddWho').click(); });
+$('baitoPicker').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-pick]');
+  if (!b || !BAITO) return;
+  const m = バイトの人().filter((x) => x.id === b.dataset.pick)[0];
+  if (!m) return;
+  const 入っている = BAITO.割当.filter((x) => x.date === 選んだ日 && x.memberId === m.id)[0];
+  if (入っている) その日から外す(入っている.id);
+  else その日に入れる(m);
+});
+
+// 名前を打って入れる（自由記述）。名簿の名前そのものか、打った文字で1人に絞れていればその人
+$('baitoAddWho').addEventListener('click', () => {
+  if (!選んだ日) return 知らせ('baitoMsg', 'warning', 'カレンダーの日を押してください。');
+  const 名 = $('baitoWho').value.trim();
+  let m = 人を名前で引く(名);
+  if (!m && 名) {
+    const 候補 = バイトの人().filter((x) => String(x.name).indexOf(名) >= 0);
+    if (候補.length === 1) m = 候補[0];
+  }
+  if (!m) return 知らせ('baitoMsg', 'warning', '「' + 名 + '」は名簿にありません。名前を打つと下の一覧が絞り込まれます。');
+  その日に入れる(m);
+});
+$('baitoWho').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('baitoAddWho').click(); } });
 
 $('baitoSelect').addEventListener('change', async () => {
   選んだ日 = '';
@@ -631,12 +729,22 @@ $('baitoSelect').addEventListener('change', async () => {
   catch (e) { 知らせ('baitoJobMsg', 'error', (e && e.message) || e); }
 });
 
+// ＋ を押すと、バイトを作る欄を出す・しまう
+$('baitoNewToggle').addEventListener('click', () => {
+  const 開く = $('baitoNewBox').hidden;
+  $('baitoNewBox').hidden = !開く;
+  $('baitoNewToggle').setAttribute('aria-expanded', String(開く));
+  if (開く) $('baitoNew').focus();
+});
+
 $('baitoAddJob').addEventListener('click', async () => {
   const name = $('baitoNew').value.trim();
   if (!name) return 知らせ('baitoJobMsg', 'warning', 'バイトの名前を入れてください。');
   try {
     const r = await call('baitoSaveJob', TOKEN, { name: name });
     $('baitoNew').value = '';
+    $('baitoNewBox').hidden = true;
+    $('baitoNewToggle').setAttribute('aria-expanded', 'false');
     const 新しいの = (r.jobs || []).filter((j) => j.name === name)[0];
     await バイトを読む(新しいの ? 新しいの.id : '');
     知らせ('baitoJobMsg', 'success', '「' + name + '」を作りました。カレンダーの日を押して人を入れてください。');
@@ -667,31 +775,81 @@ $('baitoDeleteJob').addEventListener('click', async () => {
   } catch (e) { 知らせ('baitoJobMsg', 'error', (e && e.message) || e); }
 });
 
+let 回数を編集中 = false;
+
+/*
+  回数は全員ぶんを学年ごとに横4列で出す（2026-09-16 ユーザーの指示）。
+  数えるのは画面が持っているカレンダーの割り当て＋手で足したぶん。入れた・外したらその場で出し直す。
+  編集中に出し直しても、打ちかけの数は消さない。
+*/
 function バイトの回数を出す() {
-  const counts = (BAITO && BAITO.counts) || [];
-  // 多い順。同じなら名前の順にして、開くたびに並びが変わらないようにする
-  const 並び = counts.slice().sort((a, b) => b.回数 - a.回数 || String(a.name).localeCompare(String(b.name)));
-  $('baitoCountTable').innerHTML =
-    '<tr><th>部員</th><th>行った回数</th><th>入っているぶん</th><th>手で足す</th><th></th></tr>' +
-    並び.map((c) =>
-      '<tr><th>' + esc(c.name) + '</th>' +
-      '<td class="num"><b>' + c.回数 + '</b></td>' +
-      '<td class="num">' + c.自動 + '</td>' +
-      '<td><input type="number" class="baito-adj" data-who="' + esc(c.memberId) + '" value="' + c.調整 + '" step="1"></td>' +
-      '<td>' + 部品.アイコンボタン('check', c.name + 'の回数を保存', { 'data-savecount': c.memberId }, 'ok') + '</td></tr>').join('');
+  if (!BAITO || !BAITO.job) return;
+  const 調整 = {};
+  (BAITO.counts || []).forEach((c) => { 調整[c.memberId] = Number(c.調整) || 0; });
+  const 入れた = {};
+  (BAITO.割当 || []).forEach((x) => { 入れた[x.memberId] = (入れた[x.memberId] || 0) + 1; });
+  const 打ちかけ = {};
+  if (回数を編集中) {
+    Array.prototype.forEach.call($('baitoCountGrid').querySelectorAll('.baito-adj'), (i) => { 打ちかけ[i.dataset.who] = i.value; });
+  }
+  $('baitoCountGrid').innerHTML = 学年ごと(バイトの人()).map((g) =>
+    '<div class="grade-group"><div class="grade-head">' + esc(g.見出し) + '</div><div class="grade-grid count-grid">' +
+    g.人.map((m) => {
+      const 自動 = 入れた[m.id] || 0;
+      const 手 = 調整[m.id] || 0;
+      const 計 = 自動 + 手;
+      return '<div class="cnt-cell' + (計 ? ' has' : '') + '" data-count="' + esc(m.id) + '">' +
+        '<span class="nm">' + esc(m.name) + '</span>' +
+        (回数を編集中
+          ? '<span class="adj-line"><span class="auto" title="カレンダーに入れたぶん">' + 自動 + '＋</span>' +
+            '<input type="number" class="baito-adj" data-who="' + esc(m.id) + '" step="1" value="' +
+            esc(打ちかけ[m.id] !== undefined ? 打ちかけ[m.id] : String(手)) + '" aria-label="' + esc(m.name) + 'の手で足す回数"></span>'
+          : '<b class="n">' + 計 + '</b>') +
+        '</div>';
+    }).join('') + '</div></div>').join('');
+  $('baitoCountEdit').hidden = 回数を編集中;
+  $('baitoCountSave').hidden = !回数を編集中;
+  $('baitoCountCancel').hidden = !回数を編集中;
 }
 
-$('baitoCountTable').addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-savecount]');
-  if (!b || !BAITO || !BAITO.job) return;
-  const box = $('baitoCountTable').querySelector('.baito-adj[data-who="' + b.dataset.savecount + '"]');
+$('baitoCountEdit').addEventListener('click', () => {
+  回数を編集中 = true;
+  バイトの回数を出す();
+  const 最初 = $('baitoCountGrid').querySelector('.baito-adj');
+  if (最初) 最初.focus();
+});
+$('baitoCountCancel').addEventListener('click', () => {
+  回数を編集中 = false;
+  バイトの回数を出す();
+});
+$('baitoCountSave').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  const 調整 = {};
+  (BAITO.counts || []).forEach((c) => { 調整[c.memberId] = Number(c.調整) || 0; });
+  const 変えた = Array.prototype.map.call($('baitoCountGrid').querySelectorAll('.baito-adj'),
+    (i) => ({ id: i.dataset.who, n: i.value === '' ? 0 : Math.round(Number(i.value)) }))
+    .filter((x) => !isNaN(x.n) && x.n !== (調整[x.id] || 0));
+  if (!変えた.length) {
+    回数を編集中 = false;
+    バイトの回数を出す();
+    return 知らせ('baitoCountMsg', 'warning', '変えたところはありません。');
+  }
+  $('baitoCountSave').disabled = true;
   try {
-    await call('baitoSaveCount', TOKEN, BAITO.job.id, b.dataset.savecount, box.value === '' ? 0 : Number(box.value));
-    await バイトを読む(BAITO.job.id);
-    const 行 = $('baitoCountTable').querySelector('[data-savecount="' + b.dataset.savecount + '"]');
-    if (行) 部品.光らせる([行.closest('tr')]);
-    知らせ('baitoCountMsg', 'success', '回数を直しました。');
-  } catch (err) { 知らせ('baitoCountMsg', 'error', (err && err.message) || err); }
+    for (const x of 変えた) {
+      await call('baitoSaveCount', TOKEN, BAITO.job.id, x.id, x.n);
+      const c = (BAITO.counts || []).filter((y) => y.memberId === x.id)[0];
+      if (c) c.調整 = x.n; else (BAITO.counts = BAITO.counts || []).push({ memberId: x.id, 調整: x.n });
+    }
+    回数を編集中 = false;
+    バイトの回数を出す();
+    部品.光らせる(変えた.map((x) => $('baitoCountGrid').querySelector('[data-count="' + x.id + '"]')).filter((el) => el));
+    知らせ('baitoCountMsg', 'success', 変えた.length + '人の回数を直しました。');
+  } catch (err) {
+    知らせ('baitoCountMsg', 'error', (err && err.message) || err);
+  } finally {
+    $('baitoCountSave').disabled = false;
+  }
 });
 
 // ===== ⑤ 有給 =====

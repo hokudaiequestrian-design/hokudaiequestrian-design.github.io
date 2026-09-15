@@ -119,7 +119,7 @@ function 模擬で答える(req) {
     const job = 模擬.baito.jobs.filter((j) => j.id === id)[0] || null;
     const 割当 = job ? 模擬.baito.割当.filter((x) => x.jobId === job.id) : [];
     const 自動 = {};
-    割当.forEach((x) => { if (x.date <= 模擬.baito.today) 自動[x.memberId] = (自動[x.memberId] || 0) + 1; });
+    割当.forEach((x) => { 自動[x.memberId] = (自動[x.memberId] || 0) + 1; });   // 入れた日を全部数える（2026-09-16）
     return 返す({
       jobs: 模擬.baito.jobs, job: job, members: DATA.members, today: 模擬.baito.today,
       割当: 割当.map((x) => ({ id: x.id, date: x.date, memberId: x.memberId, name: (DATA.members.filter((m) => m.id === x.memberId)[0] || {}).name })),
@@ -144,8 +144,9 @@ function 模擬で答える(req) {
   }
   if (本文.fn === 'baitoAssign') {
     const a = 本文.args;
-    模擬.baito.割当.push({ id: 'y' + (模擬.baito.割当.length + 1), jobId: a[1], date: a[2], memberId: a[3] });
-    return 返す({ ok: true });
+    const 新しいID = 'y' + Date.now() + Math.floor(Math.random() * 1000);
+    模擬.baito.割当.push({ id: 新しいID, jobId: a[1], date: a[2], memberId: a[3] });
+    return 返す({ ok: true, id: 新しいID, date: a[2], memberId: a[3] });
   }
   if (本文.fn === 'baitoUnassign') {
     模擬.baito.割当 = 模擬.baito.割当.filter((x) => x.id !== 本文.args[1]);
@@ -610,48 +611,78 @@ function 模擬で答える(req) {
     !(await page.$$eval('#addKind option', (els) => els.map((e) => e.textContent))).includes('バイト'),
     JSON.stringify(await page.$$eval('#addKind option', (els) => els.map((e) => e.textContent))));
 
-  // バイト先を作る（決めるのは名前だけ）
+  // バイト先を作る（決めるのは名前だけ）。2026-09-16 から「どのバイト」の下の ＋ を押すと名前の欄が開く
+  確かめる('「どのバイト」の横に作る欄は無く、下に ＋ の1文字だけ',
+    (await page.$eval('#baitoNewToggle', (b) => b.textContent.trim())) === '＋' && await page.$eval('#baitoNewBox', (b) => b.hidden));
+  await page.click('#baitoNewToggle');
+  確かめる('＋ を押すと作る欄が開く', await page.$eval('#baitoNewBox', (b) => !b.hidden));
   await page.type('#baitoNew', 'フロンテア');
   await page.click('#baitoAddJob');
   await page.waitForFunction(() => document.getElementById('baitoCalCard').style.display === 'block', { timeout: 15000 });
   確かめる('名前だけでバイトを作れる', 模擬.baito.jobs.length === 1 && 模擬.baito.jobs[0].name === 'フロンテア',
     JSON.stringify(模擬.baito.jobs));
+  確かめる('作ると作る欄はしまう', await page.$eval('#baitoNewBox', (b) => b.hidden));
   確かめる('作るとカレンダーと回数が出る',
     (await page.$eval('#baitoCountCard', (el) => el.style.display)) === 'block');
 
-  // 日を押して、名前を打って入れる
+  // 日を押すと、学年ごとに横4列の名前の一覧が出る。押すとすぐ入る
   await page.click('[data-day="2030-09-20"]');
   await page.waitForFunction(() => document.getElementById('baitoDay').style.display === 'block', { timeout: 15000 });
-  確かめる('名前は打ち込んで絞り込める（候補つき）',
-    (await page.$eval('#baitoWho', (el) => el.getAttribute('list'))) === 'baitoMembers'
-    && (await page.$$eval('#baitoMembers option', (els) => els.length)) === 2);
-  await page.type('#baitoWho', '美浦');
-  await page.click('#baitoAddWho');
+  const 学年の見出し = await page.$$eval('#baitoPicker .grade-head', (els) => els.map((e) => e.textContent));
+  確かめる('名前の一覧は学年ごと（1年から）', JSON.stringify(学年の見出し) === JSON.stringify(['1年', '2年']), JSON.stringify(学年の見出し));
+  確かめる('名前は横4列に並ぶ', await page.$eval('#baitoPicker .grade-grid', (g) => getComputedStyle(g).gridTemplateColumns.split(' ').length === 4));
+  await page.click('#baitoPicker [data-pick="m_001"]');
+  確かめる('押した瞬間に回数が1増える（返事を待たない）',
+    (await page.$eval('#baitoCountGrid [data-count="m_001"] .n', (el) => el.textContent)) === '1');
   await page.waitForFunction(() => /入れました/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
   確かめる('その日に人が入る', 模擬.baito.割当.length === 1 && 模擬.baito.割当[0].date === '2030-09-20',
     JSON.stringify(模擬.baito.割当));
   確かめる('カレンダーの枠に名前が出る',
     (await page.$eval('[data-day="2030-09-20"]', (el) => el.textContent)).indexOf('美浦') >= 0);
+  確かめる('入った人は一覧で押された印になる',
+    (await page.$eval('#baitoPicker [data-pick="m_001"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
 
-  // 名簿に無い名前は弾く
+  // 名前を打って絞り込める（自由記述）。名簿に無い名前は弾く
+  await page.type('#baitoWho', '相');
+  確かめる('打つと一覧が絞り込まれる',
+    JSON.stringify(await page.$$eval('#baitoPicker [data-pick]', (bs) => bs.map((b) => b.textContent))) === '["相棒"]');
+  確かめる('名前の欄と ▲・入れる のボタンが1行に収まる（ボタンがはみ出さない）', await page.evaluate(() => { const row = document.getElementById('baitoAddWho').parentElement.getBoundingClientRect(); return ['baitoWho', 'baitoPickToggle', 'baitoAddWho'].every((id) => { const r = document.getElementById(id).getBoundingClientRect(); return r.width > 0 && r.right <= row.right + 1 && r.right <= window.innerWidth + 1; }); }));
   await page.$eval('#baitoWho', (el) => { el.value = 'いない人'; });
   await page.click('#baitoAddWho');
   await page.waitForFunction(() => /名簿にありません/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
   確かめる('名簿に無い名前はその場で断る', 模擬.baito.割当.length === 1);
 
-  // 回数（副将だけが見る）
-  確かめる('過ぎた日のぶんが回数に出る',
-    (await page.$eval('#baitoCountTable', (el) => el.textContent)).indexOf('相棒') >= 0);
+  // 回数（副将だけが見る）。全員ぶんを学年ごとに横4列。手で直すのは下の「回数を編集」1つから
+  確かめる('回数は全員ぶん、学年ごとに横4列',
+    (await page.$$('#baitoCountGrid [data-count]')).length === 2 &&
+    await page.$eval('#baitoCountGrid .grade-grid', (g) => getComputedStyle(g).gridTemplateColumns.split(' ').length === 4));
+  確かめる('ふだんは回数の欄に入力欄も行ごとのボタンも無い', !(await page.$('#baitoCountGrid input')) && !(await page.$('#baitoCountGrid button')));
+  await page.click('#baitoCountEdit');
+  確かめる('回数を編集を押すと、全員ぶんの入力欄が出る', (await page.$$('#baitoCountGrid .baito-adj')).length === 2);
   await page.$eval('.baito-adj[data-who="m_001"]', (el) => { el.value = '5'; });
-  await page.click('[data-savecount="m_001"]');
+  await page.click('#baitoCountSave');
   await page.waitForFunction(() => /直しました/.test(document.getElementById('baitoCountMsg').textContent), { timeout: 15000 });
   確かめる('手で足したぶんが保存される', 模擬.baito.調整.m_001 === 5, JSON.stringify(模擬.baito.調整));
-  確かめる('回数は 入っているぶん＋手で足したぶん',
-    (await page.$eval('#baitoCountTable tr:nth-child(2)', (el) => el.textContent)).indexOf('5') >= 0);
+  確かめる('回数は 入れたぶん＋手で足したぶん',
+    (await page.$eval('#baitoCountGrid [data-count="m_001"] .n', (el) => el.textContent)) === '6');
 
-  // 外す
+  // スマホの幅でも、名前の一覧と回数が横にはみ出さない
+  const 元の画面 = page.viewport() || { width: 1280, height: 900 };
+  await page.setViewport({ width: 390, height: 844 });
+  await new Promise((r) => setTimeout(r, 300));
+  確かめる('スマホの幅でも名前の一覧と回数が画面の幅に収まる', await page.evaluate(() => ['baitoPicker', 'baitoCountGrid'].every((id) => {
+    const el = document.getElementById(id);
+    return el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().right <= window.innerWidth + 1;
+  })));
+  確かめる('スマホの幅でも、入れるボタンが画面の中にある', await page.evaluate(() => { const r = document.getElementById('baitoAddWho').getBoundingClientRect(); return r.width > 0 && r.right <= window.innerWidth + 1; }));
+  if (process.env.SHOTS) await page.screenshot({ path: process.env.SHOTS + '/b-バイト-スマホ.png', fullPage: true });
+
+  // 外す（外した瞬間に回数も減る）
   await page.click('[data-off]');
   await page.waitForFunction(() => document.querySelectorAll('#baitoDayList [data-off]').length === 0, { timeout: 15000 });
+  確かめる('外した瞬間に回数も減る', (await page.$eval('#baitoCountGrid [data-count="m_001"] .n', (el) => el.textContent)) === '5');
+  await page.waitForFunction(() => /外しました/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
+  await page.setViewport(元の画面);
   確かめる('その日のその人を外せる', 模擬.baito.割当.length === 0);
 
   確かめる('画面でエラーが起きていない', 画面のエラー.length === 0, 画面のエラー.join(' / '));
