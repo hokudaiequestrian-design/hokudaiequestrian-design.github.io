@@ -452,7 +452,17 @@ function dayBlock(date, comps, jobs) {
     '<label>この日の競技</label>' +
     '<p class="hint">競技を<b>開催順</b>に並べてください。この順番がそのまま人員表の列の並びになります。競技順は道馬連のHPで確認してください。</p>' +
     '<div class="comp-list">' + cs + '</div>' +
+    '<div class="row tight" style="gap:var(--space-xs);">' +
     '<button type="button" class="secondary small add-comp">' + アイコン('plus') + '競技を追加</button>' +
+    // 2026-09-15 ユーザーの指示：競技名をまとめて足せるように。1行に1競技
+    '<button type="button" class="secondary small add-comp-bulk" aria-expanded="false">' + アイコン('plus') + 'まとめて追加</button></div>' +
+    '<div class="comp-bulk" hidden style="margin-top:8px;">' +
+    '<label>競技名をまとめて追加（1行に1競技・開催順）</label>' +
+    '<textarea class="comp-bulk-text" rows="5" placeholder="1行に1つずつ競技名を書きます。&#10;改行したところで別の競技になります。"></textarea>' +
+    '<div class="row tight" style="margin-top:6px;gap:var(--space-xs);">' +
+    '<button type="button" class="small comp-bulk-do">この競技を足す</button>' +
+    '<button type="button" class="secondary small comp-bulk-cancel">やめる</button></div></div>' +
+    '<p class="hint comp-bulk-msg" role="status" aria-live="polite"></p>' +
     '<label style="margin-top:18px;">この日の仕事と必要人数</label>' +
     '<p class="hint">「就ける役職」「就ける学年」「就ける人」は<b>締め出す</b>条件です。空欄なら誰でも入れます。' +
     '真駒内や早来のように行ける人が決まっている仕事は、就ける人に名前を入れてください。' +
@@ -520,9 +530,54 @@ $('tab-events').addEventListener('click', (e) => {
   if (t.classList.contains('remove-comp')) t.closest('.comp-row').remove();
   else if (t.classList.contains('remove-job')) t.closest('.job-row').remove();
   else if (t.classList.contains('add-comp')) appendHtml(t.closest('.day-block').querySelector('.comp-list'), compRow());
+  else if (t.classList.contains('add-comp-bulk')) まとめて足す欄(t.closest('.day-block'), true);
+  else if (t.classList.contains('comp-bulk-cancel')) まとめて足す欄(t.closest('.day-block'), false);
+  else if (t.classList.contains('comp-bulk-do')) まとめて競技を足す(t.closest('.day-block'));
   else if (t.classList.contains('add-job')) appendHtml(t.closest('.day-block').querySelector('.job-list'), jobRow());
   else if (t.classList.contains('copy-prev')) copyPrevJobs(t.closest('.day-block'));
 });
+
+// 「まとめて追加」の欄を出す・しまう（押すたびに出し入れ）
+function まとめて足す欄(block, 出す) {
+  const box = block.querySelector('.comp-bulk');
+  const ボタン = block.querySelector('.add-comp-bulk');
+  const 開く = 出す && box.hidden;
+  box.hidden = !開く;
+  ボタン.setAttribute('aria-expanded', String(開く));
+  if (開く) { block.querySelector('.comp-bulk-msg').textContent = ''; box.querySelector('textarea').focus(); }
+  else box.querySelector('textarea').value = '';
+}
+
+/*
+  競技名をまとめて足す（2026-09-15）。書いた欄を改行で分け、1行を1競技として後ろに足す。
+  ・空の行は飛ばす。前後の空白は取る
+  ・その日にもうある競技名と、同じ欄の中で2回目に出た名前は足さない（知らせる）
+  ・名前の入っていない行（はじめからある空の1行など）は、先に片付ける
+  選択肢シートにある名前はプルダウンで選んだ形に、ない名前は「その他（自由入力）」に入る（compRow のまま）
+*/
+function まとめて競技を足す(block) {
+  const box = block.querySelector('.comp-bulk');
+  const msg = block.querySelector('.comp-bulk-msg');
+  const list = block.querySelector('.comp-list');
+  const 名前たち = box.querySelector('.comp-bulk-text').value.split(String.fromCharCode(10))
+    .map((x) => x.trim()).filter((x) => x);
+  if (!名前たち.length) { msg.textContent = '競技名を1行に1つずつ書いてください。'; return; }
+
+  list.querySelectorAll('.comp-row').forEach((r) => {
+    if (!pickValue(r.querySelector('.comp-name')) && !r.querySelector('.comp-id').value) r.remove();
+  });
+  const ある = Array.prototype.map.call(list.querySelectorAll('.comp-name'), pickValue);
+  const 足した = [];
+  const 飛ばした = [];
+  名前たち.forEach((n) => {
+    if (ある.indexOf(n) >= 0 || 足した.indexOf(n) >= 0) { 飛ばした.push(n); return; }
+    appendHtml(list, compRow({ name: n }));
+    足した.push(n);
+  });
+  まとめて足す欄(block, false);
+  msg.textContent = (足した.length ? 足した.length + '競技を足しました。' : '足した競技はありません。') +
+    (飛ばした.length ? 'もうある・重なっていたので飛ばした：' + 飛ばした.join('、') : '');
+}
 
 // 前の日と同じ仕事構成にする。日ごとに入れ直すのは手間なので。
 function copyPrevJobs(block) {

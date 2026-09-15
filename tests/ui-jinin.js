@@ -168,6 +168,22 @@ function 模擬で答える(req) {
     確かめる('競技の × を（アイコンの上で）押すと、その行が消える', (await page.$$('#dayList .comp-row')).length === 前の数 - 1);
     await page.$eval('#dayList .add-comp', (b) => b.querySelector('svg').dispatchEvent(new MouseEvent('click', { bubbles: true })));
     確かめる('＋のアイコンの上で押しても競技が足される', (await page.$$('#dayList .comp-row')).length === 前の数);
+
+    // 競技名をまとめて追加（2026-09-15）：改行で別の競技になる
+    const 最初の日の競技 = () => page.evaluate(() => Array.prototype.map.call(document.querySelector('#dayList .day-block').querySelectorAll('.comp-name'), pickValue));
+    const 前の競技 = (await 最初の日の競技()).filter((x) => x);
+    確かめる('まとめて追加の欄は、押すまで出ない', await page.$eval('#dayList .day-block .comp-bulk', (b) => b.hidden));
+    await page.$eval('#dayList .day-block .add-comp-bulk', (b) => b.click());
+    確かめる('まとめて追加を押すと、書く欄が出る', await page.$eval('#dayList .day-block .comp-bulk', (b) => !b.hidden));
+    await page.$eval('#dayList .day-block .comp-bulk-text', (t, v) => { t.value = v; }, '  まとめA  ' + String.fromCharCode(10) + String.fromCharCode(10) + 'まとめB' + String.fromCharCode(13, 10) + 'まとめA' + String.fromCharCode(10) + (前の競技[0] || 'まとめB'));
+    await page.$eval('#dayList .day-block .comp-bulk-do', (b) => b.click());
+    const 後の競技 = await 最初の日の競技();
+    確かめる('1行が1競技として後ろに足され、空の行・重なり・もうある名前は飛ばす（名前の無い行も片付く）',
+      JSON.stringify(後の競技) === JSON.stringify(前の競技.concat(['まとめA', 'まとめB'])), JSON.stringify([前の競技, 後の競技]));
+    確かめる('足した数と飛ばした名前を知らせ、欄はしまう',
+      /2競技を足しました/.test(await page.$eval('#dayList .day-block .comp-bulk-msg', (m) => m.textContent)) &&
+      /飛ばした：まとめA/.test(await page.$eval('#dayList .day-block .comp-bulk-msg', (m) => m.textContent)) &&
+      await page.$eval('#dayList .day-block .comp-bulk', (b) => b.hidden));
     await 写す('2-大会の設定');
 
     // ---------- 人員表 ----------

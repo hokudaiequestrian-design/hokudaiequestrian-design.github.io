@@ -412,6 +412,9 @@ table.cal-grid td.off { background: var(--paper); }
 .calday.m2 { background: var(--care-soft); } .calday.m2 .m { color: var(--maru2); }
 .calday.m1 { background: var(--accent-soft); } .calday.m1 .m { color: var(--maru1); }
 .calday.m0 { background: var(--paper-sunken); } .calday.m0 .m { color: var(--batsu); }
+/* チーフ画面：期間の編集は開け閉めのボタンを出さず、閉じているあいだは枠ごと隠す（鉛筆で開く） */
+#planEditFold > summary { display: none; }
+#planEditFold:not([open]) { display: none; }
 /* チーフ画面：期間の行はどこを押しても開く */
 .plan-row { cursor: pointer; }
 /* チーフ画面：いま開いている期間 */

@@ -42,10 +42,16 @@
         期間の編集（2026-09-15 ユーザーの指示）。前は期間を開くと下に「この期間の決まり」と「3. サブ」のカードが並んでいたが、
         どちらも期間そのものの設定なので、ここ「2. 期間を選ぶ」の中に畳んでしまう。期間を開いているときだけ出る。
       -->
-      <details class="fold" id="planEditFold" hidden>
-        <summary>期間の編集（<span id="planEditName"></span>）：決まり・サブ</summary>
+      <!-- 2026-09-15 ユーザーの指示で「期間の編集（ ）：決まり・サブ」の開け閉めボタン（summary）は消した。
+           開くのは期間名の横の鉛筆だけ。閉じるのは中の × 。open で出し入れする仕組みはそのまま使う -->
+      <details class="fold plan-edit" id="planEditFold" hidden>
+        <summary>期間の編集</summary>
         <div class="fold-body">
-          <h3 style="margin-top:0;">この期間の決まり</h3>
+          <div class="row tight" style="justify-content:space-between;align-items:center;flex-wrap:nowrap;">
+            <h3 style="margin:0;">期間の編集（<span id="planEditName"></span>）</h3>
+            <button type="button" class="icon-btn" id="planEditClose" aria-label="期間の編集を閉じる" title="閉じる"></button>
+          </div>
+          <h3 style="margin-top:12px;">この期間の決まり</h3>
           <div class="row">
             <!-- 曜日の期間だけ開始日を直せる。前に作った曜日の期間は開始日が空なので、ここで入れ直す -->
             <div id="editFromWrap"><label for="editFrom">開始日</label><input type="date" id="editFrom"></div>
@@ -410,6 +416,15 @@ $('newPlanBtn').addEventListener('click', async () => {
     // 1頭だけなら、そのまま開く
     if (r.作った.length === 1) await openPlan(r.作った[0].id);
   } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
+});
+
+// 期間の編集を閉じる（開け閉めのボタンを消したので、中に × を置く）
+$('planEditClose').innerHTML = 部品.アイコン('x');
+$('planEditClose').addEventListener('click', () => {
+  $('planEditFold').open = false;
+  編集を広げる期間 = null;
+  const 鉛筆 = P && P.plan && $('planList').querySelector('[data-editp="' + P.plan.id + '"]');
+  if (鉛筆) 鉛筆.focus();
 });
 
 $('planList').addEventListener('click', async (e) => {

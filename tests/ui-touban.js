@@ -323,7 +323,9 @@ function 模擬で答える(req) {
     await page.waitForFunction(() => document.getElementById('planPane').style.display === 'block', { timeout: 5000 });
     // 期間の編集（2026-09-15）：決まりとサブは「2. 期間を選ぶ」の中に畳んである
     確かめる('期間を開くと「2. 期間を選ぶ」に「期間の編集」が出て、決まりとサブが入っている',
-      await page.$eval('#termCard', (c) => { const f = c.querySelector('#planEditFold'); return !!f && !f.hidden && !!f.querySelector('#savePlanBtn') && !!f.querySelector('#subSheet') && f.querySelector('summary').textContent.indexOf('後期') >= 0; }));
+      await page.$eval('#termCard', (c) => { const f = c.querySelector('#planEditFold'); return !!f && !f.hidden && !!f.querySelector('#savePlanBtn') && !!f.querySelector('#subSheet') && f.querySelector('#planEditName').textContent === '後期'; }));
+    確かめる('「期間の編集（ ）：決まり・サブ」の開け閉めボタンは出さず、閉じているあいだは枠ごと見えない',
+      await page.$eval('#planEditFold', (f) => !f.querySelector('summary').checkVisibility() && !f.checkVisibility()));
     確かめる('サブがいる期間では、期間の編集は畳んだまま', !(await page.$eval('#planEditFold', (d) => d.open)));
     確かめる('期間を開いた下には、決まり・サブのカードはもう無い（投票状況から）',
       await page.$eval('#planPane', (p) => !p.querySelector('#subSheet') && !p.querySelector('#savePlanBtn') && p.textContent.indexOf('3. 投票状況') >= 0));
@@ -340,7 +342,9 @@ function 模擬で答える(req) {
     await 待つ(400);
     確かめる('鉛筆で広げた「期間の編集」は、前に押した読み込みがあとから届いても畳まれない', await page.$eval('#planEditFold', (d) => d.open));
     await 写す('4a-チーフ-期間の編集');
-    await page.$eval('#planEditFold', (d) => { d.open = false; });
+    確かめる('開いた期間の編集の見出しに期間名が出る', await page.$eval('#planEditFold', (f) => f.checkVisibility() && /期間の編集（後期）/.test(f.querySelector('.fold-body h3').textContent)));
+    await page.$eval('#planEditClose', (b) => b.click());
+    確かめる('中の × で閉じる', !(await page.$eval('#planEditFold', (d) => d.open)));
     確かめる('「担当を足す」は無く、「編集」ボタンがある', !(await page.$('#addPersonBtn')) && !!(await page.$('#editTableBtn')));
     確かめる('編集を押すまでは、日のマスは押せない', !(await page.$('#calPreview [data-editkey]')));
     await page.click('#editTableBtn');
