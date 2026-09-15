@@ -373,6 +373,20 @@ $('submitBtn').addEventListener('click', async () => {
     $('memberSelect').addEventListener('change', onMemberChange);
     $('termSelect').addEventListener('change', onMemberChange);
 
+    // 当番に入れない設定の人（副将が付ける。2026-09-14）。名前の一覧には出ないので、本人が開いたら知らせる
+    let 覚えた名 = '';
+    try { 覚えた名 = localStorage.getItem('me') || ''; } catch (e) { /* 読めなければ知らせない */ }
+    if (覚えた名 && (DATA.当番に入れない || []).indexOf(覚えた名) >= 0) {
+      const 知らせ = document.createElement('div');
+      知らせ.className = 'msg warning';
+      知らせ.textContent = 覚えた名 + ' さんは、当番に入らない設定になっています（副将が決めます）。当番の希望を出す必要はありません。';
+      $('memberSelect').parentNode.insertBefore(知らせ, $('memberSelect').parentNode.firstChild);
+      $('memberSelect').style.display = 'none';
+      const lab = document.querySelector('label[for="memberSelect"]');
+      if (lab) lab.style.display = 'none';
+      return;
+    }
+
     const saved = 覚えた人のID(DATA.members);
     if (saved) {
       $('memberSelect').value = saved;

@@ -613,9 +613,13 @@ function renderMembers() {
     '<div class="list-item">' +
     '<span><b>' + esc(m.name) + '</b>' +
     (m.grade ? ' <span class="muted">' + m.grade + '年（入部 ' + m.joinYear + '）</span>' : ' <span class="muted">学年ふめい</span>') +
+    (m.noDuty ? ' <span class="pill no">当番に入れない</span>' : '') +
     '</span>' +
     '<span class="row tight">' +
     '<button class="small secondary" data-editm="' + esc(m.id) + '">入部年を直す</button>' +
+    // 当番から外す／戻す（2026-09-14。5年生など、名簿には残して当番だけ外したい人のため）
+    '<button class="small secondary" data-noduty="' + esc(m.id) + '" data-v="' + (m.noDuty ? '0' : '1') + '">' +
+      (m.noDuty ? '当番に戻す' : '当番に入れない') + '</button>' +
     '<button class="small danger" data-delm="' + esc(m.id) + '">削除</button>' +
     '</span></div>').join('');
 }
@@ -629,6 +633,22 @@ $('memberList').addEventListener('click', async (e) => {
       const r = await call('adminDeleteMember', TOKEN, m.id);
       await loadAll(D.termId);
       msgIn('memberMsg', 'success', m.name + ' を削除しました（投票 ' + r.消した.当番投票 + '件、当番表 ' + r.消した.当番表 + '件、手入れ ' + (r.消した.サブ + r.消した.手入れ投票 + r.消した.手入れ表) + '件も消しました）。');
+    } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
+    return;
+  }
+  const nd = e.target.closest('[data-noduty]');
+  if (nd) {
+    const m = memberById(nd.dataset.noduty);
+    const 外す = nd.dataset.v === '1';
+    if (!confirm(外す
+      ? m.name + ' を当番に入れないようにします。\n自動で組む当番表と、当番の希望を出す画面の名前から外れます（手入れ・休みはそのまま）。よろしいですか？'
+      : m.name + ' をまた当番に入れるようにします。よろしいですか？')) return;
+    try {
+      const r = await call('adminSetNoDuty', TOKEN, m.id, 外す);
+      await loadAll(D.termId);
+      msgIn('memberMsg', 'success', 外す
+        ? m.name + ' を当番に入れないようにしました。' + (r.当番表 ? 'いまの当番表に ' + r.当番表 + '件入っています。「当番表」タブで組み直すと外れます。' : '')
+        : m.name + ' をまた当番に入れるようにしました。');
     } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
     return;
   }
@@ -805,14 +825,16 @@ $('saveSettingsBtn').addEventListener('click', async () => {
 const 私の票 = (memberId) => D.votes.filter((v) => v.memberId === memberId).sort((a, b) => a.rank - b.rank);
 
 function renderVotes() {
-  const 済 = D.members.filter((m) => 私の票(m.id).length === D.希望の数);
-  const 未 = D.members.filter((m) => 私の票(m.id).length !== D.希望の数);
+  // 当番に入れない人は、投票状況にも出さない（希望を出す必要が無いので「まだの人」に数えない）
+  const 対象 = D.members.filter((m) => !m.noDuty);
+  const 済 = 対象.filter((m) => 私の票(m.id).length === D.希望の数);
+  const 未 = 対象.filter((m) => 私の票(m.id).length !== D.希望の数);
   $('voteStats').innerHTML =
     '<div class="stat"><b>' + 済.length + '</b><span>投票ずみ</span></div>' +
     '<div class="stat"><b>' + 未.length + '</b><span>まだの人</span></div>' +
-    '<div class="stat"><b>' + D.members.length + '</b><span>部員</span></div>';
+    '<div class="stat"><b>' + 対象.length + '</b><span>当番に入る部員</span></div>';
 
-  $('voteList').innerHTML = D.members.map((m) => {
+  $('voteList').innerHTML = 対象.map((m) => {
     const v = 私の票(m.id);
     const ある = v.length === D.希望の数;
     const 中身 = ある
