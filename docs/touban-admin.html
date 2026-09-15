@@ -949,10 +949,9 @@ a.donehome:hover { background: var(--accent-dark); }
       <button data-tab="duties" class="active">当番の設定</button>
       <button data-tab="votes">投票状況</button>
       <button data-tab="table">当番表</button>
-      <button data-tab="care">手入れ</button>
     </div>
     <!-- 2026-09-15 ユーザーの指示で「部員」タブ・「馬とチーフ」・「サブ整理」タブとパスワードは部員・馬匹管理へ移した -->
-    <p class="hint" style="margin:-4px 0 var(--space-md);">部員の名簿・馬とチーフ・サブ整理・パスワードは <a href="buin.html">部員・馬匹管理</a> に移しました。</p>
+    <p class="hint" style="margin:-4px 0 var(--space-md);">部員の名簿・馬とチーフ・サブ整理・パスワードは <a href="buin.html">部員・馬匹管理</a>、手入れの期間は <a href="teire-chief.html">手入れをまとめる</a> に移しました。</p>
 
     <!-- ===== 当番の設定 ===== -->
     <section data-pane="duties">
@@ -1108,58 +1107,6 @@ a.donehome:hover { background: var(--accent-dark); }
       </div>
     </section>
 
-    <!-- ===== 手入れ（チーフ画面と同じことが副将からもできる） ===== -->
-    <section data-pane="care" style="display:none;">
-      <div class="card">
-        <h2>手入れの期間</h2>
-        <p class="hint">
-          チーフ画面と同じものです。どちらから作っても同じところに入ります。<br>
-          サブ選び・◎○×の集計・手入れ表づくりは<b>チーフ画面</b>で行ってください。<br>
-          開始日ごとの、馬ごとの基本のサブは<b>部員・馬匹管理の「サブ整理」</b>で決めます。
-          曜日の期間で開始日が入っていないものは、下の一覧で開始日を入れ直せます。
-        </p>
-        <div id="planListAdmin"></div>
-        <div id="planAdminMsg" role="status" aria-live="polite"></div>
-      </div>
-
-      <div class="card">
-        <details class="fold" open><summary>期間を新しく作る</summary><div class="fold-body">
-        <div class="row">
-          <div><label for="cHorse">馬</label><select id="cHorse"></select></div>
-          <div>
-            <label for="cTerm">期間の名前</label>
-            <input type="text" id="cTerm" list="cTermList" placeholder="例：後期、夏休み、4月">
-            <datalist id="cTermList"></datalist>
-          </div>
-        </div>
-        <label>作り方</label>
-        <div class="radio-list">
-          <label class="inline"><input type="radio" name="cmode" value="曜日" checked> 曜日で作る</label>
-          <label class="inline"><input type="radio" name="cmode" value="カレンダー"> カレンダーで作る</label>
-        </div>
-        <p class="hint">
-          曜日＝毎週おなじ担当。カレンダー＝日付ごとに決める（最長400日）。<br>
-          <b>開始日は曜日でも入れてください。</b>サブは同じ馬の前の期間から引き継ぎます。
-        </p>
-        <div class="row" id="cDateRow">
-          <div><label for="cFrom">開始日<span class="req">必須</span></label><input type="date" id="cFrom"></div>
-          <div id="cToWrap" style="display:none;"><label for="cTo">終了日</label><input type="date" id="cTo"></div>
-        </div>
-        <div class="row">
-          <div><label for="cMin">1日の下限（人）</label><input type="number" id="cMin" value="1" min="0"></div>
-          <div><label for="cMax">1日の上限（空欄なら上限なし）</label><input type="number" id="cMax" value="1" min="0"></div>
-          <div>
-            <label for="cRatio">チーフの割合</label>
-            <input type="number" id="cRatio" min="1" max="10" step="0.5" placeholder="既定">
-          </div>
-        </div>
-        <p class="hint">チーフの割合を空欄にすると、上の「割り当ての決まり」の既定値を使います。</p>
-        <div style="margin-top:16px;"><button id="cNewBtn">この設定で作る</button></div>
-        <div id="careMsg" role="status" aria-live="polite"></div>
-        </div></details>
-      </div>
-    </section>
-
   </div>
 </main>
 
@@ -1268,8 +1215,6 @@ $('loginBtn').addEventListener('click', async () => {
 });
 $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
 
-let 手入れを読んだ = false;
-
 document.querySelector('.tabs').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-tab]');
   if (!b) return;
@@ -1277,12 +1222,6 @@ document.querySelector('.tabs').addEventListener('click', async (e) => {
   document.querySelectorAll('[data-pane]').forEach((p) => {
     p.style.display = p.dataset.pane === b.dataset.tab ? 'block' : 'none';
   });
-  // 手入れのぶんは、そのタブを開いたときだけ読む（開くたびに毎回読むと当番の画面まで遅くなる）
-  if (b.dataset.tab === 'care' && !手入れを読んだ) {
-    手入れを読んだ = true;
-    try { await loadCare(); }
-    catch (err) { 手入れを読んだ = false; msgIn('careMsg', 'error', (err && err.message) || err); }
-  }
 });
 
 async function loadAll(termId, 読んだぶん) {
@@ -1803,101 +1742,6 @@ $('saveTableBtn').addEventListener('click', async () => {
 $('discardBtn').addEventListener('click', async () => {
   if (!confirm('直したのを取り消して、保存されているものに戻します。よろしいですか？')) return;
   await loadAll(D.termId);
-});
-
-// ===================== 手入れ（馬のチーフと期間） =====================
-// チーフ画面と同じサーバの関数を、副将のトークンで呼んでいる。
-// どちらから触っても同じシートに入るので、内容がずれることはない。
-
-let CARE = { horses: [], plans: [], members: [], 期間名: [], 既定のチーフ倍率: 2 };
-
-async function loadCare() {
-  CARE = await call('chiefLoadAll', TOKEN);
-  renderPlansAdmin();
-  $('cHorse').innerHTML = '<option value="">選んでください</option>' +
-    CARE.horses.filter((h) => h.active).map((h) => '<option value="' + h.id + '">' + esc(h.name) + '</option>').join('');
-  $('cTermList').innerHTML = CARE.期間名.map((t) => '<option value="' + esc(t) + '">').join('');
-}
-
-function renderPlansAdmin() {
-  if (!CARE.plans.length) {
-    $('planListAdmin').innerHTML = '<div class="muted">まだ期間がありません。下から作れます。</div>';
-    return;
-  }
-  const 馬名 = (id) => { const h = CARE.horses.filter((x) => x.id === id)[0]; return h ? h.name : '（消えた馬）'; };
-  $('planListAdmin').innerHTML = CARE.plans.map((p) =>
-    '<div class="list-item is-row">' +
-    '<span style="flex:1 1 320px;"><b>' + esc(馬名(p.horseId)) + '</b>　' + esc(p.term) +
-    '<div class="muted">' +
-    (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to)
-      : '曜日ごと' + (p.from ? '（' + esc(p.from) + ' から）' : '<b style="color:var(--danger);">（開始日なし）</b>')) +
-    '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人' +
-    '　チーフの割合 ' + (p.chiefRatio === null ? '既定（' + CARE.既定のチーフ倍率 + '）' : p.chiefRatio) +
-    '</div></span>' +
-    '<span class="row tight" style="align-items:flex-end;">' +
-    // 曜日の期間だけ、ここで開始日を入れ直せる（カレンダーは日付を変えると集めた◎○×が合わなくなるので直さない）
-    (p.mode === 'カレンダー' ? '' :
-      '<span><label for="pf_' + esc(p.id) + '" style="margin:0;font-size:var(--text-sm);">開始日</label>' +
-      '<input type="date" id="pf_' + esc(p.id) + '" data-pfrom="' + esc(p.id) + '" value="' + esc(p.from) + '" style="width:auto;"></span>' +
-      '<button class="small secondary" data-savefrom="' + esc(p.id) + '">開始日を保存</button>') +
-    // 削除は乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
-    '<span class="row-actions">' + 部品.アイコンボタン('trash', 馬名(p.horseId) + 'の「' + p.term + '」を削除', { 'data-delplan': p.id }, 'danger') + '</span></span>' +
-    '</div>').join('');
-}
-
-$('planListAdmin').addEventListener('click', async (e) => {
-  // 曜日の期間の開始日を入れ直す（前に作った期間は開始日が空のため。2026-09-13）
-  const sf = e.target.closest('[data-savefrom]');
-  if (sf) {
-    const p = CARE.plans.filter((x) => x.id === sf.dataset.savefrom)[0];
-    const v = document.querySelector('[data-pfrom="' + p.id + '"]').value;
-    const h = CARE.horses.filter((x) => x.id === p.horseId)[0];
-    if (!v) return void msgIn('planAdminMsg', 'error', '開始日を入れてから「開始日を保存」を押してください。');
-    try {
-      // 日付以外はそのまま送る（曜日の期間は開始日を変えても、集めた◎○×は消えない）
-      await call('chiefSavePlan', TOKEN, {
-        id: p.id, horseId: p.horseId, term: p.term, mode: p.mode, from: v, to: p.to,
-        min: p.min, max: p.max === null ? '' : p.max, chiefRatio: p.chiefRatio === null ? '' : p.chiefRatio, note: p.note,
-      });
-      await loadCare();
-      msgIn('planAdminMsg', 'success', (h ? h.name : '?') + ' の「' + p.term + '」の開始日を ' + v + ' にしました。');
-    } catch (err) { msgIn('planAdminMsg', 'error', (err && err.message) || err); }
-    return;
-  }
-  const b = e.target.closest('[data-delplan]');
-  if (!b) return;
-  const p = CARE.plans.filter((x) => x.id === b.dataset.delplan)[0];
-  const h = CARE.horses.filter((x) => x.id === p.horseId)[0];
-  if (!confirm((h ? h.name : '?') + ' の「' + p.term + '」を削除します。\nサブ・◎○×・手入れ表も消えます。よろしいですか？')) return;
-  try {
-    await call('chiefDeletePlan', TOKEN, p.id);
-    await loadCare();
-    msgIn('careMsg', 'success', '削除しました。');
-  } catch (err) { msgIn('careMsg', 'error', (err && err.message) || err); }
-});
-
-// 開始日はどちらの方式でも入れる。終了日はカレンダーだけ
-document.querySelector('input[name=cmode][value=カレンダー]').addEventListener('change', () => { $('cToWrap').style.display = 'block'; });
-document.querySelector('input[name=cmode][value=曜日]').addEventListener('change', () => { $('cToWrap').style.display = 'none'; });
-
-$('cNewBtn').addEventListener('click', async () => {
-  const mode = document.querySelector('input[name=cmode]:checked').value;
-  if (!$('cFrom').value) {
-    return void msgIn('careMsg', 'error', '開始日を入れてください。曜日で作るときも入れます（サブ整理を当てるのに使います）。');
-  }
-  try {
-    const r = await call('chiefSavePlan', TOKEN, {
-      horseId: $('cHorse').value, term: $('cTerm').value, mode: mode,
-      from: $('cFrom').value,
-      to: mode === 'カレンダー' ? $('cTo').value : '',
-      min: $('cMin').value, max: $('cMax').value, chiefRatio: $('cRatio').value,
-    });
-    $('cTerm').value = '';
-    await loadCare();
-    msgIn('careMsg', 'success', '作りました。' +
-      (r.サブの元 ? r.サブの元 + 'のサブを最初から入れてあります。' : '') +
-      'サブ選びと◎○×の集計はチーフ画面で行ってください。');
-  } catch (e) { msgIn('careMsg', 'error', (e && e.message) || e); }
 });
 
 window.addEventListener('beforeunload', (e) => {
