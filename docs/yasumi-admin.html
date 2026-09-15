@@ -889,7 +889,7 @@ const 部品 = (() => {
   const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
   const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
   const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
-    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
 
   return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
 })();
@@ -1300,6 +1300,12 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
   ['apply', 'cal', 'add', 'baito', 'paid', 'conf'].forEach((t) => {
     $('tab-' + t).style.display = (t === b.dataset.tab) ? 'block' : 'none';
   });
+  // バイトのタブを開いたら、バイトの一覧を読む（2026-09-16）。前は作る・選ぶときにしか読んでいなかったので、
+  // 開き直すと「どのバイト」のプルダウンが空のままで、作ったバイトが出てこなかった
+  if (b.dataset.tab === 'baito') {
+    バイトを読む(BAITO && BAITO.job ? BAITO.job.id : $('baitoSelect').value)
+      .catch((err) => 知らせ('baitoJobMsg', 'error', (err && err.message) || err));
+  }
 });
 
 // ===== 読み込み =====

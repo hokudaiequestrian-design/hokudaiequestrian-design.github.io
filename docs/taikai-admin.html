@@ -636,7 +636,7 @@ a.donehome:hover { background: var(--accent-dark); }
   <section id="tab-entries" style="display:none;">
     <div class="card">
       <h2>部員に配るURL</h2>
-      <p class="hint">このURLを部員に配ると、出欠を入力してもらえます。ふだんは入口（マイページ）のURLを配れば、そこからこの画面にも入れます。</p>
+      <p class="hint">このURLを部員に配ると、出欠を入力してもらえます。ふだんはマイページのURLを配れば、そこからこの画面にも入れます。</p>
       <div class="row tight" style="align-items:center;">
         <input type="text" id="shareUrl" readonly style="flex:1 1 320px;">
         <button class="secondary" id="copyUrlBtn" style="flex:0 0 auto;"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-copy"/></svg>URLをコピー</button>
@@ -967,7 +967,7 @@ function handleError(el, e) {
 // パスワードは入口でだけ入れる。ここでは入口への案内を出すだけ
 function 入口へ案内する(文) {
   $('loginMsg').innerHTML = '<h1>副将のログインが要ります</h1><p style="margin:0;">' + esc(文 || '') +
-    '副将パスワードは <a href="index.html?role=admlinks">副将の入口</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
 }
 
 /* 前回読んだ中身を覚えておき、開いた瞬間に出す（2026-09-13）。

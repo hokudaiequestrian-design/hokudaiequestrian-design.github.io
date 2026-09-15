@@ -622,6 +622,7 @@ function 模擬で答える(req) {
   確かめる('名前だけでバイトを作れる', 模擬.baito.jobs.length === 1 && 模擬.baito.jobs[0].name === 'フロンテア',
     JSON.stringify(模擬.baito.jobs));
   確かめる('作ると作る欄はしまう', await page.$eval('#baitoNewBox', (b) => b.hidden));
+  確かめる('作ったバイトが「どのバイト」のプルダウンに出て、選ばれている', await page.$eval('#baitoSelect', (sel) => Array.from(sel.options).some((o) => o.textContent === 'フロンテア') && sel.options[sel.selectedIndex].textContent === 'フロンテア'), JSON.stringify(await page.$$eval('#baitoSelect option', (os) => os.map((o) => o.textContent))));
   確かめる('作るとカレンダーと回数が出る',
     (await page.$eval('#baitoCountCard', (el) => el.style.display)) === 'block');
 
@@ -687,6 +688,14 @@ function 模擬で答える(req) {
   await page.waitForFunction(() => /外しました/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
   await page.setViewport(元の画面);
   確かめる('その日のその人を外せる', 模擬.baito.割当.length === 0);
+
+  // 開き直しても、作ったバイトがプルダウンに出る（2026-09-16 ユーザーが気づいた：前はタブを開いても一覧を読んでいなかった）
+  await page.reload();
+  await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 15000 });
+  await page.click('[data-tab="baito"]');
+  await page.waitForFunction(() => Array.from(document.getElementById('baitoSelect').options).some((o) => o.textContent === 'フロンテア'), { timeout: 15000 }).catch(() => {});
+  確かめる('ページを開き直してバイトのタブを開くと、作ったバイトがプルダウンに出る',
+    await page.$eval('#baitoSelect', (sel) => Array.from(sel.options).some((o) => o.textContent === 'フロンテア')));
 
   確かめる('画面でエラーが起きていない', 画面のエラー.length === 0, 画面のエラー.join(' / '));
 

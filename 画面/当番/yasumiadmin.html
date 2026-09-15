@@ -350,6 +350,12 @@ document.querySelector('.tabs').addEventListener('click', (e) => {
   ['apply', 'cal', 'add', 'baito', 'paid', 'conf'].forEach((t) => {
     $('tab-' + t).style.display = (t === b.dataset.tab) ? 'block' : 'none';
   });
+  // バイトのタブを開いたら、バイトの一覧を読む（2026-09-16）。前は作る・選ぶときにしか読んでいなかったので、
+  // 開き直すと「どのバイト」のプルダウンが空のままで、作ったバイトが出てこなかった
+  if (b.dataset.tab === 'baito') {
+    バイトを読む(BAITO && BAITO.job ? BAITO.job.id : $('baitoSelect').value)
+      .catch((err) => 知らせ('baitoJobMsg', 'error', (err && err.message) || err));
+  }
 });
 
 // ===== 読み込み =====
