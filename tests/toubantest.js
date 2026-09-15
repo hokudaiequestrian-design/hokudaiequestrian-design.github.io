@@ -1287,7 +1287,7 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   投げるはず('無い期間が混ざれば止まる', () => G.chiefSaveSubsBulk(C, { [p1]: [], でたらめ: [A] }), 'もうありません');
   確かめる('止まったときは何も書かない', 並べ(サブ(p1)) === 並べ([A]), JSON.stringify(サブ(p1)));
   投げるはず('チーフのトークンが要る', () => G.chiefSaveSubsBulk('でたらめ', { [p1]: [] }), '有効期限');
-  確かめる('外から呼べる', G.外から呼べる関数.indexOf('chiefSaveSubsBulk') >= 0);
+  確かめる('画面を消したので外からは呼べない（2026-09-15）', G.外から呼べる関数.indexOf('chiefSaveSubsBulk') < 0);
 
   計画.forEach((p) => G.chiefDeletePlan(C, p.id));
 }

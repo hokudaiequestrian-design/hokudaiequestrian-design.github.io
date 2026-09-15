@@ -213,8 +213,8 @@ function 模擬で答える(req) {
     await page.evaluate(() => sessionStorage.setItem('fukusho:touban', 'a_t'));   // 入口でログインした状態
     await page.goto(元 + '/buin.html');
     await page.waitForSelector('#memberList [data-row="美浦"]', { timeout: 10000 });
-    確かめる('タブは 部員・馬とチーフ・サブ整理・サブをまとめて直す', JSON.stringify(await page.$$eval('.tabs button', (bs) => bs.map((b) => b.textContent))) ===
-      JSON.stringify(['部員', '馬とチーフ', 'サブ整理', 'サブをまとめて直す']));
+    確かめる('タブは 部員・馬とチーフ・サブ整理（サブをまとめて直すは消した）', JSON.stringify(await page.$$eval('.tabs button', (bs) => bs.map((b) => b.textContent))) ===
+      JSON.stringify(['部員', '馬とチーフ', 'サブ整理']));
     確かめる('学年ごとの見出しに人数が出る', /1年\s*1人/.test(await page.$eval('#memberList', (el) => el.textContent)));
     確かめる('役職・当番に入れない・当番だけの札が出る', await page.$eval('#memberList', (el) =>
       !!el.querySelector('[data-row="美浦"] .post-tag') && /当番に入れない/.test(el.querySelector('[data-row="松尾"]').textContent) && /当番だけ/.test(el.querySelector('[data-row="甲"]').textContent)));
@@ -304,7 +304,8 @@ function 模擬で答える(req) {
     await page.goto(元 + '/teire-chief.html');
     await page.waitForSelector('#horseSelect option[value="h1"]', { timeout: 10000 });
     await page.select('#horseSelect', 'h1');
-    await page.$eval('#termCard details.fold', (d) => { d.open = true; });
+    確かめる('期間を開くまで「期間の編集」は出ない', await page.$eval('#planEditFold', (d) => d.hidden));
+    await page.$eval('#newPlanFold', (d) => { d.open = true; });
     確かめる('期間を作る欄で馬を選び直させない（上で選んだ馬の名前が出る）', !(await page.$('#horseSheet')) && (await page.$eval('#newHorseName', (el) => el.textContent)) === '北叡');
     確かめる('期間の名前そのものを押して開く（「開く」ボタンが無い）', !!(await page.$('#planList button.linklike[data-open="p1"]')) &&
       !(await page.$$eval('#planList button', (bs) => bs.some((b) => b.textContent.trim() === '開く'))));
@@ -319,11 +320,21 @@ function 模擬で答える(req) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.$eval('#planList button.linklike[data-open="p1"]', (b) => b.click());
     await page.waitForFunction(() => document.getElementById('planPane').style.display === 'block', { timeout: 5000 });
+    // 期間の編集（2026-09-15）：決まりとサブは「2. 期間を選ぶ」の中に畳んである
+    確かめる('期間を開くと「2. 期間を選ぶ」に「期間の編集」が出て、決まりとサブが入っている',
+      await page.$eval('#termCard', (c) => { const f = c.querySelector('#planEditFold'); return !!f && !f.hidden && !!f.querySelector('#savePlanBtn') && !!f.querySelector('#subSheet') && f.querySelector('summary').textContent.indexOf('後期') >= 0; }));
+    確かめる('サブがいる期間では、期間の編集は畳んだまま', !(await page.$eval('#planEditFold', (d) => d.open)));
+    確かめる('期間を開いた下には、決まり・サブのカードはもう無い（投票状況から）',
+      await page.$eval('#planPane', (p) => !p.querySelector('#subSheet') && !p.querySelector('#savePlanBtn') && p.textContent.indexOf('3. 投票状況') >= 0));
+    確かめる('開いている期間に印が付く', await page.$eval('#planList [data-open="p1"]', (b) => b.getAttribute('aria-current') === 'true'));
+    await page.$eval('#planEditFold', (d) => { d.open = true; d.scrollIntoView({ block: 'start' }); });
+    await 写す('4a-チーフ-期間の編集');
+    await page.$eval('#planEditFold', (d) => { d.open = false; });
     確かめる('「担当を足す」は無く、「編集」ボタンがある', !(await page.$('#addPersonBtn')) && !!(await page.$('#editTableBtn')));
     確かめる('編集を押すまでは、日のマスは押せない', !(await page.$('#calPreview [data-editkey]')));
     await page.click('#editTableBtn');
     await page.waitForSelector('#calPreview [data-editkey="2030-10-01"]', { timeout: 3000 });
-    await page.click('#calPreview [data-editkey="2030-10-01"]');
+    await page.$eval('#calPreview [data-editkey="2030-10-01"]', (b) => b.click());
     await page.waitForSelector('#calPreview select.day-pick', { timeout: 3000 });
     const 並び = await page.$$eval('#calPreview select.day-pick optgroup', (gs) => gs.map((g) => g.label + '：' + Array.from(g.children).map((o) => o.textContent).join('、')));
     確かめる('日を押すと、サブだけのプルダウンが出て、◎ 入りたい → × 入れない の順に分かれている',
@@ -336,13 +347,13 @@ function 模擬で答える(req) {
     確かめる('選ぶと、その日の担当が入れ替わる', /相棒/.test(一日) && !/美浦/.test(一日), 一日);
     確かめる('選んだ日は光り、保存していない帯が出る',
       await page.$eval('#calPreview [data-editkey="2030-10-01"]', (b) => b.classList.contains('flash')) && await page.$eval('#savingBar', (b) => b.classList.contains('on')));
-    await page.click('#calPreview [data-editkey="2030-10-02"]');
+    await page.$eval('#calPreview [data-editkey="2030-10-02"]', (b) => b.click());
     await page.waitForSelector('#calPreview select.day-pick', { timeout: 3000 });
     await page.select('#calPreview select.day-pick', 'm1');
     await 待つ(150);
     確かめる('空いていた日も、選ぶと担当が入る', /美浦/.test(await page.$eval('#calPreview [data-editkey="2030-10-02"]', (b) => b.textContent)));
     // 自由記述：プルダウンの「名前を書く」で、一覧にない人も入れられる
-    await page.click('#calPreview [data-editkey="2030-10-03"]');
+    await page.$eval('#calPreview [data-editkey="2030-10-03"]', (b) => b.click());
     await page.waitForSelector('#calPreview select.day-pick', { timeout: 3000 });
     確かめる('プルダウンに「名前を書く」がある', await page.$eval('#calPreview select.day-pick', (s) => Array.from(s.options).some((o) => o.value === '__自由')));
     await page.select('#calPreview select.day-pick', '__自由');

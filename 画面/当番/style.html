@@ -407,6 +407,9 @@ table.cal-grid td.off { background: var(--paper); }
 .calday.m2 { background: var(--care-soft); } .calday.m2 .m { color: var(--maru2); }
 .calday.m1 { background: var(--accent-soft); } .calday.m1 .m { color: var(--maru1); }
 .calday.m0 { background: var(--paper-sunken); } .calday.m0 .m { color: var(--batsu); }
+/* チーフ画面：いま開いている期間 */
+button.linklike[aria-current="true"] { font-weight: 700; text-decoration: none; }
+button.linklike[aria-current="true"]::before { content: "▶ "; font-size: 0.8em; }
 /* 手入れ表の編集（2026-09-15）：押せる日のマスと、押すと出るプルダウン */
 .calday.editable { cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out); }
 .calday.editable:hover { background: var(--care-soft); box-shadow: inset 0 0 0 2px var(--care); }

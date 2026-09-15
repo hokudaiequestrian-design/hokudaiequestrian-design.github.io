@@ -466,8 +466,8 @@ function 模擬で答える(req) {
   確かめる('消せなかったら戻ってくる', (await 期間の数()) === 1, String(await 期間の数()));
   確かめる('理由がその場に出る', /その期間はもうありません/.test(await page.$eval('#termMsg', (el) => el.textContent)));
 
-  // ---------- 8.6 手入れ（チーフ）：サブをまとめて直す ----------
-  console.log(String.fromCharCode(10) + '== 手入れチーフ：サブをまとめて直す ==');
+  // ---------- 8.6 部員・馬匹管理を開く準備（チーフの模擬データ） ----------
+  console.log(String.fromCharCode(10) + '== 部員・馬匹管理：サブをまとめて直すは無い ==');
   模擬.chiefのBASE = {
     horses: [
       { id: 'h1', name: '北叡', active: true, chief: '美浦' },
@@ -491,66 +491,9 @@ function 模擬で答える(req) {
     await page.waitForFunction(() => document.getElementById('app').style.display === 'block', { timeout: 15000 });
     if (tab) await page.click('.tabs [data-tab="' + tab + '"]');
   };
-  const 付いている = () => page.$$eval('#sbGridBox table.subs-grid input:checked',
-    (els) => els.map((e) => e.dataset.plan + '|' + e.dataset.member).sort());
-  const 保存の知らせ = () => page.$eval('#sbSaveMsg', (el) => el.textContent);
-
-  await 部員管理を開く('subs');
-  await page.waitForSelector('#sbGridBox table.subs-grid', { timeout: 15000 });
-  const 列の馬 = await page.$$eval('#sbGridBox table.subs-grid thead th:not(.rowhead)', (els) => els.map((e) => e.firstChild.textContent));
-  確かめる('いちばん後ろの期間（後期）がある馬だけ並ぶ', JSON.stringify(列の馬) === JSON.stringify(['北叡', '北冴']), JSON.stringify(列の馬));
-  確かめる('その期間が無い馬を知らせる', /北翔/.test(await page.$eval('#sbTermNote', (el) => el.textContent)));
-  確かめる('保存ずみのサブにチェックが付く', JSON.stringify(await 付いている()) === JSON.stringify(['p1|m_001', 'p1|m_002']), JSON.stringify(await 付いている()));
-  確かめる('チーフの印が出る', !!(await page.$('[data-cell="p1|m_001"] .tag')));
-  確かめる('サブが0人の馬を知らせる', /0人/.test(await page.$eval('[data-colinfo="p2"]', (el) => el.textContent)));
-
-  模擬.呼ばれた = [];
-  await page.click('#sbSaveBtn');
-  確かめる('変えていなければ送らずに知らせる',
-    !模擬.呼ばれた.some((x) => /chiefSaveSubsBulk/.test(x)) && /変えたところがありません/.test(await 保存の知らせ()));
-
-  // 北叡から相棒を外し、北冴に美浦を入れる（外すので確かめの窓が出る → 8.5 で付けた dialog が受ける）
-  await page.click('input[data-plan="p1"][data-member="m_002"]');
-  await page.click('input[data-plan="p2"][data-member="m_001"]');
-  確かめる('直したマスに印が付く', (await page.$$('#sbGridBox td.changed')).length === 2);
-  確かめる('保存していない馬を知らせる', /北叡、北冴/.test(await page.$eval('#sbDirtyText', (el) => el.textContent)));
-  await page.click('#sbSaveBtn');
-  await page.waitForFunction(() => /保存しました/.test(document.getElementById('sbSaveMsg').textContent), { timeout: 15000 });
-  確かめる('変えた2頭ぶんを1回で送る',
-    JSON.stringify(模擬.まとめて保存) === JSON.stringify({ p1: ['m_001'], p2: ['m_001'] }), JSON.stringify(模擬.まとめて保存));
-  確かめる('送信は1回', 模擬.呼ばれた.filter((x) => x === '当番 chiefSaveSubsBulk').length === 1, JSON.stringify(模擬.呼ばれた));
-  確かめる('保存したら直した印が消える', (await page.$$('#sbGridBox td.changed')).length === 0);
-  確かめる('保存したぶんがチェックに残る', JSON.stringify(await 付いている()) === JSON.stringify(['p1|m_001', 'p2|m_001']), JSON.stringify(await 付いている()));
-
-  await page.select('#sbTermSelect', '前期');
-  確かめる('期間を切り替えると、その期間の馬とサブになる', JSON.stringify(await 付いている()) === JSON.stringify(['p3|m_002']), JSON.stringify(await 付いている()));
-
-  // ---------- 8.65 チーフ：最新のサブ整理に合わせる（サブをまとめて直す） ----------
-  console.log(String.fromCharCode(10) + '== チーフ：最新のサブ整理に合わせる（まとめて直す） ==');
-  // 8.6 の続き。保存ずみは p1（北叡・後期）: 美浦、p2（北冴・後期）: 美浦
-  模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, {
-    最新のサブ整理: { id: 'sp2', name: '後期', from: '2030-10-01', subs: { h1: ['m_001'], h2: ['m_002'] } },
-  });
-  await 部員管理を開く('subs');   // いちばん後ろの期間（後期）が開く
-  await page.waitForSelector('#sbGridBox table.subs-grid', { timeout: 15000 });
-  const 最新ボタン = () => page.$eval('#sbLatestBtn', (el) => el.textContent);
-  確かめる('ボタンに最新のサブ整理の日付が出る', /^最新（10月1日）のサブ整理に合わせる$/.test(await 最新ボタン()), await 最新ボタン());
-  模擬.呼ばれた = [];
-  await page.click('#sbLatestBtn');
-  確かめる('押すと表の上だけ合わせ、まだ送らない',
-    JSON.stringify(await 付いている()) === JSON.stringify(['p1|m_001', 'p2|m_002']) && !模擬.呼ばれた.some((x) => /chiefSaveSubsBulk/.test(x)),
-    JSON.stringify(await 付いている()));
-  確かめる('変わったマスに印が付く（北冴の2マス）', (await page.$$('#sbGridBox td.changed')).length === 2);
-  確かめる('まだ保存していないと知らせる', /まだ保存していません/.test(await 保存の知らせ()), await 保存の知らせ());
-  await page.click('#sbSaveBtn');   // 北冴から美浦が外れるので確かめの窓が出る（8.5 で付けた dialog が受ける）
-  await page.waitForFunction(() => /保存しました/.test(document.getElementById('sbSaveMsg').textContent), { timeout: 15000 });
-  確かめる('保存すると、変わった馬だけを送る', JSON.stringify(模擬.まとめて保存) === JSON.stringify({ p2: ['m_002'] }), JSON.stringify(模擬.まとめて保存));
-
-  模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, { 最新のサブ整理: null });
-  await 部員管理を開く('subs');
-  await page.waitForSelector('#sbGridBox table.subs-grid', { timeout: 15000 });
-  await page.click('#sbLatestBtn');
-  確かめる('サブ整理が無いときは、押すと理由を出す（表は変えない）', /サブ整理がまだありません/.test(await 保存の知らせ()), await 保存の知らせ());
+  // 2026-09-15「サブをまとめて直す」タブはユーザーの指示で消した
+  await 部員管理を開く();
+  確かめる('部員・馬匹管理に「サブをまとめて直す」タブは無い', !(await page.$('.tabs [data-tab="subs"]')) && !(await page.$('#sbGridBox')));
 
   // ---------- 8.66 チーフ：期間を作る・開始日を入れ直す ----------
   console.log(String.fromCharCode(10) + '== チーフ：期間を作る・開始日を入れ直す ==');
@@ -560,7 +503,7 @@ function 模擬で答える(req) {
   await page.goto(元 + '/teire-chief.html');
   await page.waitForSelector('#horseSelect option[value="h1"]', { timeout: 15000 });
   await page.select('#horseSelect', 'h1');
-  await page.$eval('#termCard details.fold', (el) => { el.open = true; });
+  await page.$eval('#newPlanFold', (el) => { el.open = true; });
   確かめる('期間を作る欄に「最新（10月1日）のサブ整理に合わせる」が出て、最初は外れている',
     /最新（10月1日）のサブ整理に合わせる/.test(await page.$eval('#useLatestText', (el) => el.textContent)) &&
     !(await page.$eval('#useLatest', (el) => el.checked)));
@@ -597,6 +540,8 @@ function 模擬で答える(req) {
   確かめる('開始日の無い曜日の期間は「開始日がまだ入っていません」と出る',
     /開始日がまだ入っていません/.test(await page.$eval('#planPeriod', (el) => el.textContent)));
   確かめる('この期間の決まりに開始日の欄が出る', (await page.$eval('#editFromWrap', (el) => el.style.display)) === 'block');
+  確かめる('決まりは「2. 期間を選ぶ」の「期間の編集」にしまってある', await page.$eval('#termCard', (c) => !!c.querySelector('#planEditFold:not([hidden]) #editFrom')));
+  await page.$eval('#planEditFold', (el) => { el.open = true; });
   await page.$eval('#editFrom', (el) => { el.value = '2030-04-01'; });
   await page.click('#savePlanBtn');
   await page.waitForFunction(() => /保存しました/.test(document.getElementById('planMsg').textContent), { timeout: 15000 });

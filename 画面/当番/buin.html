@@ -10,7 +10,8 @@
     ・人員表の「部員管理」（部員・部の馬）
     ・当番の副将画面の「部員」タブ（入部年・当番に入れない・削除・まとめて足す・人員表とそろえる・パスワード）
     ・当番の副将画面の「馬とチーフ」と「サブ整理」タブ
-    ・チーフ用だった「手入れのサブをまとめて直す」（teire-subs.html）
+    ・チーフ用だった「手入れのサブをまとめて直す」（teire-subs.html）… いったんタブにしたが、2026-09-15 ユーザーの指示で消した
+      （サブは 手入れをまとめる の「期間の編集」で1頭ずつ直す）
   前の場所からは外した。開けるのは副将だけ（副将パスワード）。
 
   名簿は1つ。ここで足す・直す・消すと、人員表と当番・手入れの両方に入る（サーバの roster〜。名前で結び付ける）。
@@ -50,7 +51,6 @@
       <button type="button" data-tab="members" class="active">部員</button>
       <button type="button" data-tab="horses">馬とチーフ</button>
       <button type="button" data-tab="subterms">サブ整理</button>
-      <button type="button" data-tab="subs">サブをまとめて直す</button>
     </div>
 
     <!-- ===== 部員 ===== -->
@@ -141,7 +141,7 @@
         <h2>サブ整理</h2>
         <p class="hint">
           サブ整理は、<b>開始日ごと</b>に決める馬ごとの<b>基本のサブ</b>です。チーフが決める手入れの期間とは別のものです。<br>
-          チーフが期間を作るときの「最新（○月○日）のサブ整理に合わせる」と、「サブをまとめて直す」タブの同じボタンを押すと、
+          チーフが期間を作るときに「最新（○月○日）のサブ整理に合わせる」にチェックを入れると、
           <b>いちばん新しいサブ整理</b>のサブがその馬に入ります。押さなければ、今までどおり前の期間から引き継ぎます。<br>
           ここを直しても、作ってある期間のサブは変わりません。
         </p>
@@ -188,39 +188,6 @@
           </div>
           <div id="stSaveMsg" role="status" aria-live="polite"></div>
         </div>
-      </div>
-    </section>
-
-    <!-- ===== サブをまとめて直す（前はチーフ用の teire-subs.html。2026-09-15 にここへ移した） ===== -->
-    <section data-pane="subs" style="display:none;">
-      <div class="card">
-        <h2>1. 期間を選ぶ</h2>
-        <p class="hint">
-          サブは手入れの期間ごとに決まっています。選んだ期間がある馬を横に並べます。<br>
-          期間を作る・1頭ずつ手入れ表を作るのは <a href="teire-chief.html">手入れをまとめる</a> の画面です。
-        </p>
-        <label for="sbTermSelect">期間</label>
-        <select id="sbTermSelect"></select>
-        <div id="sbTermNote"></div>
-      </div>
-
-      <div class="card" id="sbGridCard" style="display:none;">
-        <h2>2. サブにする人にチェック</h2>
-        <p class="hint">
-          縦が部員、横が馬です。<b>チーフ本人もサブに入れてください</b>。<br>
-          サブから外した人の、その馬の◎○×と手入れ表に入っているぶんは、保存したときに消えます。<br>
-          「最新（○月○日）のサブ整理に合わせる」を押すと、いちばん新しいサブ整理のサブに表を合わせます（保存するまで入れ替わりません）。
-        </p>
-        <div class="row tight" style="margin-bottom:8px;">
-          <button type="button" id="sbLatestBtn" class="secondary">最新のサブ整理に合わせる</button>
-        </div>
-        <div class="grid-wrap subs-wrap" id="sbGridBox"></div>
-        <div id="sbDirtyText" role="status" aria-live="polite"></div>
-        <div class="row tight" style="margin-top:16px;">
-          <button type="button" id="sbSaveBtn">サブをまとめて保存</button>
-          <button type="button" id="sbDiscardBtn" class="secondary">直したのを取り消す</button>
-        </div>
-        <div id="sbSaveMsg" role="status" aria-live="polite"></div>
       </div>
     </section>
 
@@ -310,7 +277,6 @@ function 失敗を出す(場所, e) {
 
 // ===================== タブ =====================
 let サブ整理を読んだ = false;
-let まとめを読んだ = false;
 
 document.querySelector('.tabs').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-tab]');
@@ -321,10 +287,6 @@ document.querySelector('.tabs').addEventListener('click', async (e) => {
     サブ整理を読んだ = true;
     try { await サブ整理を読む(); } catch (err) { サブ整理を読んだ = false; 失敗を出す('stMsg', err); }
   }
-  if (b.dataset.tab === 'subs' && !まとめを読んだ) {
-    まとめを読んだ = true;
-    try { await まとめを読む(); } catch (err) { まとめを読んだ = false; 失敗を出す('sbSaveMsg', err); }
-  }
 });
 
 // 名簿が変わったら、サブの表も読み直す（部員や馬が増えた・消えた）
@@ -332,7 +294,6 @@ function 名簿が変わった(新しい名簿) {
   R = 新しい名簿;
   名簿を描く();
   if (サブ整理を読んだ && !st変わった馬().length) サブ整理を読む().catch(() => {});
-  if (まとめを読んだ && !sb変わった計画().length) まとめを読む().catch(() => {});
 }
 
 // ===================== そろっていない名簿 =====================
@@ -829,185 +790,6 @@ $('stDiscardBtn').addEventListener('click', () => {
   st開く(st開いている, true);
 });
 
-// ===================== サブをまとめて直す（前の teire-subs.html を 2026-09-15 にここへ移した） =====================
-let SB = null;        // chiefLoadAll の返り（subs 付き。副将のトークンでも読める）
-let sb期間 = '';
-let sb今 = {};         // 計画ID → { 部員ID: true }
-
-const sb名 = (id) => { const m = SB.members.filter((x) => x.id === id)[0]; return m ? m.name : '（消えた人）'; };
-const sb保存ずみ = (planId) => (SB.subs || {})[planId] || [];
-const sb列 = () => SB.horses.filter((h) => h.active)
-  .map((h) => ({ horse: h, plan: SB.plans.filter((p) => p.horseId === h.id && p.term === sb期間)[0] }))
-  .filter((c) => c.plan);
-const 月日 = (key) => { const p = String(key || '').split('-'); return p.length === 3 ? Number(p[1]) + '月' + Number(p[2]) + '日' : String(key || ''); };
-
-async function まとめを読む() {
-  SB = await call('chiefLoadAll', TOKEN);
-  const t = SB.最新のサブ整理;
-  $('sbLatestBtn').textContent = t ? '最新（' + 月日(t.from) + '）のサブ整理に合わせる' : '最新のサブ整理に合わせる';
-  const 名前たち = SB.期間名 || [];
-  if (!名前たち.length) {
-    $('sbTermSelect').innerHTML = '<option value="">（期間がまだありません）</option>';
-    $('sbGridCard').style.display = 'none';
-    return void msgIn('sbTermNote', 'warning', 'まだ手入れの期間が1つもありません。先に「手入れをまとめる」の画面で期間を作ってください。');
-  }
-  const 前 = sb期間;
-  $('sbTermSelect').innerHTML = 名前たち.map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
-  $('sbTermSelect').value = 名前たち.indexOf(前) >= 0 ? 前 : 名前たち[名前たち.length - 1];
-  sb期間を開く();
-}
-
-function sb期間を開く() {
-  sb期間 = $('sbTermSelect').value;
-  sb今 = {};
-  sb列().forEach((c) => {
-    sb今[c.plan.id] = {};
-    sb保存ずみ(c.plan.id).forEach((id) => { sb今[c.plan.id][id] = true; });
-  });
-  const 無い馬 = SB.horses.filter((h) => h.active && !SB.plans.some((p) => p.horseId === h.id && p.term === sb期間));
-  $('sbTermNote').innerHTML = 無い馬.length
-    ? '<p class="hint">「' + esc(sb期間) + '」が無い馬：<b>' + esc(無い馬.map((h) => h.name).join('、')) + '</b>。この表には出ません。入れるときは先に「手入れをまとめる」で期間を作ってください。</p>'
-    : '';
-  msgIn('sbSaveMsg', '', '');
-  sb描く();
-}
-
-$('sbTermSelect').addEventListener('change', () => {
-  if (sb変わった計画().length && !confirm('保存していない直しがあります。ほかの期間を開くと消えます。よろしいですか？')) {
-    $('sbTermSelect').value = sb期間;
-    return;
-  }
-  sb期間を開く();
-});
-
-function sb描く() {
-  const cols = sb列();
-  if (!cols.length) {
-    $('sbGridCard').style.display = 'none';
-    if (sb期間) msgIn('sbTermNote', 'warning', '「' + sb期間 + '」がある馬がいません（使っていない馬だけのようです）。');
-    return;
-  }
-  $('sbGridCard').style.display = 'block';
-  const 前の位置 = { x: $('sbGridBox').scrollLeft, y: $('sbGridBox').scrollTop };
-  const 頭 = '<thead><tr><th class="rowhead" scope="col">部員<span class="sub">担当する馬の数</span></th>' +
-    cols.map((c) => '<th scope="col">' + esc(c.horse.name) + '<span class="sub" data-colinfo="' + esc(c.plan.id) + '"></span></th>').join('') +
-    '</tr></thead>';
-  const 体 = SB.members.map((m) => '<tr>' +
-    '<th class="rowhead" scope="row">' + esc(m.name) + (m.grade ? ' <span class="muted">' + m.grade + '年</span>' : '') +
-    '<span class="sub" data-rowinfo="' + esc(m.id) + '"></span></th>' +
-    cols.map((c) => {
-      const on = !!sb今[c.plan.id][m.id];
-      const チーフ = !!c.horse.chief && c.horse.chief === m.name;
-      return '<td data-cell="' + esc(c.plan.id + '|' + m.id) + '"><label>' +
-        '<input type="checkbox" data-plan="' + esc(c.plan.id) + '" data-member="' + esc(m.id) + '"' + (on ? ' checked' : '') +
-        ' aria-label="' + esc(m.name + ' を ' + c.horse.name + ' のサブにする' + (チーフ ? '（チーフ）' : '')) + '">' +
-        (チーフ ? '<span class="tag" aria-hidden="true">チーフ</span>' : '') +
-        '</label></td>';
-    }).join('') + '</tr>').join('');
-  $('sbGridBox').innerHTML = '<table class="subs-grid">' + 頭 + '<tbody>' + 体 + '</tbody></table>';
-  $('sbGridBox').scrollLeft = 前の位置.x;
-  $('sbGridBox').scrollTop = 前の位置.y;
-  sb数を出し直す();
-}
-
-function sb数を出し直す() {
-  const cols = sb列();
-  const 列で引く = {};
-  cols.forEach((c) => { 列で引く[c.plan.id] = c; });
-  document.querySelectorAll('[data-colinfo]').forEach((el) => {
-    const c = 列で引く[el.dataset.colinfo];
-    const ids = Object.keys(sb今[c.plan.id]);
-    const 文 = [ids.length + '人'];
-    let だめ = ids.length === 0;
-    if (!c.horse.chief) 文.push('チーフ未定');
-    else {
-      const チーフ = SB.members.filter((m) => m.name === c.horse.chief)[0];
-      if (!チーフ) { 文.push('チーフ「' + c.horse.chief + '」が名簿にない'); だめ = true; }
-      else if (!sb今[c.plan.id][チーフ.id]) { 文.push('チーフが入っていない'); だめ = true; }
-    }
-    el.textContent = 文.join('・');
-    el.className = 'sub' + (だめ ? ' ng' : '');
-  });
-  document.querySelectorAll('[data-rowinfo]').forEach((el) => {
-    el.textContent = cols.filter((c) => sb今[c.plan.id][el.dataset.rowinfo]).length + '頭';
-  });
-  document.querySelectorAll('[data-cell]').forEach((td) => {
-    const p = td.dataset.cell.split('|');
-    const on = !!sb今[p[0]][p[1]];
-    const 前 = sb保存ずみ(p[0]).indexOf(p[1]) >= 0;
-    td.className = (on ? 'on' : '') + (on !== 前 ? ' changed' : '');
-  });
-  const 変わった = sb変わった計画();
-  msgIn('sbDirtyText', 変わった.length ? 'warning' : '', 変わった.length
-    ? 'まだ保存していない馬：' + 変わった.map((c) => c.horse.name).join('、') + '（' + 変わった.length + '頭）' : '');
-}
-
-function sb変わった計画() {
-  if (!SB) return [];
-  return sb列().filter((c) => {
-    const 前 = sb保存ずみ(c.plan.id);
-    const 後 = Object.keys(sb今[c.plan.id] || {});
-    return 前.length !== 後.length || 前.some((id) => !sb今[c.plan.id][id]);
-  });
-}
-
-$('sbGridBox').addEventListener('change', (e) => {
-  const c = e.target.closest('input[data-plan]');
-  if (!c) return;
-  if (c.checked) sb今[c.dataset.plan][c.dataset.member] = true;
-  else delete sb今[c.dataset.plan][c.dataset.member];
-  msgIn('sbSaveMsg', '', '');
-  sb数を出し直す();
-});
-
-$('sbLatestBtn').addEventListener('click', () => {
-  const t = SB.最新のサブ整理;
-  if (!t) return void msgIn('sbSaveMsg', 'warning', 'サブ整理がまだありません。「サブ整理」タブで作ってください。');
-  const 合わせた = [];
-  const 無い = [];
-  sb列().forEach((c) => {
-    const 部員 = (t.subs || {})[c.horse.id] || [];
-    if (!部員.length) { 無い.push(c.horse.name); return; }
-    sb今[c.plan.id] = {};
-    部員.forEach((id) => { sb今[c.plan.id][id] = true; });
-    合わせた.push(c.horse.name);
-  });
-  sb描く();
-  const 何 = '最新（' + 月日(t.from) + '）のサブ整理' + (t.name ? '「' + t.name + '」' : '');
-  msgIn('sbSaveMsg', 'warning', 合わせた.length
-    ? 何 + 'に合わせました（' + 合わせた.join('、') + '）。まだ保存していません。変わったマスを確かめて「サブをまとめて保存」を押してください。' +
-      (無い.length ? '　サブ整理にサブが無い馬はそのままです：' + 無い.join('、') + '。' : '')
-    : 何 + 'に、この期間の馬のサブがありません。表は変えていません。');
-});
-
-$('sbSaveBtn').addEventListener('click', async () => {
-  const 変わった = sb変わった計画();
-  if (!変わった.length) return void msgIn('sbSaveMsg', 'warning', '変えたところがありません。チェックを付けたり外したりしてから押してください。');
-  const 外れる = 変わった.map((c) => {
-    const 人 = sb保存ずみ(c.plan.id).filter((id) => !sb今[c.plan.id][id]);
-    return 人.length ? c.horse.name + '：' + 人.map(sb名).join('、') : '';
-  }).filter((x) => x);
-  if (外れる.length && !confirm('次の人をサブから外します。\n' + 外れる.join('\n') +
-    '\n\nこの人たちの、その馬の◎○×と手入れ表に入っているぶんも消えます。よろしいですか？')) return;
-  const 送る = {};
-  変わった.forEach((c) => { 送る[c.plan.id] = Object.keys(sb今[c.plan.id]); });
-  const 光らせるマス = Array.prototype.map.call(document.querySelectorAll('#sbGridBox td.changed'), (td) => td.dataset.cell);
-  try {
-    const r = await call('chiefSaveSubsBulk', TOKEN, 送る);
-    SB.subs = r.subs || {};
-    sb期間を開く();
-    部品.光らせる(光らせるマス.map((k) => document.querySelector('#sbGridBox [data-cell="' + CSS.escape(k) + '"]')));
-    msgIn('sbSaveMsg', 'success', 変わった.length + '頭ぶんのサブを保存しました（' + 変わった.map((c) => c.horse.name).join('、') + '）。' +
-      (r.外れた ? '外した' + r.外れた + '人ぶんの◎○×と手入れ表も消しました。' : ''));
-  } catch (e) { 失敗を出す('sbSaveMsg', e); }
-});
-
-$('sbDiscardBtn').addEventListener('click', () => {
-  if (!sb変わった計画().length) return void msgIn('sbSaveMsg', 'warning', '取り消す直しはありません。');
-  if (!confirm('直したのを取り消して、保存されているサブに戻します。よろしいですか？')) return;
-  sb期間を開く();
-});
-
 // ===================== パスワード =====================
 $('changeAdminPwBtn').addEventListener('click', async () => {
   const pw = $('newAdminPw').value.trim();
@@ -1033,7 +815,7 @@ $('changeChiefPwBtn').addEventListener('click', async () => {
 });
 
 window.addEventListener('beforeunload', (e) => {
-  if (!st変わった馬().length && !sb変わった計画().length) return;
+  if (!st変わった馬().length) return;
   e.preventDefault();
   e.returnValue = '';
 });

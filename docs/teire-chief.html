@@ -412,6 +412,9 @@ table.cal-grid td.off { background: var(--paper); }
 .calday.m2 { background: var(--care-soft); } .calday.m2 .m { color: var(--maru2); }
 .calday.m1 { background: var(--accent-soft); } .calday.m1 .m { color: var(--maru1); }
 .calday.m0 { background: var(--paper-sunken); } .calday.m0 .m { color: var(--batsu); }
+/* チーフ画面：いま開いている期間 */
+button.linklike[aria-current="true"] { font-weight: 700; text-decoration: none; }
+button.linklike[aria-current="true"]::before { content: "▶ "; font-size: 0.8em; }
 /* 手入れ表の編集（2026-09-15）：押せる日のマスと、押すと出るプルダウン */
 .calday.editable { cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out); }
 .calday.editable:hover { background: var(--care-soft); box-shadow: inset 0 0 0 2px var(--care); }
@@ -941,7 +944,46 @@ a.donehome:hover { background: var(--accent-dark); }
       <!-- 「開く」が失敗したときの知らせ。畳んだ中に出すと気づけないので、ここに出す。 -->
       <div id="planOpenMsg" role="status" aria-live="polite"></div>
 
-      <details class="fold">
+      <!--
+        期間の編集（2026-09-15 ユーザーの指示）。前は期間を開くと下に「この期間の決まり」と「3. サブ」のカードが並んでいたが、
+        どちらも期間そのものの設定なので、ここ「2. 期間を選ぶ」の中に畳んでしまう。期間を開いているときだけ出る。
+      -->
+      <details class="fold" id="planEditFold" hidden>
+        <summary>期間の編集（<span id="planEditName"></span>）：決まり・サブ</summary>
+        <div class="fold-body">
+          <h3 style="margin-top:0;">この期間の決まり</h3>
+          <div class="row">
+            <!-- 曜日の期間だけ開始日を直せる。前に作った曜日の期間は開始日が空なので、ここで入れ直す -->
+            <div id="editFromWrap"><label for="editFrom">開始日</label><input type="date" id="editFrom"></div>
+            <div><label for="editMin">1日の下限（人）</label><input type="number" id="editMin" min="0"></div>
+            <div><label for="editMax">1日の上限（空欄なら上限なし）</label><input type="number" id="editMax" min="0"></div>
+            <div>
+              <label for="editRatio">チーフの割合</label>
+              <input type="number" id="editRatio" min="1" max="10" step="0.5" placeholder="既定">
+            </div>
+          </div>
+          <p class="hint" id="ratioExplain"></p>
+          <div style="margin-top:16px;"><button id="savePlanBtn" class="secondary">この期間の決まりを保存</button></div>
+          <div id="planMsg" role="status" aria-live="polite"></div>
+
+          <h3 style="margin-top:28px;">サブ</h3>
+          <div id="subSummary"></div>
+          <!-- 全部の馬のサブを1つの表で直すページは、2026-09-15 に副将の「部員・馬匹管理」へ移した -->
+          <p class="hint">この馬を手入れする人にチェックを入れてください。<b>チーフ本人もサブに入れます。</b>ここで選んだ人にだけ、部員の画面に投票欄が出ます。</p>
+          <details class="menu">
+            <summary class="menu-text">まとめて選ぶ</summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" id="subAllBtn">全員をサブに入れる</button>
+              <button type="button" class="menu-item" role="menuitem" id="subNoneBtn">全員をはずす</button>
+            </div>
+          </details>
+          <div class="checksheet" id="subSheet"></div>
+          <div style="margin-top:16px;"><button id="saveSubsBtn">サブを保存</button></div>
+          <div id="subMsg" role="status" aria-live="polite"></div>
+        </div>
+      </details>
+
+      <details class="fold" id="newPlanFold">
         <summary>期間を新しく作る</summary>
         <div class="fold-body">
           <!-- 2026-09-15 ユーザーの指示：上で馬を選んだあと、ここでもう一度馬を選ばせない。上で選んだ馬の期間を作る -->
@@ -992,53 +1034,11 @@ a.donehome:hover { background: var(--accent-dark); }
 
     <!-- 3〜5 -->
     <div id="planPane" style="display:none;">
-      <!-- この期間の決まり -->
+      <!-- 3. 投票状況（開いている期間の名前もここに出す） -->
       <div class="card">
         <h2 id="planTitle"></h2>
         <p class="hint" id="planPeriod"></p>
-
-        <h3 style="margin-top:20px;">この期間の決まり</h3>
-        <div class="row">
-          <!-- 曜日の期間だけ開始日を直せる。前に作った曜日の期間は開始日が空なので、ここで入れ直す -->
-          <div id="editFromWrap"><label for="editFrom">開始日</label><input type="date" id="editFrom"></div>
-          <div><label for="editMin">1日の下限（人）</label><input type="number" id="editMin" min="0"></div>
-          <div><label for="editMax">1日の上限（空欄なら上限なし）</label><input type="number" id="editMax" min="0"></div>
-          <div>
-            <label for="editRatio">チーフの割合</label>
-            <input type="number" id="editRatio" min="1" max="10" step="0.5" placeholder="既定">
-          </div>
-        </div>
-        <p class="hint" id="ratioExplain"></p>
-        <div style="margin-top:16px;"><button id="savePlanBtn" class="secondary">この期間の決まりを保存</button></div>
-        <div id="planMsg" role="status" aria-live="polite"></div>
-      </div>
-
-      <!-- 3. サブ -->
-      <div class="card">
-        <h2>3. サブ</h2>
-        <div id="subSummary"></div>
-        <!-- 全部の馬のサブを1つの表で直すページは、2026-09-15 に副将の「部員・馬匹管理」へ移した -->
-        <details class="fold" id="subFold">
-          <summary>サブを変更する</summary>
-          <div class="fold-body">
-            <p class="hint">この馬を手入れする人にチェックを入れてください。<b>チーフ本人もサブに入れます。</b>ここで選んだ人にだけ、部員の画面に投票欄が出ます。</p>
-            <details class="menu">
-              <summary class="menu-text">まとめて選ぶ</summary>
-              <div class="menu-list" role="menu">
-                <button type="button" class="menu-item" role="menuitem" id="subAllBtn">全員をサブに入れる</button>
-                <button type="button" class="menu-item" role="menuitem" id="subNoneBtn">全員をはずす</button>
-              </div>
-            </details>
-            <div class="checksheet" id="subSheet"></div>
-            <div style="margin-top:16px;"><button id="saveSubsBtn">サブを保存</button></div>
-          </div>
-        </details>
-        <div id="subMsg" role="status" aria-live="polite"></div>
-      </div>
-
-      <!-- 4. 投票状況 -->
-      <div class="card">
-        <h2>4. 投票状況</h2>
+        <h3 style="margin-top:16px;">3. 投票状況</h3>
         <div id="voteStats" class="statline"></div>
         <details class="fold">
           <summary>ひとりずつ見る・代理で入れる</summary>
@@ -1061,7 +1061,7 @@ a.donehome:hover { background: var(--accent-dark); }
 
       <!-- 5. 手入れ表 -->
       <div class="card">
-        <h2>5. 手入れ表</h2>
+        <h2>4. 手入れ表</h2>
         <p class="hint">
           「作成する」を押すと、×の日を避けて◎の人から順に入れます。<br>
           <b id="ratioHint"></b><br>
@@ -1253,7 +1253,7 @@ function 最新の表示() {
 }
 
 function renderSteps(now) {
-  const 名前 = ['馬', '期間', 'サブ', '投票', '手入れ表'];
+  const 名前 = ['馬', '期間・サブ', '投票', '手入れ表'];   // サブは期間の編集の中へ（2026-09-15）
   $('steps').innerHTML = 名前.map((n, i) =>
     '<span class="s' + (i + 1 === now ? ' on' : (i + 1 < now ? ' done' : '')) + '">' + (i + 1) + '. ' + n + '</span>').join('');
 }
@@ -1264,6 +1264,7 @@ $('horseSelect').addEventListener('change', () => {
   const id = $('horseSelect').value;
   P = null;
   $('planPane').style.display = 'none';
+  $('planEditFold').hidden = true;
   if (!id) { $('termCard').style.display = 'none'; $('chiefBox').style.display = 'none'; renderSteps(1); return; }
   const h = BASE.horses.filter((x) => x.id === id)[0];
   $('newHorseName').textContent = h.name;
@@ -1294,7 +1295,7 @@ function renderPlanList() {
   // 期間の名前そのものを押して開く。削除は乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
   $('planList').innerHTML = list.map((p) =>
     '<div class="list-item is-row">' +
-    '<span><button type="button" class="linklike" data-open="' + esc(p.id) + '">' + esc(p.term) + '</button> <span class="muted">' +
+    '<span><button type="button" class="linklike" data-open="' + esc(p.id) + '"' +(P && P.plan && P.plan.id === p.id ? ' aria-current="true"' : '') + '>' + esc(p.term) + '</button> <span class="muted">' +
     (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと' + (p.from ? '（' + esc(p.from) + ' から）' : '')) +
     '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人</span></span>' +
     '<span class="row-actions">' +
@@ -1367,6 +1368,7 @@ $('planList').addEventListener('click', async (e) => {
     if (P && P.plan && P.plan.id === p.id) {
       P = null;
       $('planPane').style.display = 'none';
+      $('planEditFold').hidden = true;
     }
     renderPlanList();
     msgIn('termMsg', 'success', '削除しています…');
@@ -1405,14 +1407,18 @@ async function openPlan(planId) {
     SUBS = (P.subs || []).slice();
     TABLE = (P.cells || []).slice();
     DIRTY = false;
+    renderPlanList();   // 開いた期間に印を付ける
     $('planPane').style.display = 'block';
     msgIn('genMsg', P.keyError ? 'error' : '', P.keyError || '');
     renderPlanSettings();
     renderSubs();
     renderVotes();
     renderTable();
-    renderSteps(SUBS.length ? ((P.votes || []).length ? 5 : 4) : 3);
-    $('planPane').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderSteps(SUBS.length ? ((P.votes || []).length ? 4 : 3) : 2);
+    // 期間の編集は、サブがまだいない（まず決めることがある）ときだけ開いておく
+    $('planEditFold').hidden = false;
+    $('planEditFold').open = !SUBS.length;
+    (SUBS.length ? $('planPane') : $('planEditFold')).scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (e) {
     // 画面を組み立てる途中で転んでも、何が起きたか分かるようにする
     $('planPane').style.display = 'block';
@@ -1425,9 +1431,10 @@ async function openPlan(planId) {
 
 function renderPlanSettings() {
   $('planTitle').textContent = (P.horse ? P.horse.name : '?') + '　' + P.plan.term;
+  $('planEditName').textContent = P.plan.term;
   $('planPeriod').textContent = P.plan.mode === 'カレンダー'
     ? P.plan.from + ' 〜 ' + P.plan.to + '（' + P.keys.length + '日）'
-    : '曜日ごと（毎週おなじ担当）' + (P.plan.from ? '・' + P.plan.from + ' から' : '・開始日がまだ入っていません（下の「この期間の決まり」で入れられます）');
+    : '曜日ごと（毎週おなじ担当）' + (P.plan.from ? '・' + P.plan.from + ' から' : '・開始日がまだ入っていません（上の「期間の編集」で入れられます）');
 
   // カレンダーは日付を変えると集めた◎○×が合わなくなるので、ここでは曜日の期間だけ開始日を直せる
   $('editFromWrap').style.display = P.plan.mode === 'カレンダー' ? 'none' : 'block';
@@ -1528,7 +1535,7 @@ $('saveSubsBtn').addEventListener('click', async () => {
     部品.光らせる([$('subSummary')]);
     msgIn('subMsg', 'success', 'サブを保存しました（' + r.count + '人）。部員の画面に投票欄が出ます。' +
       (r.外れた ? '外した' + r.外れた + '人ぶんの◎○×も消しました。' : ''));
-    renderSteps(4);
+    renderSteps(3);
   } catch (e) { msgIn('subMsg', 'error', (e && e.message) || e); }
 });
 
@@ -1935,7 +1942,7 @@ async function 作る(保存する) {
     P.warnings = r.warnings;
     DIRTY = !保存する;
     renderTable();
-    renderSteps(5);
+    renderSteps(4);
     msgIn('genMsg', 保存する ? 'success' : 'warning',
       保存する ? '作って保存しました。' : '作りました。まだ保存していません（下の「保存する」で確定します）。');
   } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
