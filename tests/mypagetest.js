@@ -171,6 +171,9 @@ const sandbox = {
   ScriptApp: { getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/TEST/exec' }) },
   HtmlService: {},
   ContentService: { createTextOutput: (s) => ({ setMimeType: () => s }), MimeType: { JSON: 'JSON' } },
+  // もう片方（当番・手入れ）の設定を読むだけ（Worker の runtime/gas.mjs と同じ。2026-09-15）。
+  // 人員表のログインは当番・手入れの副将パスワードで確かめるので、ここでは同じ PROPS を当番側の設定として渡す
+  相手の設定: (k) => (PROPS[k] === undefined ? null : PROPS[k]),
 };
 
 const ctx = vm.createContext(sandbox);

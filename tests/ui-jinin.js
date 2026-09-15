@@ -141,54 +141,20 @@ function 模擬で答える(req) {
   };
 
   try {
-    // ---------- 管理者：部員の一覧 ----------
-    console.log('\n== 管理者：部員の一覧（ヒント3） ==');
+    // ---------- 副将で開く（2026-09-15：「管理者」をやめて副将にそろえ、部員管理は部員・馬匹管理へ移した） ----------
+    console.log('\n== 副将：開く ==');
     await page.goto(元 + '/robots.txt');
     await page.evaluate((all) => { localStorage.clear(); localStorage.setItem('adminToken', 'T'); localStorage.setItem('jinin:admin:all', JSON.stringify(all)); }, 全部);
     await page.goto(元 + '/taikai-admin.html');
-    await page.waitForFunction(() => document.querySelectorAll('#memberList .is-row').length === 3, { timeout: 10000 });
+    await page.waitForFunction(() => document.getElementById('appView').style.display === 'block', { timeout: 10000 });
     await 待つ(400);
-
-    確かめる('文字の「編集」「削除」ボタンはもう無い',
-      (await page.$$eval('#memberList button', (bs) => bs.filter((b) => /^(編集|削除)$/.test(b.textContent.trim())).length)) === 0);
-    const 説明 = await page.$$eval('#memberList [data-row="m_001"] .icon-btn', (bs) => bs.map((b) => [b.getAttribute('aria-label'), b.title]));
-    確かめる('アイコンボタンに読み上げ用の名前と、乗せたときの説明がある',
-      説明.length === 2 && 説明.every((x) => x[0] && x[0] === x[1]) && /を編集$/.test(説明[0][0]) && /を削除$/.test(説明[1][0]), JSON.stringify(説明));
-    await page.mouse.move(5, 5);
-    await 待つ(350);
-    確かめる('乗せていない行では、操作は見えない', (await 見える度('#memberList .is-row:nth-child(2) .row-actions')) === 0);
-    await page.hover('#memberList .is-row:nth-child(2)');
-    await 待つ(350);
-    確かめる('乗せた行にだけ出る', (await 見える度('#memberList .is-row:nth-child(2) .row-actions')) === 1);
-    確かめる('乗せた行は地の色が変わる', (await page.$eval('#memberList .is-row:nth-child(2)', (el) => getComputedStyle(el).backgroundColor)) !== 'rgba(0, 0, 0, 0)');
-    await 写す('1-部員の一覧-乗せた行');
-
-    await page.mouse.move(5, 5);
-    await page.focus('#memberList h3 + .is-row .icon-btn');
-    await 待つ(350);
-    確かめる('キーボードで入ったときも出る（マウスが無くても押せる）', (await 見える度('#memberList h3 + .is-row .row-actions')) === 1);
-
-    確かめる('年に1回の一括登録は畳んである', (await page.$eval('#bulkFold', (d) => d.open)) === false);
-    確かめる('パスワードを変える欄も畳んで、いちばん下にある',
-      await page.$eval('#changePwBtn', (b) => !!b.closest('details.fold') && !b.closest('details.fold').open && !b.closest('details.fold').nextElementSibling));
-
-    // 編集→保存で、その行が光る（ヒント7）
-    await page.$eval('#memberList .is-row[data-row="m_003"] .icon-btn', (b) => b.click());
-    確かめる('編集のアイコンで、その人の編集になる', (await page.$eval('#memberFormTitle', (el) => el.textContent)) === '部員を編集' &&
-      (await page.$eval('#memberName', (el) => el.value)) === '北山');
-    await page.$eval('#memberNote', (el) => { el.value = '寮（北）'; });
-    await page.click('#saveMemberBtn');
-    await page.waitForFunction(() => { const r = document.querySelector('#memberList [data-row="m_003"]'); return r && r.classList.contains('flash'); }, { timeout: 5000 })
-      .then(() => 確かめる('保存した行が一瞬光る', true), () => 確かめる('保存した行が一瞬光る', false));
-    await 待つ(1100);
-    確かめる('光るのは一瞬だけ', !(await page.$eval('#memberList [data-row="m_003"]', (el) => el.classList.contains('flash'))));
-
-    // 馬の札
-    await page.hover('#horseList .pill[data-row="h1"]');
-    await 待つ(350);
-    確かめる('馬の札も、乗せると編集・削除のアイコンが出る', (await 見える度('#horseList .pill[data-row="h1"] .row-actions')) === 1 &&
-      (await page.$$('#horseList .pill[data-row="h1"] .icon-btn')).length === 2);
-    確かめる('馬の札に文字のリンク（編集・削除）はもう無い', (await page.$$('#horseList a')).length === 0);
+    確かめる('見出しは「副将」で、画面に「管理者」は出ない',
+      /副将/.test(await page.$eval('header.appbar', (h) => h.textContent)) && !/管理者/.test(await page.evaluate(() => document.body.innerText)));
+    確かめる('「部員管理」のタブはもう無く、大会・競技設定から開く',
+      !(await page.$('.tabs button[data-tab="members"]')) && (await page.$eval('.tabs button.active', (b) => b.dataset.tab)) === 'events');
+    確かめる('部員・馬匹管理へのリンクがある', !!(await page.$('a[href="buin.html"]')));
+    確かめる('部員の一覧・部の馬・パスワードの欄はもう無い', !(await page.$('#memberList')) && !(await page.$('#horseList')) && !(await page.$('#changePwBtn')));
+    await 写す('1-副将で開いたところ');
 
     // ---------- 大会の設定：× で消せる ----------
     console.log('\n== 管理者：大会の設定 ==');

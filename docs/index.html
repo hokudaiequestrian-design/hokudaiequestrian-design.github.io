@@ -596,7 +596,280 @@ table.subs-grid td.on { background: var(--care-soft); }
 /* 保存していないマス。色だけでなく太い内枠でも分かる */
 table.subs-grid td.changed { box-shadow: inset 0 0 0 3px var(--warning); }
 table.subs-grid .tag { font-size: var(--text-xs); font-weight: 700; color: var(--care); }
+
+/* =====================================================================
+   2026-09-15「WebアプリのUIデザインを洗練させるための7つのヒント」（NRIネットコム）に沿って足した部品。
+   ユーザーが特に 3（ボタンを多用しない）と 7（インタラクション）を挙げた。人員表の画面と同じ作り。
+   動きは press と nudge の2つだったが、ユーザーの指示で7のぶんを足した（design.md の Motion に書いてある）。
+   動かすのは transform と opacity だけ。動きを減らす設定では上の決まりで止まる。
+   ===================================================================== */
+
+/* ボタンの中にアイコン（svg）を入れられるように */
+button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-xs); }
+button svg, summary svg { width: 20px; height: 20px; flex: 0 0 auto; }
+
+/* ----- アイコンボタン（ヒント3） -----
+   文字のボタンを並べる代わりに使う。アイコンだけなので、必ず aria-label と title を付ける。 */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0; margin: 0;
+  background: transparent; color: var(--muted); border: 1px solid transparent;
+  border-radius: var(--radius-input); cursor: pointer; font-weight: 400;
+}
+.icon-btn:hover { background: var(--accent-soft); color: var(--accent-dark); border-color: var(--accent); }
+.icon-btn.danger { background: transparent; color: var(--danger); border-color: transparent; }
+.icon-btn.danger:hover { background: var(--danger-soft); color: var(--danger-dark); border-color: var(--danger); }
+.icon-btn.ok { color: var(--care); }
+.icon-btn.ok:hover { background: var(--care-soft); color: var(--care-dark); border-color: var(--care); }
+/* 枠つき（前の月・次の月など、ずっと見えている操作） */
+.icon-btn.outline { border-color: var(--rule-strong); background: var(--paper-2); color: var(--ink); width: 44px; height: 44px; }
+.icon-btn.tiny { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+.icon-btn.tiny svg { width: 16px; height: 16px; }
+.icon-btn[aria-pressed="true"] { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+@media (pointer: coarse) {
+  .icon-btn, .icon-btn.tiny { width: var(--tap); height: var(--tap); min-width: var(--tap); min-height: var(--tap); }
+}
+
+/* ----- 行の操作。乗せた行・キーボードで入った行だけに出す（ヒント3） -----
+   マウスの無い端末（スマホ）では乗せられないので、いつも出しておく。 */
+.row-actions { display: inline-flex; align-items: center; gap: var(--space-3xs); flex: 0 0 auto; }
+@media (hover: hover) and (pointer: fine) {
+  .row-actions { opacity: 0; transition: opacity var(--dur-short) var(--ease-out); }
+  .is-row:hover .row-actions, .is-row:focus-within .row-actions,
+  .row-actions:has(details[open]) { opacity: 1; }
+}
+.list-item.is-row {
+  margin: 0 calc(var(--space-sm) * -1); padding-left: var(--space-sm); padding-right: var(--space-2xs);
+  border-radius: var(--radius-input);
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.list-item.is-row:hover, .list-item.is-row:focus-within { background: var(--paper-3); }
+
+/* 一覧の名前そのものを押して開く（「開く」ボタンを並べない） */
+button.linklike {
+  background: none; border: 0; padding: var(--space-2xs) 0; min-height: 36px; min-width: 0;
+  color: var(--accent-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 3px;
+  justify-content: flex-start; text-align: left; white-space: normal;
+}
+button.linklike:hover { background: none; color: var(--accent); text-decoration-thickness: 2px; }
+
+/* ----- メニュー（⋯ と、まとめて入れる など） -----
+   <details class="menu"> で作る。キーボードでも Enter で開ける。
+   表の枠（overflow）の中でも切れないよう、開いたときに下の script が画面に対する位置（fixed）で置く。 */
+details.menu { position: relative; display: inline-block; }
+details.menu > summary { list-style: none; cursor: pointer; }
+details.menu > summary::-webkit-details-marker { display: none; }
+details.menu[open] > summary { background: var(--accent-soft); color: var(--accent-dark); border-color: var(--accent); }
+/* 文字で出すメニューの口（「まとめて入れる」など）。副ボタンと同じ形 */
+summary.menu-text {
+  display: inline-flex; align-items: center; gap: var(--space-2xs);
+  min-height: 36px; padding: var(--space-2xs) 14px; margin: var(--space-2xs) 0;
+  background: var(--paper-2); color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-input);
+  font-size: var(--text-sm); font-weight: 700; white-space: nowrap;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+summary.menu-text:hover { background: var(--accent-soft); }
+summary.menu-text::after { content: "▾"; font-size: 12px; }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + var(--space-2xs)); z-index: var(--z-modal);
+  min-width: 220px; padding: var(--space-2xs);
+  background: var(--paper-2); border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  box-shadow: var(--shadow-lift);
+  display: flex; flex-direction: column; gap: var(--space-3xs);
+  animation: menu-in var(--dur-short) var(--ease-out);
+}
+.menu-sep { height: 1px; background: var(--rule); margin: var(--space-2xs) 0; }
+.menu-item {
+  display: flex; align-items: center; justify-content: flex-start; gap: var(--space-sm);
+  width: 100%; min-height: var(--tap); min-width: 0; padding: var(--space-xs) var(--space-sm); margin: 0;
+  background: transparent; color: var(--ink); border: 0; border-radius: 6px;
+  font-weight: 400; font-size: var(--text-base); text-align: left; white-space: nowrap;
+}
+.menu-item svg { color: var(--muted); }
+.menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); color: var(--accent-dark); border: 0; }
+.menu-item:hover svg { color: var(--accent-dark); }
+/* 危ない項目は赤い文字だけ。button.danger の赤い塗りが残ると、赤地に赤文字で読めなくなる */
+.menu-item.danger { color: var(--danger); background: transparent; border: 0; }
+.menu-item.danger svg { color: var(--danger); }
+.menu-item.danger:hover { background: var(--danger-soft); color: var(--danger-dark); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* ----- 触ったところへの応え（ヒント7） ----- */
+/* 知らせは出るときに少しだけ下りてくる */
+.msg { animation: msg-in var(--dur-short) var(--ease-out); }
+@keyframes msg-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* 押したばかりの札・マスが少し膨らんで戻る（下の script が just を付ける） */
+.just { animation: pick var(--dur-short) var(--ease-out); }
+@keyframes pick { from { transform: scale(0.94); } to { transform: none; } }
+/* 保存したところが一瞬光る（上に重ねた薄い緑の opacity だけを動かす） */
+.flash { position: relative; }
+.flash::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 1;
+  background: var(--care); opacity: 0; animation: flash 900ms var(--ease-out);
+}
+@keyframes flash { from { opacity: 0.28; } to { opacity: 0; } }
+/* 保存していない直しの帯は、下からせり上がる */
+.saving-bar.on { animation: bar-in var(--dur-short) var(--ease-out); box-shadow: 0 -8px 24px -12px oklch(21% 0.014 262 / 0.25); }
+@keyframes bar-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+/* 選んでいるタブは、塗りに加えて下の太線でも分かる */
+/* :focus-visible のときは付けない（黄＋黒のフォーカスリングを上書きしないため） */
+.tabs button.active:not(:focus-visible) { box-shadow: inset 0 -3px 0 oklch(0% 0 0 / 0.25); }
+
+/* 表の中の名前の札。鍵と×は、乗せた札・キーボードで入った札にだけ出す（鍵をかけてある札の鍵はいつも出す） */
+.name-chip .lock svg, .name-chip .x svg { width: 16px; height: 16px; }
+.name-chip .lock[aria-pressed="true"] { color: var(--warning); }
+@media (hover: hover) and (pointer: fine) {
+  .name-chip .x, .name-chip .lock[aria-pressed="false"] { opacity: 0; transition: opacity var(--dur-short) var(--ease-out); }
+  .name-chip:hover .x, .name-chip:hover .lock, .name-chip:focus-within .x, .name-chip:focus-within .lock { opacity: 1; }
+}
+.name-chip { transition: background-color var(--dur-micro) var(--ease-out); }
+.name-chip:hover { background: var(--paper-3); }
 </style>
+<script>
+/*
+  当番・手入れの全ページで使う部品（2026-09-15）。style.html はどのページにも入るので、ここに1回だけ書く。
+    部品.アイコン('edit')        … 線画のアイコンの <svg>。絵文字はアイコンの代わりに使わない（design.md）
+    部品.アイコンボタン(…)       … aria-label と title つきのアイコンだけのボタン
+    部品.光らせる([要素…])       … 保存したところを一瞬光らせる
+  あわせて次を全ページで効かせる：
+    ・details.menu … 外を押す／Esc／項目を押すと閉じる。上下の矢印で項目を移る。表の枠で切れない位置に出す
+    ・押した札・マス（.chip .mk .pickcell .calday .daycell .kindchip .checksheet label）… 押した直後に just を付けて少し膨らませる
+*/
+const 部品 = (() => {
+  const 線 = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  const 絵 = {
+    edit: '<path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/>',
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+    refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
+    eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    'eye-off': '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+    'chev-left': '<path d="M15 6l-6 6 6 6"/>',
+    'chev-right': '<path d="M9 6l6 6-6 6"/>',
+    spark: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',
+    save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
+  };
+  const アイコン = (名) => '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    (名 === 'more'
+      ? '<g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g>'
+      : '<g ' + 線 + '>' + (絵[名] || '') + '</g>') + '</svg>';
+
+  const 守る = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // 属性は { 'data-delm': id } のように渡す（onclick は使わない。どのページも委ねた click で拾っている）
+  function アイコンボタン(名, 説明, 属性, cls) {
+    const 付け足し = Object.keys(属性 || {}).map((k) => ' ' + k + '="' + 守る(属性[k]) + '"').join('');
+    return '<button type="button" class="icon-btn' + (cls ? ' ' + cls : '') + '" aria-label="' + 守る(説明) + '" title="' + 守る(説明) + '"' +
+      付け足し + '>' + アイコン(名) + '</button>';
+  }
+
+  function 光らせる(els) {
+    Array.prototype.forEach.call(els || [], (el) => {
+      if (!el || !el.classList) return;
+      el.classList.remove('flash');
+      void el.offsetWidth;   // 続けて光らせても、もう一度始まるように
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1000);
+    });
+  }
+
+  // ----- メニュー -----
+  function 置き直す(d) {
+    const 箱 = d.querySelector('.menu-list');
+    const 口 = d.querySelector('summary');
+    if (!箱 || !口) return;
+    const r = 口.getBoundingClientRect();
+    箱.style.position = 'fixed';
+    箱.style.right = 'auto';
+    箱.style.top = '0px';
+    箱.style.left = '0px';
+    const w = 箱.offsetWidth;
+    const h = 箱.offsetHeight;
+    let 左 = r.right - w;
+    if (左 < 8) 左 = Math.min(r.left, window.innerWidth - w - 8);
+    let 上 = r.bottom + 4;
+    if (上 + h > window.innerHeight - 8 && r.top - h - 4 > 8) 上 = r.top - h - 4;
+    箱.style.left = Math.max(8, 左) + 'px';
+    箱.style.top = Math.max(8, 上) + 'px';
+  }
+  const 閉じる = (除く) => {
+    document.querySelectorAll('details.menu[open]').forEach((d) => { if (d !== 除く) d.open = false; });
+  };
+  // toggle は泡立たないので、捕まえる側（capture）で聞く
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d.matches || !d.matches('details.menu') || !d.open) return;
+    閉じる(d);
+    置き直す(d);
+  }, true);
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('details.menu[open]').forEach((d) => {
+      if (!d.contains(e.target) || (e.target.closest && e.target.closest('.menu-item'))) d.open = false;
+    });
+  });
+  /*
+    画面や表が動いたら、メニューをボタンに付いたまま置き直す（fixed で置いたので、そのままだとずれて見える）。
+    ボタンが見えないところへ行ったときだけ閉じる。
+    前は動いたらすぐ閉じていたが、ボタンを押す直前に画面が少し動くと、開いた直後に閉じてしまっていた（2026-09-15）。
+  */
+  document.addEventListener('scroll', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.menu-list')) return;
+    document.querySelectorAll('details.menu[open]').forEach((d) => {
+      const s = d.querySelector('summary');
+      const r = s ? s.getBoundingClientRect() : null;
+      if (!r || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) d.open = false;
+      else 置き直す(d);
+    });
+  }, true);
+  window.addEventListener('resize', () => 閉じる(null));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('details.menu[open]').forEach((d) => { d.open = false; const s = d.querySelector('summary'); if (s) s.focus(); });
+      return;
+    }
+    if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !e.target.closest) return;
+    const 開いた = e.target.closest('details.menu[open]');
+    if (!開いた) return;
+    const 項目 = Array.prototype.slice.call(開いた.querySelectorAll('.menu-item:not(:disabled)'));
+    if (!項目.length) return;
+    const i = 項目.indexOf(document.activeElement);
+    項目[(i + (e.key === 'ArrowDown' ? 1 : -1) + 項目.length) % 項目.length].focus();
+    e.preventDefault();
+  });
+
+  // ----- 押した札・マスを少し膨らませる -----
+  const 跳ねる = '.chip, .mk, .pickcell, .calday, .daycell, .kindchip, .checksheet label';
+  const 印の選び方 = (el) => {
+    const 元 = (el.attributes && Array.prototype.some.call(el.attributes, (a) => a.name.indexOf('data-') === 0)) ? el : el.querySelector('[data-plan],[data-horse],[data-sub],[data-key]');
+    if (!元) return '';
+    return Array.prototype.filter.call(元.attributes, (a) => a.name.indexOf('data-') === 0)
+      .map((a) => '[' + a.name + '="' + (window.CSS && CSS.escape ? CSS.escape(a.value) : a.value) + '"]').join('');
+  };
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest ? e.target.closest(跳ねる) : null;
+    if (!el) return;
+    const 印 = 印の選び方(el);
+    // 押したあと描き直すページが多いので、描き直しが済んでから同じ札を探して付ける
+    requestAnimationFrame(() => {
+      let 今の = null;
+      try { 今の = 印 ? document.querySelector(印) : null; } catch (err) { 今の = null; }
+      if (今の && !今の.matches(跳ねる)) 今の = 今の.closest(跳ねる);
+      if (!今の && el.isConnected) 今の = el;
+      if (!今の) return;
+      今の.classList.remove('just');
+      void 今の.offsetWidth;
+      今の.classList.add('just');
+      setTimeout(() => 今の.classList.remove('just'), 400);
+    });
+  }, true);
+
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる };
+})();
+</script>
 <style>
 /*
   Hallmark · macrostructure: 13 Index-First · genre: playful · design-system: design.md
@@ -837,6 +1110,12 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
     <path d="M6 9.5h7M6 13h7M6 16.5h4"/>
     <circle cx="17.6" cy="12" r="2.6"/>
   </g>
+  <!-- 部員・馬匹管理（2026-09-15）＝名簿の一覧に人の印。表（当番）やカレンダー（手入れ）と見分けがつく -->
+  <g id="i-roster-make" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="8" cy="8" r="3"/>
+    <path d="M2.5 19.5c.6-3.3 2.8-5 5.5-5s4.9 1.7 5.5 5"/>
+    <path d="M15 7h6.5M15 11h6.5M17 15h4.5"/>
+  </g>
   <g id="i-go" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M1.5 1.5l7 6.5-7 6.5"/>
   </g>
@@ -993,15 +1272,8 @@ const HUB = {
           {
             "url": "teire-chief.html",
             "題": "手入れをまとめる",
-            "説明": "担当する馬のサブと期間を決めて、手入れ表を作ります。",
+            "説明": "担当する馬の期間を作り、◎○×を集めて手入れ表を作ります。",
             "印": "care-make",
-            "鍵": "チーフパスワード"
-          },
-          {
-            "url": "teire-subs.html",
-            "題": "手入れのサブをまとめて直す",
-            "説明": "期間を1つ選んで、全部の馬のサブを1つの表で入れ替えます。",
-            "印": "care-subs",
             "鍵": "チーフパスワード"
           }
         ]
@@ -1049,27 +1321,27 @@ const HUB = {
           {
             "url": "touban-admin.html",
             "題": "当番をまとめる",
-            "説明": "部員・当番の設定・投票の確認・当番表づくり。手入れの期間・馬のチーフ・サブ整理もここで決めます。",
+            "説明": "当番の設定・投票の確認・当番表づくり。手入れの期間もここで作れます。",
             "印": "duty-make",
+            "鍵": "副将パスワード"
+          },
+          {
+            "url": "buin.html",
+            "題": "部員・馬匹管理",
+            "説明": "部員の名簿（人員表と当番・手入れで1つ）・馬とチーフ・サブ整理・サブのまとめ直し・パスワード。",
+            "印": "roster-make",
             "鍵": "副将パスワード"
           },
           {
             "url": "teire-chief.html",
             "題": "手入れをまとめる",
-            "説明": "担当する馬のサブと期間を決めて、手入れ表を作ります。",
+            "説明": "担当する馬の期間を作り、◎○×を集めて手入れ表を作ります。",
             "印": "care-make",
             "鍵": "チーフパスワード"
           },
           {
-            "url": "teire-subs.html",
-            "題": "手入れのサブをまとめて直す",
-            "説明": "期間を1つ選んで、全部の馬のサブを1つの表で入れ替えます。",
-            "印": "care-subs",
-            "鍵": "チーフパスワード"
-          },
-          {
             "url": "yasumi-admin.html",
-            "題": "休みをまとめる",
+            "題": "バイト・休みをまとめる",
             "説明": "申し込みを先着順に了承する・バイトを入れる・有給の残りを見る。",
             "印": "yasumi-make",
             "鍵": "副将パスワード"
@@ -1077,9 +1349,9 @@ const HUB = {
           {
             "url": "taikai-admin.html",
             "題": "人員表をまとめる",
-            "説明": "大会・競技の設定、出欠の確認、人員表づくりとスプレッドシートへの書き出し。",
+            "説明": "大会・競技の設定、出欠の確認、人員表づくりと Excel への書き出し。",
             "印": "taikai-make",
-            "鍵": "人員表の管理者パスワード"
+            "鍵": "副将パスワード"
           }
         ]
       }

@@ -52,9 +52,10 @@ const ページ = [
   { 出す: 'teire.html', 元: 当番 + '/teire.html', api: API.当番, 題: '手入れの希望を出す' },
   { 出す: 'touban-admin.html', 元: 当番 + '/admin.html', api: API.当番, 題: '当番をまとめる' },
   { 出す: 'teire-chief.html', 元: 当番 + '/chief.html', api: API.当番, 題: '手入れをまとめる' },
-  // 全部の馬のサブを1つの表で直す（2026-09-13）
-  { 出す: 'teire-subs.html', 元: 当番 + '/subs.html', api: API.当番, 題: '手入れのサブをまとめて直す' },  { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
-  { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: '休みをまとめる' },
+  // 部員・馬匹管理（2026-09-15）。前の「手入れのサブをまとめて直す」（teire-subs.html）はこの中に移した
+  { 出す: 'buin.html', 元: 当番 + '/buin.html', api: API.当番, 題: '部員・馬匹管理' },
+  { 出す: 'yasumi.html', 元: 当番 + '/yasumi.html', api: API.当番, 題: '休みを申し込む' },
+  { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: 'バイト・休みをまとめる' },
   // みんなのカレンダー（手入れ・休み）。入口のマイページから入る（2026-09-13）
   { 出す: 'calendar.html', 元: 当番 + '/calendar.html', api: API.当番, 題: 'カレンダーを見る' },
   { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
@@ -288,7 +289,7 @@ function 入口の中身たち() {
     当番_副将: 'touban-admin.html',
     手入れ_部員: 'teire.html',
     手入れ_チーフ: 'teire-chief.html',
-    手入れ_サブ: 'teire-subs.html',
+    部員管理: 'buin.html',
     休み_部員: 'yasumi.html',
     休み_副将: 'yasumi-admin.html',
   });

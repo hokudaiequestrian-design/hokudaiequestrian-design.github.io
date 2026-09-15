@@ -850,16 +850,18 @@ G.chiefDeletePlan(C, plan1.id);
     JSON.stringify(全リンク(部員).map((l) => l.題)));
 
   確かめる('チーフ用は投票とまとめるで分かれている',
-    チーフ.groups.length === 2 && チーフ.groups[1].links.length === 2,
+    チーフ.groups.length === 2 && チーフ.groups[1].links.length === 1,
     JSON.stringify(チーフ.groups.map((g) => g.links.length)));
-  確かめる('チーフ用のまとめるは手入れと、サブをまとめて直す',
-    チーフ.groups[1].links[0].url === V.手入れ_チーフ && チーフ.groups[1].links[1].url === V.手入れ_サブ,
-    JSON.stringify(チーフ.groups[1].links.map((l) => l.url)));
-  確かめる('サブをまとめて直すのURLが出る', V.手入れ_サブ === 'https://hokudaiequestrian-design.github.io/teire-subs.html', V.手入れ_サブ);
-  確かめる('副将用にもサブをまとめて直すが入る', 副将.groups[1].links.some((l) => l.url === V.手入れ_サブ));
-  確かめる('部員用にサブをまとめて直すは入らない', URLたち(部員).indexOf(V.手入れ_サブ) < 0);
-  確かめる('サブ整理は副将画面のタブなので、別ページのURLも入口のリンクも無い',
-    !('手入れ_サブ整理' in V) && !URLたち(副将).some((x) => /subterms/.test(x)));
+  // 2026-09-15「サブをまとめて直す」は副将の「部員・馬匹管理」に移した。チーフ用からは外す
+  確かめる('チーフ用のまとめるは手入れをまとめるだけ',
+    チーフ.groups[1].links[0].url === V.手入れ_チーフ, JSON.stringify(チーフ.groups[1].links.map((l) => l.url)));
+  確かめる('サブをまとめて直すの別ページはもう無い', !('手入れ_サブ' in V) && ![部員, チーフ, 副将].some((x) => URLたち(x).some((u) => /teire-subs/.test(u))));
+  確かめる('部員・馬匹管理のURLが出る', V.部員管理 === 'https://hokudaiequestrian-design.github.io/buin.html', V.部員管理);
+  確かめる('副将用に部員・馬匹管理が入る', 副将.groups[1].links.some((l) => l.url === V.部員管理 && l.題 === '部員・馬匹管理' && l.鍵 === '副将パスワード'));
+  確かめる('部員用・チーフ用に部員・馬匹管理は入らない', URLたち(部員).indexOf(V.部員管理) < 0 && URLたち(チーフ).indexOf(V.部員管理) < 0);
+  確かめる('休みをまとめるは「バイト・休みをまとめる」', 副将.groups[1].links.some((l) => l.url === V.休み_副将 && l.題 === 'バイト・休みをまとめる'));
+  確かめる('人員表をまとめるも副将パスワード（管理者パスワードは無くした）',
+    !副将.groups[1].links.some((l) => /管理者/.test(l.鍵 || '')));
 
   確かめる('副将用も投票とまとめるで分かれている', 副将.groups.length === 2);
   確かめる('副将用のまとめるに当番・手入れ・休みが入る',

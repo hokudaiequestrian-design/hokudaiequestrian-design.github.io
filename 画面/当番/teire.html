@@ -210,10 +210,11 @@ function renderPlan(plan) {
       : (
         '<p class="hint">◎＝入りたい　○＝入れる　×＝入れない。<b>全部の日</b>に入れてください。' +
         (plan.mode === 'カレンダー' ? '日付を押すと ◎→○→× と変わります。' : '') + '</p>' +
-        '<div class="row tight" style="margin:8px 0;">' +
-        記号.map((s) => '<button type="button" class="small secondary" data-all="' + esc(plan.id) + '" data-mark="' + esc(s) + '">全部' + s + '</button>').join('') +
-        '<button type="button" class="small secondary" data-rest="' + esc(plan.id) + '">未入力を○に</button>' +
-        '</div>' +
+        // 4つ並んでいたボタンを「まとめて入れる」のメニューにした（2026-09-15、ヒント3）
+        '<details class="menu"><summary class="menu-text">まとめて入れる</summary><div class="menu-list" role="menu">' +
+        記号.map((s) => '<button type="button" class="menu-item" role="menuitem" data-all="' + esc(plan.id) + '" data-mark="' + esc(s) + '">全部の日を ' + s + ' にする</button>').join('') +
+        '<div class="menu-sep"></div><button type="button" class="menu-item" role="menuitem" data-rest="' + esc(plan.id) + '">まだ入れていない日を ○ にする</button>' +
+        '</div></details>' +
         (plan.mode === 'カレンダー' ? カレンダーの表(plan) : 曜日の表(plan)) +
         '<div class="msg ' + (残り ? 'warning' : 'success') + '" data-left="' + esc(plan.id) + '" role="status" aria-live="polite">' +
         (残り ? 'あと' + 残り + '日ぶん入れてください。全部そろうと送信できます。' : '全部そろいました。送信できます。') + '</div>' +
@@ -312,6 +313,7 @@ $('plans').addEventListener('click', async (e) => {
     try {
       const r = await call('submitCareVote', p, memberId, MARKS[p] || {});
       show(p, 'success', '送信しました（' + r.count + '日ぶん）。ありがとうございます。');
+      部品.光らせる([document.querySelector('[data-card="' + p + '"]')]);
     } catch (err) {
       show(p, 'error', '送信に失敗しました：' + ((err && err.message) || err));
     } finally {

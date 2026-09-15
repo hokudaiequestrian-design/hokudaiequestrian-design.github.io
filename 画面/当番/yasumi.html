@@ -35,7 +35,7 @@ header.appbar.yasumi { background: var(--ink); }
 /* 月めくり */
 .month-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-bottom: var(--space-sm); }
 .month-head .now { font-size: var(--text-md); font-weight: 700; font-family: var(--font-num); }
-.month-head button { min-width: 80px; }
+.month-head button:not(.icon-btn) { min-width: 80px; }
 
 /* カレンダー。1マスが押せるボタン。月曜始まり。 */
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); overflow: hidden; background: var(--paper-2); }
@@ -145,9 +145,9 @@ header.appbar.yasumi { background: var(--ink); }
       </p>
 
       <div class="month-head">
-        <button type="button" class="secondary small" id="prevMonth">前の月</button>
+        <button type="button" class="icon-btn outline" id="prevMonth" aria-label="前の月" title="前の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <span class="now" id="monthNow"></span>
-        <button type="button" class="secondary small" id="nextMonth">次の月</button>
+        <button type="button" class="icon-btn outline" id="nextMonth" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
       <div class="cal-grid" id="calGrid"></div>
       <p class="hint">
@@ -393,7 +393,8 @@ function 選んだ日を出す() {
   $('pickedCount').textContent = 並び.length ? '（' + 並び.length + '日）' : '';
   $('pickedList').innerHTML = 並び.length
     ? 並び.map((k) => '<span class="p">' + 和風(k) +
-        '<button type="button" data-drop="' + k + '" aria-label="' + 和風(k) + ' を外す">×</button></span>').join('')
+        '<button type="button" data-drop="' + k + '" aria-label="' + 和風(k) + ' を外す" title="' + 和風(k) + ' を外す">' +
+          '<span style="display:inline-flex;width:16px;height:16px;">' + 部品.アイコン('x') + '</span></button></span>').join('')
     : '<span class="none">まだ選んでいません。上のカレンダーで休む日を押してください。</span>';
 
   let 文 = '';
@@ -439,7 +440,7 @@ function 自分のぶんを出す() {
       '<span>' + esc(l.label || l.kind) + '</span>' +   // バイトはバイト先の名前で出す
       '<span class="state ' + (状態クラス[l.state] || '') + '">' + esc(l.state) + '</span>' +
       (l.memo ? '<span class="muted">副将より：' + esc(l.memo) + '</span>' : '') +
-      (消せる ? '<button type="button" class="secondary small" data-cancel="' + l.id + '">取り消す</button>' : '') +
+      (消せる ? '<button type="button" class="secondary small" data-cancel="' + l.id + '">' + 部品.アイコン('undo') + '取り消す</button>' : '') +
       '</div>';
   }).join('');
 }
@@ -470,6 +471,7 @@ $('sendBtn').addEventListener('click', async () => {
     選んだ日 = {};
     $('reason').value = '';
     await 読み直す();
+    部品.光らせる([$('mineCard')]);   // 出したものが下の「出したもの」に入ったことを見せる
     知らせ('formMsg', 'success',
       '出しました（' + r.days + '日ぶん' + (r.count > 1 ? '／続いている日ごとに' + r.count + '件' : '') + '）。'
       + '副将が了承するまでは「申請中」です。');

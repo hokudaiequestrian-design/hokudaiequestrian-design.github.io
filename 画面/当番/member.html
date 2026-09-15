@@ -201,8 +201,9 @@ function renderPicked() {
     if (p) {
       items.push('<div class="item"><span class="n">第' + (i + 1) + '希望</span>' +
         '<span class="what">' + esc(p.day) + '曜　' + esc(当番名(p.dutyId)) + '</span>' +
-        '<button type="button" class="small secondary" data-remove="' + i + '"' +
-        ' aria-label="第' + (i + 1) + '希望の' + esc(p.day) + '曜' + esc(当番名(p.dutyId)) + 'を取り消す">取り消す</button></div>');
+        '<button type="button" class="icon-btn danger" data-remove="' + i + '"' +
+        ' title="第' + (i + 1) + '希望を取り消す"' +
+        ' aria-label="第' + (i + 1) + '希望の' + esc(p.day) + '曜' + esc(当番名(p.dutyId)) + 'を取り消す">' + 部品.アイコン('x') + '</button></div>');
     } else {
       items.push('<div class="item empty"><span class="n">第' + (i + 1) + '希望</span>' +
         '<span class="what">まだ選んでいません</span></div>');
@@ -328,6 +329,7 @@ $('submitBtn').addEventListener('click', async () => {
   try {
     await call('submitDutyVote', TERM.id, memberId, PICKS);
     show('success', '「' + TERM.name + '」の希望を送信しました。ありがとうございます。');
+    部品.光らせる([$('picked')]);
   } catch (e) {
     show('error', '送信に失敗しました：' + ((e && e.message) || e));
   } finally {

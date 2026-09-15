@@ -41,18 +41,8 @@
       <details class="fold">
         <summary>期間を新しく作る</summary>
         <div class="fold-body">
-          <p class="hint">
-            同じ期間を<b>何頭ぶんでもまとめて作れます</b>。名前も日付も馬ごとに同じことがほとんどなので、
-            1頭ずつ作る必要はありません。
-          </p>
-
-          <label>どの馬に作るか</label>
-          <div class="row tight" style="margin-bottom:6px;">
-            <button type="button" class="small secondary" id="hAllBtn">全部の馬</button>
-            <button type="button" class="small secondary" id="hNoneBtn">全部はずす</button>
-            <button type="button" class="small secondary" id="hThisBtn">いま選んでいる馬だけ</button>
-          </div>
-          <div class="checksheet" id="horseSheet"></div>
+          <!-- 2026-09-15 ユーザーの指示：上で馬を選んだあと、ここでもう一度馬を選ばせない。上で選んだ馬の期間を作る -->
+          <p class="hint"><b id="newHorseName"></b> の期間を作ります。ほかの馬の期間は、上の「1. 馬を選ぶ」で馬を選び直してから作ってください。</p>
 
           <div class="row" style="margin-top:12px;">
             <div>
@@ -124,18 +114,18 @@
       <div class="card">
         <h2>3. サブ</h2>
         <div id="subSummary"></div>
-        <p class="hint">
-          ほかの馬もいっしょに入れ替えるときは
-          <a id="bulkSubsLink" href="teire-subs.html">全部の馬のサブを1つの表で直す</a>。
-        </p>
+        <!-- 全部の馬のサブを1つの表で直すページは、2026-09-15 に副将の「部員・馬匹管理」へ移した -->
         <details class="fold" id="subFold">
           <summary>サブを変更する</summary>
           <div class="fold-body">
             <p class="hint">この馬を手入れする人にチェックを入れてください。<b>チーフ本人もサブに入れます。</b>ここで選んだ人にだけ、部員の画面に投票欄が出ます。</p>
-            <div class="row tight" style="margin-bottom:6px;">
-              <button class="small secondary" id="subAllBtn">全員に入れる</button>
-              <button class="small secondary" id="subNoneBtn">全部はずす</button>
-            </div>
+            <details class="menu">
+              <summary class="menu-text">まとめて選ぶ</summary>
+              <div class="menu-list" role="menu">
+                <button type="button" class="menu-item" role="menuitem" id="subAllBtn">全員をサブに入れる</button>
+                <button type="button" class="menu-item" role="menuitem" id="subNoneBtn">全員をはずす</button>
+              </div>
+            </details>
             <div class="checksheet" id="subSheet"></div>
             <div style="margin-top:16px;"><button id="saveSubsBtn">サブを保存</button></div>
           </div>
@@ -174,10 +164,16 @@
           <b id="ratioHint"></b><br>
           そのあと手で直せます。<b>鍵をかけた人は、作り直しても動きません。</b>
         </p>
-        <div class="row tight">
+        <!-- 主な操作（作成する）だけをボタンで出し、たまに使うものは ⋯ にしまう（2026-09-15、ヒント3） -->
+        <div class="row tight" style="align-items:center;">
           <button id="genBtn">作成する</button>
-          <button id="genPreviewBtn" class="secondary">作って中身だけ見る（保存しない）</button>
-          <button id="reloadBtn" class="secondary">保存済みを読み直す</button>
+          <details class="menu">
+            <summary class="icon-btn outline" aria-label="ほかの作り方" title="ほかの作り方（中身だけ見る・読み直す）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g></svg></summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" id="genPreviewBtn">作って中身だけ見る（保存しない）</button>
+              <button type="button" class="menu-item" role="menuitem" id="reloadBtn">保存済みを読み直す</button>
+            </div>
+          </details>
         </div>
         <div id="genMsg" role="status" aria-live="polite"></div>
         <div id="tableStats" class="statline"></div>
@@ -287,7 +283,6 @@ async function 始める(読んだぶん) {
   Array.prototype.forEach.call(document.querySelectorAll('.defRatio'), (el) => {
     el.textContent = BASE.既定のチーフ倍率;
   });
-  renderHorseSheet();
   最新の表示();
   renderSteps(1);
 }
@@ -321,6 +316,7 @@ $('horseSelect').addEventListener('change', () => {
   $('planPane').style.display = 'none';
   if (!id) { $('termCard').style.display = 'none'; $('chiefBox').style.display = 'none'; renderSteps(1); return; }
   const h = BASE.horses.filter((x) => x.id === id)[0];
+  $('newHorseName').textContent = h.name;
   $('chiefBox').style.display = 'block';
   // チーフを決めるのは副将。ここでは今のチーフを知らせるだけ。
   $('chiefWho').innerHTML = h.chief
@@ -345,14 +341,14 @@ function renderPlanList() {
     $('planList').innerHTML = '<div class="muted">この馬の期間はまだありません。下から作ってください。</div>';
     return;
   }
+  // 期間の名前そのものを押して開く。削除は乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
   $('planList').innerHTML = list.map((p) =>
-    '<div class="list-item">' +
-    '<span><b>' + esc(p.term) + '</b> <span class="muted">' +
+    '<div class="list-item is-row">' +
+    '<span><button type="button" class="linklike" data-open="' + esc(p.id) + '">' + esc(p.term) + '</button> <span class="muted">' +
     (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと' + (p.from ? '（' + esc(p.from) + ' から）' : '')) +
     '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人</span></span>' +
-    '<span class="row tight">' +
-    '<button class="small" data-open="' + esc(p.id) + '">開く</button>' +
-    '<button class="small danger" data-delp="' + esc(p.id) + '">削除</button>' +
+    '<span class="row-actions">' +
+    部品.アイコンボタン('trash', p.term + 'を削除', { 'data-delp': p.id }, 'danger') +
     '</span></div>').join('');
 }
 
@@ -364,42 +360,19 @@ document.querySelector('input[name=mode][value=曜日]').addEventListener('chang
   $('toWrap').style.display = 'none';
 });
 
-// どの馬に作るかのチェックシート
-let 作る馬 = [];
-function renderHorseSheet() {
-  $('horseSheet').innerHTML = BASE.horses.filter((h) => h.active).map((h) => {
-    const on = 作る馬.indexOf(h.id) >= 0;
-    return '<label class="' + (on ? 'on' : '') + '">' +
-      '<input type="checkbox" data-horse="' + esc(h.id) + '"' + (on ? ' checked' : '') + '> ' +
-      esc(h.name) + '</label>';
-  }).join('');
-}
-$('horseSheet').addEventListener('change', (e) => {
-  const c = e.target.closest('[data-horse]');
-  if (!c) return;
-  const i = 作る馬.indexOf(c.dataset.horse);
-  if (c.checked && i < 0) 作る馬.push(c.dataset.horse);
-  if (!c.checked && i >= 0) 作る馬.splice(i, 1);
-  renderHorseSheet();
-});
-$('hAllBtn').addEventListener('click', () => { 作る馬 = BASE.horses.filter((h) => h.active).map((h) => h.id); renderHorseSheet(); });
-$('hNoneBtn').addEventListener('click', () => { 作る馬 = []; renderHorseSheet(); });
-$('hThisBtn').addEventListener('click', () => {
-  作る馬 = $('horseSelect').value ? [$('horseSelect').value] : [];
-  renderHorseSheet();
-});
-
 $('newPlanBtn').addEventListener('click', async () => {
   const mode = document.querySelector('input[name=mode]:checked').value;
-  if (!作る馬.length) {
-    return void msgIn('termMsg', 'error', 'どの馬に作るか、上のチェックで1頭以上選んでください。「全部の馬」も使えます。');
+  // 作るのは上の「1. 馬を選ぶ」で選んだ馬（2026-09-15 ユーザーの指示。前はここでもう一度、何頭ぶん作るかを選んでいた）
+  const 馬ID = $('horseSelect').value;
+  if (!馬ID) {
+    return void msgIn('termMsg', 'error', 'まず上の「1. 馬を選ぶ」で馬を選んでください。');
   }
   if (!$('fromDate').value) {
     return void msgIn('termMsg', 'error', '開始日を入れてください。曜日で作るときも入れます（副将のサブ整理を当てるのに使います）。');
   }
   try {
-    // 選んだ馬すべてに同じ期間を作る（1頭ずつ作らなくてよい）
-    const r = await call('chiefSavePlanForHorses', TOKEN, 作る馬, {
+    // サーバの関数は何頭ぶんでも作れる作り。ここからは選んでいる1頭だけを渡す
+    const r = await call('chiefSavePlanForHorses', TOKEN, [馬ID], {
       term: $('termName').value, mode: mode,
       from: $('fromDate').value,
       to: mode === 'カレンダー' ? $('toDate').value : '',
@@ -410,11 +383,10 @@ $('newPlanBtn').addEventListener('click', async () => {
     $('termList').innerHTML = BASE.期間名.map((t) => '<option value="' + esc(t) + '">').join('');
     $('termName').value = '';
     renderPlanList();
-    renderHorseSheet();
     最新の表示();
 
     const 文 = [];
-    if (r.作った.length) 文.push(r.作った.length + '頭ぶん作りました（' + r.作った.map((x) => x.name).join('、') + '）。');
+    if (r.作った.length) 文.push(r.作った.map((x) => x.name).join('、') + ' の期間を作りました。');
     const 入れた = r.作った.filter((x) => x.サブの元);
     if (入れた.length) {
       文.push('サブを最初から入れてあります（' + 入れた.map((x) => x.name + '＝' + x.サブの元).join('、') + '）。確認してください。');
@@ -503,7 +475,6 @@ async function openPlan(planId) {
 
 function renderPlanSettings() {
   $('planTitle').textContent = (P.horse ? P.horse.name : '?') + '　' + P.plan.term;
-  $('bulkSubsLink').href = 'teire-subs.html?term=' + encodeURIComponent(P.plan.term);
   $('planPeriod').textContent = P.plan.mode === 'カレンダー'
     ? P.plan.from + ' 〜 ' + P.plan.to + '（' + P.keys.length + '日）'
     : '曜日ごと（毎週おなじ担当）' + (P.plan.from ? '・' + P.plan.from + ' から' : '・開始日がまだ入っていません（下の「この期間の決まり」で入れられます）');
@@ -604,6 +575,7 @@ $('saveSubsBtn').addEventListener('click', async () => {
     // 保存と、画面を出し直すためのデータを1回でもらう（2往復すると待ちが倍になる）
     const r = await call('chiefSaveSubs', TOKEN, P.plan.id, SUBS);
     描き直す(r.plan);
+    部品.光らせる([$('subSummary')]);
     msgIn('subMsg', 'success', 'サブを保存しました（' + r.count + '人）。部員の画面に投票欄が出ます。' +
       (r.外れた ? '外した' + r.外れた + '人ぶんの◎○×も消しました。' : ''));
     renderSteps(4);
@@ -645,13 +617,16 @@ function renderVotes() {
       ? 記号.map((s) => '<span class="pill">' + s + ' ' + 数[s] + '日</span>').join('')
       : '<span class="pill no">まだ出していません</span>';
     const 代理 = (P.votes || []).some((x) => x.memberId === id && x.byChief) ? '<span class="pill">代理入力</span>' : '';
-    return '<div class="list-item" style="align-items:flex-start;">' +
+    // まだの人は「代理で入れる」を見せたまま。出した人の直す・消すは、乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
+    return '<div class="list-item is-row" style="align-items:flex-start;">' +
       '<span style="flex:1 1 auto;"><b>' + esc(名(id)) + '</b>' +
       '<div class="pill-list">' + 中身 + 代理 + '</div></span>' +
-      '<span class="row tight">' +
-      '<button class="small secondary" data-proxy="' + esc(id) + '">' + (ある ? '直す' : '代理で入れる') + '</button>' +
-      (ある ? '<button class="small danger" data-clearv="' + esc(id) + '">消す</button>' : '') +
-      '</span></div>';
+      (ある
+        ? '<span class="row-actions">' +
+          部品.アイコンボタン('edit', 名(id) + 'の希望を直す', { 'data-proxy': id }) +
+          部品.アイコンボタン('trash', 名(id) + 'の投票を消す', { 'data-clearv': id }, 'danger') + '</span>'
+        : '<button type="button" class="small secondary" data-proxy="' + esc(id) + '">代理で入れる</button>') +
+      '</div>';
   }).join('');
 }
 
@@ -731,9 +706,11 @@ function カレンダー(keys, 中身を作る) {
 }
 
 function renderProxy() {
-  $('proxyBulk').innerHTML = 記号.map((s) =>
-    '<button type="button" class="small secondary" data-pall="' + esc(s) + '">全部' + s + '</button>').join('') +
-    '<button type="button" class="small secondary" data-prest="1">未入力を○に</button>';
+  // 4つ並んでいたボタンを「まとめて入れる」のメニューにした（2026-09-15、ヒント3）
+  $('proxyBulk').innerHTML = '<details class="menu"><summary class="menu-text">まとめて入れる</summary><div class="menu-list" role="menu">' +
+    記号.map((s) => '<button type="button" class="menu-item" role="menuitem" data-pall="' + esc(s) + '">全部の日を ' + s + ' にする</button>').join('') +
+    '<div class="menu-sep"></div><button type="button" class="menu-item" role="menuitem" data-prest="1">まだ入れていない日を ○ にする</button>' +
+    '</div></details>';
   $('proxyBody').innerHTML = 記号の入力(P.keys, PROXY_MARKS, P.plan.mode);
   const 残り = P.keys.filter((k) => !PROXY_MARKS[k.key]).length;
   $('proxyLeft').className = 'msg ' + (残り ? 'warning' : 'success');
@@ -800,7 +777,7 @@ function renderTable() {
         return '<span class="calday' + (足りない ? ' m0' : '') + '">' +
           '<span class="d">' + Number(k.key.slice(8)) + '</span>' +
           (人.length
-            ? 人.map((c) => '<span class="who">' + esc(名(c.memberId)) + (c.locked ? '🔒' : '') + '</span>').join('')
+            ? 人.map((c) => '<span class="who">' + esc(名(c.memberId)) + (c.locked ? '<span class="visually-hidden">（鍵）</span><span aria-hidden="true" style="display:inline-block;width:14px;height:14px;vertical-align:-2px;color:var(--warning);">' + 部品.アイコン('lock') + '</span>' : '') + '</span>').join('')
             : '<span class="m">・</span>') + '</span>';
       })
     : '';
@@ -817,11 +794,11 @@ function renderTable() {
       return '<span class="name-chip' + (c.locked ? ' locked' : '') + '">' +
         '<button type="button" class="lock" data-lock="' + esc(k.key + '|' + c.memberId) + '"' +
         ' aria-pressed="' + (c.locked ? 'true' : 'false') + '"' +
-        ' aria-label="' + esc(場所) + 'に鍵をかける（かけると作り直しても動きません）">' + (c.locked ? '🔒' : '🔓') + '</button>' +
+        ' aria-label="' + esc(場所) + 'に鍵をかける（かけると作り直しても動きません）">' + 部品.アイコン(c.locked ? 'lock' : 'unlock') + '</button>' +
         esc(名(c.memberId)) +
         '<span class="r' + (mk === '×' ? ' off' : '') + '">' + esc(mk) + '</span>' +
         '<button type="button" class="x" data-del="' + esc(k.key + '|' + c.memberId) + '"' +
-        ' aria-label="' + esc(場所) + 'を外す">×</button></span>';
+        ' aria-label="' + esc(場所) + 'を外す">' + 部品.アイコン('x') + '</button></span>';
     }).join('');
 
     return '<tr class="' + (足りない ? 'short' : '') + '">' +
@@ -836,7 +813,7 @@ function renderTable() {
   const 足りない日 = P.keys.filter((k) => 日の人(k.key).length < 下限);
   $('tableBody').innerHTML =
     '<div class="row tight" style="margin-bottom:10px;">' +
-    '<button type="button" class="secondary" id="addPersonBtn">＋ 担当を足す</button>' +
+    '<button type="button" class="secondary" id="addPersonBtn">' + 部品.アイコン('plus') + '担当を足す</button>' +
     (足りない日.length
       ? '<span class="muted" style="align-self:center;">決まっていない日が' + 足りない日.length + '日あります</span>'
       : '') +
@@ -980,6 +957,7 @@ $('saveTableBtn').addEventListener('click', async () => {
     P.warnings = r.warnings;
     DIRTY = false;
     renderTable();
+    部品.光らせる([$('tableBody').querySelector('.grid-wrap')]);
     msgIn('genMsg', 'success', '保存しました（' + r.count + '件）。');
   } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
 });

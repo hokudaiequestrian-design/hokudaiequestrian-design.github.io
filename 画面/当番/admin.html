@@ -57,67 +57,16 @@
     </div>
 
     <div class="tabs">
-      <button data-tab="members" class="active">部員</button>
-      <button data-tab="duties">当番の設定</button>
+      <button data-tab="duties" class="active">当番の設定</button>
       <button data-tab="votes">投票状況</button>
       <button data-tab="table">当番表</button>
       <button data-tab="care">手入れ</button>
-      <button data-tab="subterms">サブ整理</button>
     </div>
-
-    <!-- ===== 部員 ===== -->
-    <section data-pane="members">
-      <div class="card">
-        <h2>部員</h2>
-        <p class="hint">卒部などで当番に入らなくなった人は削除してください。その人の投票と、当番表・手入れ表に入っているぶんも一緒に消えます。</p>
-        <div id="memberList"></div>
-      </div>
-
-      <div class="card">
-        <h3>1人ずつ足す</h3>
-        <div class="row">
-          <div><label for="mName">名前</label><input type="text" id="mName" placeholder="山田太郎"></div>
-          <div><label for="mYear">入部年</label><input type="number" id="mYear" placeholder="2025"></div>
-          <div style="flex:0 0 auto;"><button id="addMemberBtn">足す</button></div>
-        </div>
-        <div id="memberMsg" role="status" aria-live="polite"></div>
-
-        <details class="fold">
-          <summary>まとめて足す・人員表システムから取り込む</summary>
-          <div class="fold-body">
-            <p class="hint">1行に1人。「名前 入部年」か「名前 学年」。名前だけでも足せます（学年はあとで直せます）。</p>
-            <textarea id="bulkText" aria-label="まとめて足す部員（1行に1人）" placeholder="山田太郎 2025&#10;鈴木花子 2&#10;佐藤次郎"></textarea>
-            <div style="margin-top:12px;"><button id="bulkBtn" class="secondary">まとめて足す</button></div>
-            <!-- 前はスプレッドシートのメニューでやっていた（2026-09-13、Cloudflare に移すときにこちらへ） -->
-            <h3 style="margin-top:20px;">人員表システムと名簿をそろえる</h3>
-            <p class="hint">
-              人員表システムの<b>1〜3年生・馬・馬のチーフ</b>をこちらに合わせます。足すのと直すのだけで、こちらにしかない人や馬は消しません。
-              チーフだけは両方向で、こちらで直したものは人員表へ書き戻します。
-            </p>
-            <div><button id="syncJininBtn" class="secondary">人員表システムとそろえる</button></div>
-            <div id="syncMsg" role="status" aria-live="polite"></div>
-          </div>
-        </details>
-      </div>
-
-      <!-- 前はスプレッドシートのメニュー「副将パスワードを変更」「チーフパスワードを変更」でやっていた -->
-      <div class="card">
-        <h2>パスワードを変える</h2>
-        <div class="row" style="align-items:flex-end;">
-          <div><label for="newAdminPw">副将パスワード（4文字以上）</label><input type="password" id="newAdminPw" autocomplete="new-password"></div>
-          <div style="flex:0 0 auto;"><button id="changeAdminPwBtn" class="secondary">副将パスワードを変える</button></div>
-        </div>
-        <div class="row" style="align-items:flex-end;margin-top:12px;">
-          <div><label for="newChiefPw">チーフパスワード（空にするとパスワードなし）</label><input type="password" id="newChiefPw" autocomplete="new-password"></div>
-          <div style="flex:0 0 auto;"><button id="changeChiefPwBtn" class="secondary">チーフパスワードを変える</button></div>
-        </div>
-        <p class="hint">変えると、次からは新しいパスワードでしか開けません。いま開いている画面はそのまま使えます。</p>
-        <div id="pwMsg" role="status" aria-live="polite"></div>
-      </div>
-    </section>
+    <!-- 2026-09-15 ユーザーの指示で「部員」タブ・「馬とチーフ」・「サブ整理」タブとパスワードは部員・馬匹管理へ移した -->
+    <p class="hint" style="margin:-4px 0 var(--space-md);">部員の名簿・馬とチーフ・サブ整理・パスワードは <a href="buin.html">部員・馬匹管理</a> に移しました。</p>
 
     <!-- ===== 当番の設定 ===== -->
-    <section data-pane="duties" style="display:none;">
+    <section data-pane="duties">
       <div class="card">
         <h2>当番の種類</h2>
         <div id="dutyList"></div>
@@ -238,10 +187,16 @@
           「作成する」を押すと、決まりと投票から自動で組みます。<br>
           そのあと、マスの人を消したり足したりして直せます。<b>鍵をかけた人は、作り直しても動きません。</b>
         </p>
-        <div class="row tight">
+        <!-- 主な操作（作成する）だけをボタンで出し、たまに使うものは ⋯ にしまう（2026-09-15、ヒント3） -->
+        <div class="row tight" style="align-items:center;">
           <button id="genBtn">作成する</button>
-          <button id="genPreviewBtn" class="secondary">作って中身だけ見る（保存しない）</button>
-          <button id="reloadBtn" class="secondary">保存済みを読み直す</button>
+          <details class="menu">
+            <summary class="icon-btn outline" aria-label="ほかの作り方" title="ほかの作り方（中身だけ見る・読み直す）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g></svg></summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" id="genPreviewBtn">作って中身だけ見る（保存しない）</button>
+              <button type="button" class="menu-item" role="menuitem" id="reloadBtn">保存済みを読み直す</button>
+            </div>
+          </details>
         </div>
         <div id="genMsg" role="status" aria-live="polite"></div>
         <div id="tableStats" class="statline"></div>
@@ -267,21 +222,11 @@
     <!-- ===== 手入れ（チーフ画面と同じことが副将からもできる） ===== -->
     <section data-pane="care" style="display:none;">
       <div class="card">
-        <h2>馬とチーフ</h2>
-        <p class="hint">
-          チーフは部員の一覧から選びます。チーフは手入れの日数が多めになるので、
-          <b>チーフ画面でその人をサブにも入れてください</b>。
-        </p>
-        <div id="horseList"></div>
-        <div id="horseMsg" role="status" aria-live="polite"></div>
-      </div>
-
-      <div class="card">
         <h2>手入れの期間</h2>
         <p class="hint">
           チーフ画面と同じものです。どちらから作っても同じところに入ります。<br>
           サブ選び・◎○×の集計・手入れ表づくりは<b>チーフ画面</b>で行ってください。<br>
-          開始日ごとの、馬ごとの基本のサブは<b>「サブ整理」タブ</b>で決めます。
+          開始日ごとの、馬ごとの基本のサブは<b>部員・馬匹管理の「サブ整理」</b>で決めます。
           曜日の期間で開始日が入っていないものは、下の一覧で開始日を入れ直せます。
         </p>
         <div id="planListAdmin"></div>
@@ -326,61 +271,6 @@
       </div>
     </section>
 
-    <!-- ===== サブ整理（副将が開始日ごとに決める、馬ごとの基本のサブ。2026-09-13） ===== -->
-    <section data-pane="subterms" style="display:none;">
-      <div class="card">
-        <h2>サブ整理</h2>
-        <p class="hint">
-          サブ整理は、<b>開始日ごと</b>に決める馬ごとの<b>基本のサブ</b>です。チーフが決める手入れの期間とは別のものです。<br>
-          チーフが期間を作るときの「最新（○月○日）のサブ整理に合わせる」と、サブをまとめて直すページの同じボタンを押すと、
-          <b>いちばん新しいサブ整理</b>のサブがその馬に入ります。押さなければ、今までどおり前の期間から引き継ぎます。<br>
-          ここを直しても、作ってある期間のサブは変わりません。
-        </p>
-        <div id="stList"></div>
-        <div id="stMsg" role="status" aria-live="polite"></div>
-
-        <details class="fold" id="stNewFold">
-          <summary>サブ整理を新しく作る</summary>
-          <div class="fold-body">
-            <div class="row">
-              <div><label for="stNewName">名前（なくてもよい）</label><input type="text" id="stNewName" placeholder="例：後期"></div>
-              <div><label for="stNewFrom">開始日<span class="req">必須</span></label><input type="date" id="stNewFrom"></div>
-            </div>
-            <label class="inline" style="margin-top:12px;"><input type="checkbox" id="stNewCopy" checked> 直前のサブ整理のサブを写して作る</label>
-            <div style="margin-top:12px;"><button id="stNewBtn">サブ整理を作る</button></div>
-            <div id="stNewMsg" role="status" aria-live="polite"></div>
-          </div>
-        </details>
-      </div>
-
-      <div id="stOpenPane" style="display:none;">
-        <div class="card">
-          <h2 id="stOpenTitle"></h2>
-          <p class="hint" id="stOpenRange"></p>
-          <div class="row">
-            <div><label for="stEditName">名前</label><input type="text" id="stEditName"></div>
-            <div><label for="stEditFrom">開始日</label><input type="date" id="stEditFrom"></div>
-            <div style="flex:0 0 auto;"><button id="stSaveTermBtn" class="secondary">名前と開始日を保存</button></div>
-          </div>
-          <div id="stEditMsg" role="status" aria-live="polite"></div>
-        </div>
-
-        <div class="card">
-          <h2>馬ごとの基本のサブ</h2>
-          <p class="hint">
-            縦が部員、横が馬です。<b>チーフ本人もサブに入れてください</b>（入れないと「チーフ2：ほかのサブ1」が効きません）。<br>
-            サブが0人の馬は、チーフがボタンを押してもそのままです。ここで人を外しても、作ってある期間の◎○×や手入れ表は消えません。
-          </p>
-          <div class="grid-wrap subs-wrap" id="stGrid"></div>
-          <div id="stDirty" role="status" aria-live="polite"></div>
-          <div class="row tight" style="margin-top:16px;">
-            <button id="stSaveBtn">基本のサブを保存</button>
-            <button id="stDiscardBtn" class="secondary">直したのを取り消す</button>
-          </div>
-          <div id="stSaveMsg" role="status" aria-live="polite"></div>
-        </div>
-      </div>
-    </section>
   </div>
 </main>
 
@@ -452,45 +342,6 @@ $('loginBtn').addEventListener('click', async () => {
 });
 $('pw').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginBtn').click(); });
 
-// ===================== 前はスプレッドシートのメニューでやっていたもの（2026-09-13） =====================
-
-$('syncJininBtn').addEventListener('click', async () => {
-  if (!confirm('人員表システムの1〜3年生・馬・チーフに合わせます。消すことはしません。よろしいですか？')) return;
-  $('syncJininBtn').disabled = true;
-  try {
-    const r = await call('adminSyncFromJinin', TOKEN);
-    await loadAll(D.termId);
-    msgIn('syncMsg', 'success', r.文);
-  } catch (e) {
-    msgIn('syncMsg', 'error', (e && e.message) || e);
-  } finally {
-    $('syncJininBtn').disabled = false;
-  }
-});
-
-$('changeAdminPwBtn').addEventListener('click', async () => {
-  const pw = $('newAdminPw').value.trim();
-  if (pw.length < 4) return msgIn('pwMsg', 'error', '副将パスワードは4文字以上にしてください。');
-  if (!confirm('副将パスワードを変えます。よろしいですか？')) return;
-  try {
-    await call('adminChangePassword', TOKEN, pw);
-    $('newAdminPw').value = '';
-    msgIn('pwMsg', 'success', '副将パスワードを変えました。次からは新しいパスワードで開いてください。');
-  } catch (e) { msgIn('pwMsg', 'error', (e && e.message) || e); }
-});
-
-$('changeChiefPwBtn').addEventListener('click', async () => {
-  const pw = $('newChiefPw').value.trim();
-  if (pw && pw.length < 4) return msgIn('pwMsg', 'error', 'チーフパスワードは4文字以上にしてください（空にするとパスワードなし）。');
-  if (!confirm(pw ? 'チーフパスワードを変えます。各馬のチーフに伝えてください。よろしいですか？'
-    : 'チーフパスワードを「なし」にします。リンクを知っていれば誰でもチーフの画面を開けるようになります。よろしいですか？')) return;
-  try {
-    const r = await call('adminSetChiefPassword', TOKEN, pw);
-    $('newChiefPw').value = '';
-    msgIn('pwMsg', 'success', r.なし ? 'チーフパスワードをなしにしました。' : 'チーフパスワードを変えました。');
-  } catch (e) { msgIn('pwMsg', 'error', (e && e.message) || e); }
-});
-
 let 手入れを読んだ = false;
 
 document.querySelector('.tabs').addEventListener('click', async (e) => {
@@ -506,12 +357,6 @@ document.querySelector('.tabs').addEventListener('click', async (e) => {
     try { await loadCare(); }
     catch (err) { 手入れを読んだ = false; msgIn('careMsg', 'error', (err && err.message) || err); }
   }
-  // サブ整理も同じく、タブを開いたときだけ読む
-  if (b.dataset.tab === 'subterms' && !サブ整理を読んだ) {
-    サブ整理を読んだ = true;
-    try { await サブ整理を読む(); }
-    catch (err) { サブ整理を読んだ = false; msgIn('stMsg', 'error', (err && err.message) || err); }
-  }
 });
 
 async function loadAll(termId, 読んだぶん) {
@@ -519,7 +364,6 @@ async function loadAll(termId, 読んだぶん) {
   TABLE = (D.cells || []).slice();
   DIRTY = false;
   renderTerms();
-  renderMembers();
   renderDuties();
   renderSlots();
   renderSettings();
@@ -602,96 +446,16 @@ $('delTermBtn').addEventListener('click', async () => {
   } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
 });
 
-// ===================== 部員 =====================
-
-function renderMembers() {
-  if (!D.members.length) {
-    $('memberList').innerHTML = '<div class="muted">まだ誰も登録されていません。</div>';
-    return;
-  }
-  $('memberList').innerHTML = D.members.map((m) =>
-    '<div class="list-item">' +
-    '<span><b>' + esc(m.name) + '</b>' +
-    (m.grade ? ' <span class="muted">' + m.grade + '年（入部 ' + m.joinYear + '）</span>' : ' <span class="muted">学年ふめい</span>') +
-    (m.noDuty ? ' <span class="pill no">当番に入れない</span>' : '') +
-    '</span>' +
-    '<span class="row tight">' +
-    '<button class="small secondary" data-editm="' + esc(m.id) + '">入部年を直す</button>' +
-    // 当番から外す／戻す（2026-09-14。5年生など、名簿には残して当番だけ外したい人のため）
-    '<button class="small secondary" data-noduty="' + esc(m.id) + '" data-v="' + (m.noDuty ? '0' : '1') + '">' +
-      (m.noDuty ? '当番に戻す' : '当番に入れない') + '</button>' +
-    '<button class="small danger" data-delm="' + esc(m.id) + '">削除</button>' +
-    '</span></div>').join('');
-}
-
-$('memberList').addEventListener('click', async (e) => {
-  const del = e.target.closest('[data-delm]');
-  if (del) {
-    const m = memberById(del.dataset.delm);
-    if (!confirm(m.name + ' を削除します。\nこの人の投票と、当番表・手入れ表に入っているぶんも消えます。よろしいですか？')) return;
-    try {
-      const r = await call('adminDeleteMember', TOKEN, m.id);
-      await loadAll(D.termId);
-      msgIn('memberMsg', 'success', m.name + ' を削除しました（投票 ' + r.消した.当番投票 + '件、当番表 ' + r.消した.当番表 + '件、手入れ ' + (r.消した.サブ + r.消した.手入れ投票 + r.消した.手入れ表) + '件も消しました）。');
-    } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
-    return;
-  }
-  const nd = e.target.closest('[data-noduty]');
-  if (nd) {
-    const m = memberById(nd.dataset.noduty);
-    const 外す = nd.dataset.v === '1';
-    if (!confirm(外す
-      ? m.name + ' を当番に入れないようにします。\n自動で組む当番表と、当番の希望を出す画面の名前から外れます（手入れ・休みはそのまま）。よろしいですか？'
-      : m.name + ' をまた当番に入れるようにします。よろしいですか？')) return;
-    try {
-      const r = await call('adminSetNoDuty', TOKEN, m.id, 外す);
-      await loadAll(D.termId);
-      msgIn('memberMsg', 'success', 外す
-        ? m.name + ' を当番に入れないようにしました。' + (r.当番表 ? 'いまの当番表に ' + r.当番表 + '件入っています。「当番表」タブで組み直すと外れます。' : '')
-        : m.name + ' をまた当番に入れるようにしました。');
-    } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
-    return;
-  }
-  const ed = e.target.closest('[data-editm]');
-  if (ed) {
-    const m = memberById(ed.dataset.editm);
-    const v = prompt(m.name + ' の入部年（西暦4桁）', m.joinYear || '');
-    if (v === null) return;
-    try {
-      await call('adminSaveMember', TOKEN, { id: m.id, name: m.name, joinYear: Number(v) || '' });
-      await loadAll(D.termId);
-      msgIn('memberMsg', 'success', '直しました。');
-    } catch (err) { msgIn('memberMsg', 'error', (err && err.message) || err); }
-  }
-});
-
-$('addMemberBtn').addEventListener('click', async () => {
-  try {
-    await call('adminSaveMember', TOKEN, { name: $('mName').value, joinYear: $('mYear').value });
-    $('mName').value = ''; $('mYear').value = '';
-    await loadAll(D.termId);
-    msgIn('memberMsg', 'success', '足しました。');
-  } catch (e) { msgIn('memberMsg', 'error', (e && e.message) || e); }
-});
-
-$('bulkBtn').addEventListener('click', async () => {
-  try {
-    const r = await call('adminBulkMembers', TOKEN, $('bulkText').value);
-    $('bulkText').value = '';
-    await loadAll(D.termId);
-    msgIn('memberMsg', 'success', r.足した + '人を足しました' + (r.飛ばした ? '（すでにいた ' + r.飛ばした + '人は飛ばしました）' : '') + '。');
-  } catch (e) { msgIn('memberMsg', 'error', (e && e.message) || e); }
-});
-
 // ===================== 当番の設定 =====================
 
 function renderDuties() {
+  // 使う・使わないと削除は、乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
   $('dutyList').innerHTML = D.duties.map((d) =>
-    '<div class="list-item">' +
+    '<div class="list-item is-row">' +
     '<span><b>' + esc(d.name) + '</b>' + (d.active ? '' : ' <span class="pill no">使わない</span>') + '</span>' +
-    '<span class="row tight">' +
-    '<button class="small secondary" data-toggled="' + esc(d.id) + '">' + (d.active ? '使わない' : '使う') + '</button>' +
-    '<button class="small danger" data-deld="' + esc(d.id) + '">削除</button>' +
+    '<span class="row-actions">' +
+    部品.アイコンボタン(d.active ? 'eye-off' : 'eye', d.name + (d.active ? 'を使わないにする' : 'をまた使う'), { 'data-toggled': d.id }) +
+    部品.アイコンボタン('trash', d.name + 'を削除', { 'data-deld': d.id }, 'danger') +
     '</span></div>').join('') || '<div class="muted">当番がありません。</div>';
 }
 
@@ -778,6 +542,7 @@ $('saveSlotsBtn').addEventListener('click', async () => {
     const 結果 = await call('adminSaveSlots', TOKEN, D.termId, slots);
     const 期間 = D.termId;
     await loadAll(期間);
+    部品.光らせる([$('slotGrid').closest('.grid-wrap')]);
     // 保存したのに元の数字に戻っていたら、書けていない。黙って通さずここで言う。
     const 違う = slots.filter((s) => {
       const now = 枠(s.dutyId, s.day);
@@ -816,6 +581,7 @@ $('saveSettingsBtn').addEventListener('click', async () => {
       マル絶対: $('setMaruFirst').checked,
     });
     await loadAll(D.termId);
+    部品.光らせる(document.querySelectorAll('fieldset.rule'));
     msgIn('settingsMsg', 'success', '保存しました。');
   } catch (e) { msgIn('settingsMsg', 'error', (e && e.message) || e); }
 });
@@ -841,14 +607,17 @@ function renderVotes() {
       ? v.map((x, i) => '<span class="pill">第' + (i + 1) + '　' + esc(x.day) + '曜 ' + esc((dutyById(x.dutyId) || {}).name || '?') + '</span>').join('')
       : '<span class="pill no">まだ出していません</span>';
     const 代理 = ある && v.some((x) => x.byAdmin) ? '<span class="pill">代理入力</span>' : '';
-    return '<div class="list-item" style="align-items:flex-start;">' +
+    // まだの人は「代理で入れる」を見せたまま。出した人の直す・消すは、乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
+    return '<div class="list-item is-row" style="align-items:flex-start;">' +
       '<span style="flex:1 1 auto;"><b>' + esc(m.name) + '</b>' +
       (m.grade ? ' <span class="muted">' + m.grade + '年</span>' : '') +
       '<div class="pill-list">' + 中身 + 代理 + '</div></span>' +
-      '<span class="row tight">' +
-      '<button class="small secondary" data-proxy="' + esc(m.id) + '">' + (ある ? '直す' : '代理で入れる') + '</button>' +
-      (ある ? '<button class="small danger" data-clearv="' + esc(m.id) + '">消す</button>' : '') +
-      '</span></div>';
+      (ある
+        ? '<span class="row-actions">' +
+          部品.アイコンボタン('edit', m.name + 'の希望を直す', { 'data-proxy': m.id }) +
+          部品.アイコンボタン('trash', m.name + 'の投票を消す', { 'data-clearv': m.id }, 'danger') + '</span>'
+        : '<button type="button" class="small secondary" data-proxy="' + esc(m.id) + '">代理で入れる</button>') +
+      '</div>';
   }).join('');
 }
 
@@ -988,11 +757,11 @@ function renderTable() {
         return '<span class="name-chip' + (c.locked ? ' locked' : '') + '">' +
           '<button type="button" class="lock" data-lock="' + esc(d.id + '|' + w + '|' + c.memberId) + '"' +
           ' aria-pressed="' + (c.locked ? 'true' : 'false') + '"' +
-          ' aria-label="' + esc(場所) + 'に鍵をかける（かけると作り直しても動きません）">' + (c.locked ? '🔒' : '🔓') + '</button>' +
+          ' aria-label="' + esc(場所) + 'に鍵をかける（かけると作り直しても動きません）">' + 部品.アイコン(c.locked ? 'lock' : 'unlock') + '</button>' +
           esc(名(c.memberId)) +
           '<span class="r' + (c.rank ? '' : ' off') + '">' + 順 + '</span>' +
           '<button type="button" class="x" data-del="' + esc(d.id + '|' + w + '|' + c.memberId) + '"' +
-          ' aria-label="' + esc(場所) + 'を外す">×</button></span>';
+          ' aria-label="' + esc(場所) + 'を外す">' + 部品.アイコン('x') + '</button></span>';
       }).join('');
 
       const 入っている = {};
@@ -1100,6 +869,7 @@ $('saveTableBtn').addEventListener('click', async () => {
     D.warnings = r.warnings;
     DIRTY = false;
     renderTable();
+    部品.光らせる([$('assignGrid').closest('.grid-wrap')]);
     msgIn('genMsg', 'success', '保存しました（' + r.count + '件）。');
   } catch (e) { msgIn('genMsg', 'error', (e && e.message) || e); }
 });
@@ -1117,47 +887,11 @@ let CARE = { horses: [], plans: [], members: [], 期間名: [], 既定のチー�
 
 async function loadCare() {
   CARE = await call('chiefLoadAll', TOKEN);
-  renderHorses();
   renderPlansAdmin();
   $('cHorse').innerHTML = '<option value="">選んでください</option>' +
     CARE.horses.filter((h) => h.active).map((h) => '<option value="' + h.id + '">' + esc(h.name) + '</option>').join('');
   $('cTermList').innerHTML = CARE.期間名.map((t) => '<option value="' + esc(t) + '">').join('');
 }
-
-// チーフを選ぶプルダウン。名簿に無い名前がシートに入っていたときだけ末尾に残す。
-function チーフの選択肢(今) {
-  const 名前 = String(今 || '').trim();
-  const ある = CARE.members.some((m) => m.name === 名前);
-  return '<option value="">（決まっていない）</option>' +
-    CARE.members.map((m) =>
-      '<option value="' + esc(m.name) + '"' + (m.name === 名前 ? ' selected' : '') + '>' +
-      esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('') +
-    (名前 && !ある ? '<option value="' + esc(名前) + '" selected>' + esc(名前) + '（名簿にありません）</option>' : '');
-}
-
-function renderHorses() {
-  const 使う = CARE.horses.filter((h) => h.active);
-  if (!使う.length) { $('horseList').innerHTML = '<div class="muted">馬が登録されていません。</div>'; return; }
-  $('horseList').innerHTML = 使う.map((h) =>
-    '<div class="list-item">' +
-    '<span style="flex:0 0 110px;"><b>' + esc(h.name) + '</b></span>' +
-    '<span style="flex:1 1 220px;">' +
-    '<select data-chief="' + esc(h.id) + '" aria-label="' + esc(h.name) + 'のチーフ">' + チーフの選択肢(h.chief) + '</select>' +
-    '</span></div>').join('');
-}
-
-$('horseList').addEventListener('change', async (e) => {
-  const sel = e.target.closest('[data-chief]');
-  if (!sel) return;
-  const h = CARE.horses.filter((x) => x.id === sel.dataset.chief)[0];
-  try {
-    await call('chiefSaveHorse', TOKEN, { id: h.id, chief: sel.value });
-    await loadCare();
-    msgIn('horseMsg', 'success', sel.value
-      ? esc(h.name) + ' のチーフを ' + sel.value + ' さんにしました。'
-      : esc(h.name) + ' のチーフを外しました。');
-  } catch (err) { msgIn('horseMsg', 'error', (err && err.message) || err); }
-});
 
 function renderPlansAdmin() {
   if (!CARE.plans.length) {
@@ -1166,7 +900,7 @@ function renderPlansAdmin() {
   }
   const 馬名 = (id) => { const h = CARE.horses.filter((x) => x.id === id)[0]; return h ? h.name : '（消えた馬）'; };
   $('planListAdmin').innerHTML = CARE.plans.map((p) =>
-    '<div class="list-item">' +
+    '<div class="list-item is-row">' +
     '<span style="flex:1 1 320px;"><b>' + esc(馬名(p.horseId)) + '</b>　' + esc(p.term) +
     '<div class="muted">' +
     (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to)
@@ -1180,7 +914,8 @@ function renderPlansAdmin() {
       '<span><label for="pf_' + esc(p.id) + '" style="margin:0;font-size:var(--text-sm);">開始日</label>' +
       '<input type="date" id="pf_' + esc(p.id) + '" data-pfrom="' + esc(p.id) + '" value="' + esc(p.from) + '" style="width:auto;"></span>' +
       '<button class="small secondary" data-savefrom="' + esc(p.id) + '">開始日を保存</button>') +
-    '<button class="small danger" data-delplan="' + esc(p.id) + '">削除</button></span>' +
+    // 削除は乗せた行にだけアイコンで出す（2026-09-15、ヒント3）
+    '<span class="row-actions">' + 部品.アイコンボタン('trash', 馬名(p.horseId) + 'の「' + p.term + '」を削除', { 'data-delplan': p.id }, 'danger') + '</span></span>' +
     '</div>').join('');
 }
 
@@ -1239,249 +974,8 @@ $('cNewBtn').addEventListener('click', async () => {
   } catch (e) { msgIn('careMsg', 'error', (e && e.message) || e); }
 });
 
-// ===================== サブ整理（2026-09-13） =====================
-/*
-  副将が開始日ごとに決める、馬ごとの「基本のサブ」。チーフが決める手入れの期間とは別物。
-  使われるのはいちばん新しいサブ整理だけで、チーフが「最新（○月○日）のサブ整理に合わせる」を押したときに入る。
-  表の形はチーフの「サブをまとめて直す」と同じ（行＝部員、列＝馬）。
-  この画面には当番表などほかの表もあるので、要素の名前はすべて st で始めて混ざらないようにしてある。
-*/
-let ST = null;           // adminLoadSubTerms の返り
-let st開いている = '';   // 開いているサブ整理のID
-let st今 = {};           // 馬ID → { 部員ID: true }。画面で直しているぶん
-let サブ整理を読んだ = false;
-
-const st列 = () => ST.horses.filter((h) => h.active);
-const st開いた = () => ST.subTerms.filter((t) => t.id === st開いている)[0] || null;
-const st保存ずみ = (horseId) => ((ST.subs[st開いている] || {})[horseId]) || [];
-const st名 = (t) => t.name || (t.from + ' から');
-const st最新か = (t) => t === ST.subTerms[ST.subTerms.length - 1];
-function st前の日(key) {
-  const p = key.split('-').map(Number);
-  const d = new Date(p[0], p[1] - 1, p[2] - 1);
-  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
-}
-function st範囲(t) {
-  const 次 = ST.subTerms[ST.subTerms.indexOf(t) + 1];
-  return t.from + ' から' + (次 ? ' ' + st前の日(次.from) + ' まで' : '（次のサブ整理を作るまで）');
-}
-
-async function サブ整理を読む() {
-  ST = await call('adminLoadSubTerms', TOKEN);
-  const 最後 = ST.subTerms[ST.subTerms.length - 1];
-  if (最後) return void st開く(最後.id, true);
-  st一覧を描く();
-  $('stOpenPane').style.display = 'none';
-  $('stNewFold').open = true;
-}
-
-function st一覧を描く() {
-  if (!ST.subTerms.length) {
-    $('stList').innerHTML = '<div class="muted">まだサブ整理がありません。下の「サブ整理を新しく作る」から作ってください。</div>';
-    return;
-  }
-  $('stList').innerHTML = ST.subTerms.map((t) =>
-    '<div class="list-item">' +
-    '<span><b>' + esc(st名(t)) + '</b>　<span class="muted">' + esc(st範囲(t)) + '</span>' +
-    (st最新か(t) ? ' <span class="pill yes">最新</span>' : '') +
-    (t.id === st開いている ? ' <span class="pill">開いています</span>' : '') + '</span>' +
-    '<span class="row tight">' +
-    '<button class="small secondary" data-stopen="' + esc(t.id) + '">開く</button>' +
-    '<button class="small danger" data-stdel="' + esc(t.id) + '">削除</button>' +
-    '</span></div>').join('');
-}
-
-// 確かめない＝保存していない直しがあっても聞かない（保存・作成・取り消しのあとに開き直すとき）
-function st開く(id, 確かめない) {
-  if (!確かめない && st変わった馬().length && !confirm('保存していない直しがあります。ほかのサブ整理を開くと消えます。よろしいですか？')) return;
-  st開いている = id;
-  st今 = {};
-  st列().forEach((h) => {
-    st今[h.id] = {};
-    st保存ずみ(h.id).forEach((m) => { st今[h.id][m] = true; });
-  });
-  msgIn('stSaveMsg', '', '');
-  msgIn('stEditMsg', '', '');
-  st一覧を描く();
-  st見出しを描く();
-  st描く();
-}
-
-function st見出しを描く() {
-  const t = st開いた();
-  if (!t) { $('stOpenPane').style.display = 'none'; return; }
-  $('stOpenPane').style.display = 'block';
-  $('stOpenTitle').textContent = '「' + st名(t) + '」のサブ';
-  $('stEditName').value = t.name;
-  $('stEditFrom').value = t.from;
-  $('stOpenRange').innerHTML = esc(st範囲(t)) + '。' + (st最新か(t)
-    ? '<b>いちばん新しいサブ整理です。</b>チーフが「最新のサブ整理に合わせる」を押すと、ここのサブが入ります。'
-    : 'もっと新しいサブ整理があるので、チーフのボタンではここのサブは入りません。');
-}
-
-$('stList').addEventListener('click', async (e) => {
-  const o = e.target.closest('[data-stopen]');
-  if (o) return void st開く(o.dataset.stopen);
-  const d = e.target.closest('[data-stdel]');
-  if (!d) return;
-  const t = ST.subTerms.filter((x) => x.id === d.dataset.stdel)[0];
-  if (!confirm('「' + st名(t) + '」を削除します。\n馬ごとの基本のサブも消えます（作ってある各馬の期間のサブは変わりません）。よろしいですか？')) return;
-  try {
-    const r = await call('adminDeleteSubTerm', TOKEN, t.id);
-    ST = r.all;
-    if (st開いている === t.id) {
-      st開いている = '';
-      st今 = {};
-      const 最後 = ST.subTerms[ST.subTerms.length - 1];
-      if (最後) st開く(最後.id, true);
-      else { st一覧を描く(); st見出しを描く(); }
-    } else {
-      st一覧を描く();
-      st見出しを描く();
-    }
-    msgIn('stMsg', 'success', '「' + st名(t) + '」を削除しました。');
-  } catch (err) { msgIn('stMsg', 'error', '削除できませんでした：' + ((err && err.message) || err)); }
-});
-
-$('stNewBtn').addEventListener('click', async () => {
-  if (!$('stNewFrom').value) return void msgIn('stNewMsg', 'error', '開始日を入れてください。');
-  if (st変わった馬().length && !confirm('保存していない直しがあります。新しいサブ整理を開くと消えます。よろしいですか？')) return;
-  try {
-    const r = await call('adminSaveSubTerm', TOKEN, { name: $('stNewName').value, from: $('stNewFrom').value, 写す: $('stNewCopy').checked });
-    ST = r.all;
-    $('stNewName').value = '';
-    $('stNewFrom').value = '';
-    st開く(r.id, true);
-    msgIn('stNewMsg', 'success', 'サブ整理を作りました。' + (r.写した ? '「' + r.写した + '」のサブを写してあります。' : ''));
-  } catch (e) { msgIn('stNewMsg', 'error', (e && e.message) || e); }
-});
-
-$('stSaveTermBtn').addEventListener('click', async () => {
-  if (!$('stEditFrom').value) return void msgIn('stEditMsg', 'error', '開始日を入れてください。');
-  try {
-    const r = await call('adminSaveSubTerm', TOKEN, { id: st開いている, name: $('stEditName').value, from: $('stEditFrom').value });
-    ST = r.all;              // 表で直している途中のぶん（st今）はそのまま残す
-    st一覧を描く();
-    st見出しを描く();
-    st数を出し直す();
-    msgIn('stEditMsg', 'success', '名前と開始日を保存しました。');
-  } catch (e) { msgIn('stEditMsg', 'error', (e && e.message) || e); }
-});
-
-function st描く() {
-  if (!st開いた()) return;
-  const cols = st列();
-  const 前の位置 = { x: $('stGrid').scrollLeft, y: $('stGrid').scrollTop };
-
-  const 頭 = '<thead><tr><th class="rowhead" scope="col">部員<span class="sub">担当する馬の数</span></th>' +
-    cols.map((h) => '<th scope="col">' + esc(h.name) +
-      '<span class="sub" data-stcol="' + esc(h.id) + '"></span></th>').join('') +
-    '</tr></thead>';
-
-  const 体 = ST.members.map((m) => '<tr>' +
-    '<th class="rowhead" scope="row">' + esc(m.name) +
-    (m.grade ? ' <span class="muted">' + m.grade + '年</span>' : '') +
-    '<span class="sub" data-strow="' + esc(m.id) + '"></span></th>' +
-    cols.map((h) => {
-      const on = !!st今[h.id][m.id];
-      const チーフ = !!h.chief && h.chief === m.name;
-      return '<td data-stcell="' + esc(h.id + '|' + m.id) + '"><label>' +
-        '<input type="checkbox" data-sthorse="' + esc(h.id) + '" data-stmember="' + esc(m.id) + '"' +
-        (on ? ' checked' : '') +
-        ' aria-label="' + esc(m.name + ' を ' + h.name + ' の基本のサブにする' + (チーフ ? '（チーフ）' : '')) + '">' +
-        (チーフ ? '<span class="tag" aria-hidden="true">チーフ</span>' : '') +
-        '</label></td>';
-    }).join('') + '</tr>').join('');
-
-  $('stGrid').innerHTML = '<table class="subs-grid">' + 頭 + '<tbody>' + 体 + '</tbody></table>';
-  $('stGrid').scrollLeft = 前の位置.x;
-  $('stGrid').scrollTop = 前の位置.y;
-  st数を出し直す();
-}
-
-// 表を描き直さずに、数・印・知らせだけ合わせる（描き直すとキーボードの位置が飛ぶため）
-function st数を出し直す() {
-  const 馬で引く = {};
-  st列().forEach((h) => { 馬で引く[h.id] = h; });
-
-  document.querySelectorAll('[data-stcol]').forEach((el) => {
-    const h = 馬で引く[el.dataset.stcol];
-    const ids = Object.keys(st今[h.id] || {});
-    const 文 = [ids.length + '人'];
-    let だめ = false;
-    if (!h.chief) {
-      文.push('チーフ未定');
-    } else if (ids.length) {
-      const チーフ = ST.members.filter((m) => m.name === h.chief)[0];
-      if (!チーフ) { 文.push('チーフ「' + h.chief + '」が名簿にない'); だめ = true; }
-      else if (!st今[h.id][チーフ.id]) { 文.push('チーフが入っていない'); だめ = true; }
-    }
-    el.textContent = 文.join('・');
-    el.className = 'sub' + (だめ ? ' ng' : '');
-  });
-
-  document.querySelectorAll('[data-strow]').forEach((el) => {
-    const id = el.dataset.strow;
-    el.textContent = st列().filter((h) => (st今[h.id] || {})[id]).length + '頭';
-  });
-
-  document.querySelectorAll('[data-stcell]').forEach((td) => {
-    const p = td.dataset.stcell.split('|');
-    const on = !!(st今[p[0]] || {})[p[1]];
-    const 前 = st保存ずみ(p[0]).indexOf(p[1]) >= 0;
-    td.className = (on ? 'on' : '') + (on !== 前 ? ' changed' : '');
-  });
-
-  const 変わった = st変わった馬();
-  msgIn('stDirty', 変わった.length ? 'warning' : '', 変わった.length
-    ? 'まだ保存していない馬：' + 変わった.map((h) => h.name).join('、') + '（' + 変わった.length + '頭）'
-    : '');
-}
-
-function st変わった馬() {
-  if (!ST || !st開いている) return [];
-  return st列().filter((h) => {
-    const 前 = st保存ずみ(h.id);
-    const 後 = st今[h.id] || {};
-    return 前.length !== Object.keys(後).length || 前.some((id) => !後[id]);
-  });
-}
-
-$('stGrid').addEventListener('change', (e) => {
-  const c = e.target.closest('input[data-sthorse]');
-  if (!c) return;
-  if (c.checked) st今[c.dataset.sthorse][c.dataset.stmember] = true;
-  else delete st今[c.dataset.sthorse][c.dataset.stmember];
-  msgIn('stSaveMsg', '', '');
-  st数を出し直す();
-});
-
-$('stSaveBtn').addEventListener('click', async () => {
-  const 変わった = st変わった馬();
-  if (!変わった.length) {
-    return void msgIn('stSaveMsg', 'warning', '変えたところがありません。チェックを付けたり外したりしてから押してください。');
-  }
-  const 送る = {};
-  変わった.forEach((h) => { 送る[h.id] = Object.keys(st今[h.id]); });
-  try {
-    const r = await call('adminSaveBaseSubs', TOKEN, st開いている, 送る);
-    ST = r.all;
-    st開く(st開いている, true);
-    msgIn('stSaveMsg', 'success', 変わった.length + '頭ぶんの基本のサブを保存しました（' +
-      変わった.map((h) => h.name).join('、') + '）。');
-  } catch (e) {
-    msgIn('stSaveMsg', 'error', '保存できませんでした：' + ((e && e.message) || e));
-  }
-});
-
-$('stDiscardBtn').addEventListener('click', () => {
-  if (!st変わった馬().length) return void msgIn('stSaveMsg', 'warning', '取り消す直しはありません。');
-  if (!confirm('直したのを取り消して、保存されているサブに戻します。よろしいですか？')) return;
-  st開く(st開いている, true);
-});
-
 window.addEventListener('beforeunload', (e) => {
-  if (!DIRTY && !st変わった馬().length) return;
+  if (!DIRTY) return;
   e.preventDefault();
   e.returnValue = '';
 });

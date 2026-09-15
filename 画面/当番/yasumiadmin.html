@@ -60,7 +60,8 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 </head>
 <body>
 <div id="busy">通信中です…</div>
-<header class="appbar yasumi"><span>休みカレンダー（副将）</span></header>
+<!-- 2026-09-15 ユーザーの指示で「休みをまとめる」から「バイト・休みをまとめる」に改名 -->
+<header class="appbar yasumi"><span>バイト・休みをまとめる（副将）</span></header>
 
 <main class="wide">
   <div class="card" id="loginCard">
@@ -110,9 +111,9 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
     <section id="tab-cal" style="display:none;">
       <div class="card">
         <div class="month-head">
-          <button type="button" class="secondary small" id="prevMonth">前の月</button>
+          <button type="button" class="icon-btn outline" id="prevMonth" aria-label="前の月" title="前の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <span class="now" id="monthNow"></span>
-          <button type="button" class="secondary small" id="nextMonth">次の月</button>
+          <button type="button" class="icon-btn outline" id="nextMonth" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
         <p class="hint">印　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み　／　点線は了承待ち</p>
@@ -175,18 +176,25 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
             </div>
           </div>
         </div>
+        <!-- めったに使わないので、メニューにしまう（2026-09-15、ヒント3） -->
         <div class="row tight" id="baitoJobTools" style="display:none;margin-top:8px;">
-          <button type="button" class="small secondary" id="baitoRenameJob">名前を変える</button>
-          <button type="button" class="small danger" id="baitoDeleteJob">このバイトを消す</button>
+          <details class="menu">
+            <summary class="menu-text">このバイトの操作</summary>
+            <div class="menu-list" role="menu">
+              <button type="button" class="menu-item" role="menuitem" id="baitoRenameJob">名前を変える</button>
+              <div class="menu-sep"></div>
+              <button type="button" class="menu-item danger" role="menuitem" id="baitoDeleteJob">このバイトを消す</button>
+            </div>
+          </details>
         </div>
         <div id="baitoJobMsg" role="status" aria-live="polite"></div>
       </div>
 
       <div class="card" id="baitoCalCard" style="display:none;">
         <div class="month-head">
-          <button type="button" class="secondary small" id="baitoPrev">前の月</button>
+          <button type="button" class="icon-btn outline" id="baitoPrev" aria-label="前の月" title="前の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
           <span class="now" id="baitoMonth"></span>
-          <button type="button" class="secondary small" id="baitoNext">次の月</button>
+          <button type="button" class="icon-btn outline" id="baitoNext" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
         <div class="cal-grid" id="baitoGrid"></div>
         <p class="hint">日を押すと、その日に人を入れられます。</p>
@@ -378,12 +386,17 @@ function 申し込みを出す() {
         '<td><span class="state ' + (状態クラス[l.state] || '') + '">' + esc(l.state) + '</span></td>' +
         '<td class="muted">' + esc(l.reason || '') + '</td>' +
         '<td><input type="text" data-memo="' + l.id + '" value="' + esc(l.memo || '') + '" maxlength="60" placeholder="ひとこと返す"></td>' +
-        '<td class="acts">' +
-          (l.state !== '承認' ? '<button type="button" class="small" data-do="承認" data-id="' + l.id + '">了承する</button>' : '') +
-          (l.state !== '却下' ? '<button type="button" class="small danger" data-do="却下" data-id="' + l.id + '">却下する</button>' : '') +
-          (l.state !== '申請中' && l.kind !== 'バイト' ? '<button type="button" class="small secondary" data-do="申請中" data-id="' + l.id + '">待ちに戻す</button>' : '') +
-          '<button type="button" class="small secondary" data-del="' + l.id + '">消す</button>' +
-        '</td>' +
+        // いちばん多い「了承する」だけをボタンで出し、却下・待ちに戻す・消すは ⋯ にしまう（2026-09-15、ヒント3）
+        '<td class="acts"><span class="row tight" style="align-items:center;flex-wrap:nowrap;">' +
+          (l.state !== '承認' ? '<button type="button" class="small" data-do="承認" data-id="' + l.id + '">' + 部品.アイコン('check') + '了承する</button>' : '') +
+          '<details class="menu"><summary class="icon-btn" aria-label="' + esc(l.name) + 'の休みのほかの操作" title="ほかの操作">' + 部品.アイコン('more') + '</summary>' +
+          '<div class="menu-list" role="menu">' +
+            (l.state !== '却下' ? '<button type="button" class="menu-item danger" role="menuitem" data-do="却下" data-id="' + l.id + '">' + 部品.アイコン('x') + '却下する</button>' : '') +
+            (l.state !== '申請中' && l.kind !== 'バイト' ? '<button type="button" class="menu-item" role="menuitem" data-do="申請中" data-id="' + l.id + '">' + 部品.アイコン('undo') + '待ちに戻す</button>' : '') +
+            '<div class="menu-sep"></div>' +
+            '<button type="button" class="menu-item danger" role="menuitem" data-del="' + l.id + '">' + 部品.アイコン('trash') + '記録ごと消す</button>' +
+          '</div></details>' +
+        '</span></td>' +
       '</tr>').join('') + '</tbody>';
 }
 
@@ -572,7 +585,7 @@ function その日を出す(day) {
   $('baitoDayList').innerHTML = 面々.length
     ? '<div class="baito-day-list">' + 面々.map((x) =>
         '<span class="who k-baito">' + esc(x.name) +
-        '<button type="button" class="small danger" data-off="' + esc(x.id) + '">外す</button></span>').join('') + '</div>'
+        部品.アイコンボタン('x', x.name + 'をこの日から外す', { 'data-off': x.id }, 'danger tiny') + '</span>').join('') + '</div>'
     : '<p class="hint">まだ誰も入っていません。</p>';
   $('baitoDay').style.display = 'block';
   バイトのカレンダーを出す();
@@ -607,6 +620,7 @@ $('baitoAddWho').addEventListener('click', async () => {
     await call('baitoAssign', TOKEN, BAITO.job.id, 選んだ日, m.id, '');
     await バイトを読む(BAITO.job.id);
     その日を出す(選んだ日);
+    部品.光らせる([$('baitoGrid').querySelector('[data-day="' + 選んだ日 + '"]')]);
     知らせ('baitoMsg', 'success', m.name + 'さんを入れました。');
   } catch (err) {
     知らせ('baitoMsg', 'error', (err && err.message) || err);
@@ -668,7 +682,7 @@ function バイトの回数を出す() {
       '<td class="num"><b>' + c.回数 + '</b></td>' +
       '<td class="num">' + c.自動 + '</td>' +
       '<td><input type="number" class="baito-adj" data-who="' + esc(c.memberId) + '" value="' + c.調整 + '" step="1"></td>' +
-      '<td><button type="button" class="small secondary" data-savecount="' + esc(c.memberId) + '">保存</button></td></tr>').join('');
+      '<td>' + 部品.アイコンボタン('check', c.name + 'の回数を保存', { 'data-savecount': c.memberId }, 'ok') + '</td></tr>').join('');
 }
 
 $('baitoCountTable').addEventListener('click', async (e) => {
@@ -678,6 +692,8 @@ $('baitoCountTable').addEventListener('click', async (e) => {
   try {
     await call('baitoSaveCount', TOKEN, BAITO.job.id, b.dataset.savecount, box.value === '' ? 0 : Number(box.value));
     await バイトを読む(BAITO.job.id);
+    const 行 = $('baitoCountTable').querySelector('[data-savecount="' + b.dataset.savecount + '"]');
+    if (行) 部品.光らせる([行.closest('tr')]);
     知らせ('baitoCountMsg', 'success', '回数を直しました。');
   } catch (err) { 知らせ('baitoCountMsg', 'error', (err && err.message) || err); }
 });
@@ -696,7 +712,7 @@ function 有給を出す() {
         '<td class="num">' + p.待ち + '</td>' +
         '<td class="num nokori' + (p.残り < 0 ? ' ng' : '') + '">' + p.残り + '</td>' +
         '<td><input type="number" min="0" step="1" data-grant="' + m.id + '" value="' + (g ? g.days : '') + '" placeholder="既定">' +
-          ' <button type="button" class="small secondary" data-savegrant="' + m.id + '">この人の付与を保存</button></td>' +
+          ' ' + 部品.アイコンボタン('check', m.name + 'の付与を保存', { 'data-savegrant': m.id }, 'ok') + '</td>' +
       '</tr>';
     }).join('') + '</tbody>';
 }
@@ -708,6 +724,8 @@ $('paidTable').addEventListener('click', async (e) => {
   try {
     const r = await call('yasumiSaveGrant', TOKEN, D.year, b.dataset.savegrant, box.value === '' ? '' : Number(box.value));
     await 読み直す(D.year);
+    const 行 = $('paidTable').querySelector('[data-savegrant="' + b.dataset.savegrant + '"]');
+    if (行) 部品.光らせる([行.closest('tr')]);
     知らせ('paidMsg', 'success', r.既定に戻した ? '空にしたので、決まりの年間日数に戻しました。' : '付与を保存しました。');
   } catch (err) {
     知らせ('paidMsg', 'error', ((err && err.message) || err));
