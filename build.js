@@ -60,6 +60,8 @@ const ページ = [
   { 出す: 'calendar.html', 元: 当番 + '/calendar.html', api: API.当番, 題: 'カレンダーを見る' },
   { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
   { 出す: 'taikai-admin.html', 元: 人員表 + '/admin.html', api: API.人員表, 題: '人員表をまとめる' },
+  // 使い方（2026-09-16 ユーザーの指示）。読むだけのページなので api は無し（call() の差し替えをしない）
+  { 出す: 'tsukaikata.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方' },
 ];
 
 // ===== 1. include('style') を差し替える =====
@@ -342,6 +344,20 @@ function 入口を作る() {
 
   <div id="hub-groups"></div>
 
+  <!-- 使い方（2026-09-16 ユーザーの指示）。立場に合ったところが開く -->
+  <section class="hub-group">
+    <div class="hub-list">
+      <a class="hub-link" href="tsukaikata.html">
+        <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-tsukaikata"/></svg></span>
+        <span class="body">
+          <span class="t">使い方</span>
+          <span class="d">部員用・チーフ用・副将用。自分の立場のところが開きます。</span>
+        </span>
+        <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+      </a>
+    </div>
+  </section>
+
   `;
   html = html.slice(0, 頭) + 入れ替え + html.slice(尻);
 
@@ -408,7 +424,7 @@ let 件 = 0;
   let html = 読む(p.元);
   html = スタイルを埋める(html, プロジェクト);
   html = 検索避けを入れる(html);
-  html = callを差し替える(html, p.api);
+  if (p.api) html = callを差し替える(html, p.api);   // 読むだけのページ（使い方）は call() を持たない
   if (p.写し) html = 写しを足す(html, API.写し);
   html = 戻るを足す(html);
   if (html.indexOf('google.script.run') >= 0) {

@@ -598,7 +598,7 @@ delete 覚え箱['mypage:出したところ'];
 見出し('組み立てたページ：マイページに戻る');
 const docs = path.join(__dirname, '..', 'docs');
 const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
-確かめる('中のページが10ある（カレンダーと、サブをまとめて直すを足した。サブ整理は副将画面のタブ）', 中のページ.length === 10, 中のページ.join(','));
+確かめる('中のページが11ある（カレンダーと使い方を足した。サブ整理は部員・馬匹管理のタブ）', 中のページ.length === 11, 中のページ.join(','));
 中のページ.forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];

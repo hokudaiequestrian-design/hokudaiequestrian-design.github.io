@@ -453,6 +453,24 @@ function 模擬で答える(req) {
     確かめる('部員・馬匹管理の印（アイコン）が描ける', await page.$eval('a.hub-link[href="buin.html"] use', (u) => !!document.querySelector(u.getAttribute('href'))));
     確かめる('人員表をまとめるの鍵は副将パスワード', /副将パスワード/.test(await page.$eval('a.hub-link[href="taikai-admin.html"]', (a) => a.textContent)));
     await 写す('7-副将の入口');
+
+    // 使い方（2026-09-16）：マイページから開け、立場に合ったところが最初に出る
+    確かめる('マイページに「使い方」がある', !!(await page.$('a.hub-link[href="tsukaikata.html"]')));
+    await page.goto(元 + '/tsukaikata.html');
+    await page.waitForSelector('[data-usepane="fukusho"]', { timeout: 10000 });
+    確かめる('副将で開くと副将用が出る（立場を覚えている）',
+      await page.evaluate(() => document.querySelector('[data-usepane="fukusho"]').style.display !== 'none'
+        && document.querySelector('[data-usepane="buin"]').style.display === 'none'));
+    確かめる('部員用・チーフ用・副将用の3つがある',
+      JSON.stringify(await page.$$eval('.tabs [data-use]', (bs) => bs.map((b) => b.textContent))) === JSON.stringify(['部員用', 'チーフ用', '副将用']));
+    await page.click('[data-use="chief"]');
+    確かめる('タブでチーフ用に切り替わる',
+      await page.evaluate(() => document.querySelector('[data-usepane="chief"]').style.display !== 'none'));
+    await page.goto(元 + '/tsukaikata.html?for=buin');
+    await page.waitForSelector('[data-usepane="buin"]', { timeout: 10000 });
+    確かめる('?for=buin で部員用を開ける（人に送るとき用）',
+      await page.evaluate(() => document.querySelector('[data-usepane="buin"]').style.display !== 'none'));
+    await 写す('8-使い方');
     await page.goto(元 + '/?role=chieflinks');
     await page.waitForSelector('#hub-groups a.hub-link', { timeout: 10000 });
     確かめる('チーフの入口に「サブをまとめて直す」は無い', !(await page.$$eval('#hub-groups a.hub-link', (as) => as.some((a) => /teire-subs|まとめて直す/.test(a.href + a.textContent)))));

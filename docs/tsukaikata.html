@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<meta name="robots" content="noindex, nofollow">
+<!--
+  Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
+  pre-emit critique: P5 H5 E5 S5 R4 V4
+
+  見た目の決まりは design.md（このフォルダの中）に書いてある。ここはその実装。
+  design.md より上に立つのは デジタル庁デザインシステム（DADS）だけ。
+  https://design.digital.go.jp/dads/
+
+  守っていること
+    ・本文は16px以上。14px未満は使わない（DADSの下限）
+    ・文字と背景は4.5:1以上、罫線・押せるものの枠と背景は3:1以上
+      （scratchpad の contrast.js で実測ずみ。色を触ったら必ず測り直すこと）
+    ・行間は本文150%以上、見出し140%
+    ・フォーカスは「黄色＋黒」の二重リング。どの部品でも消さない
+    ・押せるものの当たり判定は44px以上
+    ・色だけで意味を伝えない（記号・文字・枠の太さを必ず添える）
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!--
+  日本語は Noto Sans JP だけ（400/700）。重みを増やすと日本語フォントは一気に重くなるので、
+  見出しの強さは太さではなく 大きさ・字間・色 で作る。
+  Geist Mono はラテンだけで軽い。数字の桁をそろえる役だけに使う（1ウェイト）。
+-->
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Geist+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* ===== 色 =====
+     色相はすべて 262（当番の青）に寄せてある。色被りの無い灰色は使わない。
+     値はすべて sRGB に収まることを確認ずみ。 */
+  --paper:        oklch(97.2% 0.006 262);
+  --paper-2:      oklch(99.2% 0.003 262);
+  --paper-3:      oklch(94.5% 0.010 262);
+  --paper-sunken: oklch(92.5% 0.008 262);
+
+  --ink:          oklch(21%   0.014 262);
+  --muted:        oklch(46%   0.022 262);
+
+  --rule:         oklch(88%   0.012 262);   /* 飾り。意味を持たない区切り */
+  --rule-strong:  oklch(62%   0.030 262);   /* 入力欄・押せるものの枠。3:1以上 */
+
+  --accent:       oklch(48%   0.150 262);   /* 当番 */
+  --accent-dark:  oklch(40%   0.150 262);
+  --accent-soft:  oklch(95.5% 0.021 262);
+  --care:         oklch(45%   0.095 165);   /* 手入れ */
+  --care-dark:    oklch(37%   0.079 165);
+  --care-soft:    oklch(95.5% 0.026 165);
+
+  --danger:       oklch(50%   0.190 27);
+  --danger-dark:  oklch(42%   0.173 27);
+  --danger-soft:  oklch(96%   0.019 27);
+  --warning:      oklch(48%   0.105 70);
+  --warning-soft: oklch(96%   0.030 80);
+  --success:      var(--care);
+  --success-soft: var(--care-soft);
+
+  /* 手入れの記号。色だけに頼らず、枠の太さと記号そのものでも分かるようにしてある */
+  --maru2: var(--care);
+  --maru1: var(--accent);
+  --batsu: var(--muted);
+
+  /* フォーカスリング（DADS の指定どおり黄＋黒の二重。色は変えない） */
+  --focus-inner: oklch(87% 0.170 100);
+  --focus-outer: #000000;
+
+  /* ===== 余白 ===== 4pt の名前つきスケール。生の px は書かない */
+  --space-3xs: 0.125rem;  --space-2xs: 0.25rem;  --space-xs: 0.5rem;
+  --space-sm:  0.75rem;   --space-md:  1rem;     --space-lg: 1.5rem;
+  --space-xl:  2.5rem;    --space-2xl: 4rem;     --space-3xl: 6rem;
+
+  /* ===== 文字の大きさ ===== 比率1.25。ただし最小は14px（DADSの下限） */
+  --text-xs:   0.875rem;    /* 14px */
+  --text-sm:   0.9375rem;   /* 15px */
+  --text-base: 1rem;        /* 16px */
+  --text-md:   1.25rem;     /* 20px */
+  --text-lg:   1.5625rem;   /* 25px */
+  --text-xl:   1.953rem;    /* 31px */
+  --text-display: clamp(1.75rem, 3vw + 1rem, 2.4414rem);
+
+  --font-body: "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  --font-num:  "Geist Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* ===== 動き ===== 2つだけ（press と nudge）。transform と opacity 以外は動かさない */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:  cubic-bezier(0.7, 0, 0.84, 0);
+  --dur-micro: 120ms;  --dur-short: 220ms;  --dur-long: 420ms;
+
+  /* ===== 形 ===== playful の上限は12px。影は1段だけ、重ねない */
+  --radius-card:  12px;
+  --radius-input: 8px;
+  --radius-pill:  999px;
+  --shadow-card: 0 1px 2px oklch(21% 0.014 262 / 0.05);
+  --shadow-lift: 0 8px 24px -10px oklch(48% 0.150 262 / 0.28);
+
+  --z-base: 1; --z-raised: 10; --z-sticky: 200; --z-modal: 400; --z-toast: 500;
+
+  --tap: 44px;
+
+  /* ===== 前の名前 =====
+     ページ側の style="" から直接呼ばれているので、消さずに新しい値へ向ける。 */
+  --bg: var(--paper);          --card: var(--paper-2);
+  --text: var(--ink);
+  --primary: var(--accent);    --primary-dark: var(--accent-dark);
+  --primary-soft: var(--accent-soft);
+  --border: var(--rule);       --border-strong: var(--rule-strong);
+  --danger-bg: var(--danger-soft);
+  --success-bg: var(--care-soft);
+  --warning-bg: var(--warning-soft);
+}
+
+* { box-sizing: border-box; }
+/* はみ出しても横スクロールは起こさない。hidden ではなく clip（sticky を壊さない） */
+html, body { overflow-x: clip; }
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--text-base);   /* DADSの本文の下限 */
+  line-height: 1.7;              /* 本文は150%以上 */
+}
+
+/* ===== フォーカス =====
+   黄色の内側と黒の外側の二重リング。背景が明るくても暗くてもどちらかが必ず見える。
+   どの部品でも outline を消さないこと。出方は決してアニメーションさせない。 */
+:focus-visible {
+  outline: 3px solid var(--focus-inner);
+  outline-offset: 0;
+  box-shadow: 0 0 0 6px var(--focus-outer);
+  border-radius: 2px;
+  position: relative;
+  z-index: var(--z-raised);
+  transition: none;
+}
+/* :focus-visible を知らない古いブラウザ向け。新しいブラウザではこちらを打ち消す */
+:focus { outline: 3px solid var(--focus-inner); box-shadow: 0 0 0 6px var(--focus-outer); }
+:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+
+header.appbar {
+  background: var(--accent);
+  color: #fff;
+  padding: var(--space-md);
+  font-size: var(--text-md);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-sm);
+}
+header.appbar.chief { background: var(--care); }
+header.appbar a {
+  color: #fff; font-size: var(--text-sm); font-weight: 400; cursor: pointer;
+  min-height: var(--tap); display: inline-flex; align-items: center;
+  white-space: nowrap; text-decoration: underline; text-underline-offset: 3px;
+}
+
+main { max-width: 760px; margin: 0 auto; padding: var(--space-md); }
+main.wide { max-width: 1240px; }
+/* 余白はわざと不揃いにする。まとまりの間はカードの内側より広い */
+main > section + section { margin-top: var(--space-xl); }
+
+.card {
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-card);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-md);
+  box-shadow: var(--shadow-card);
+}
+/* 枠の中に枠は作らない。カードの中のカードは地の色だけで分ける */
+.card .card { box-shadow: none; border-color: transparent; background: var(--paper); }
+
+h1, h2, h3, h4 { overflow-wrap: anywhere; min-width: 0; }
+h1 { font-size: var(--text-lg); line-height: 1.3; letter-spacing: -0.02em; margin: 0 0 var(--space-sm); }
+h2 { font-size: var(--text-md); line-height: 1.35; letter-spacing: -0.015em; margin: 0 0 var(--space-xs); }
+h3 { font-size: 1.0625rem; line-height: 1.4; margin: 0 0 var(--space-xs); }
+
+/* 数字は Geist Mono で桁をそろえる。役は「表と数の欄」「丸バッジ」の2つだけ */
+.num, .cell-count, .statline b, .summary-grid .stat b,
+.pickcell .rank, .steps .s .no, .name-chip .r, .picked-list .item .n, .calday .d {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+label { display: block; font-weight: 700; margin: var(--space-md) 0 var(--space-2xs); font-size: var(--text-base); }
+label .req { color: var(--danger); font-size: var(--text-sm); margin-left: var(--space-2xs); }
+
+/* 選ぶだけの小さなラベル。DADSの下限14pxは下回らない */
+label.inline {
+  display: inline-flex; align-items: center; gap: var(--space-xs); font-weight: 400;
+  margin: 0 var(--space-sm) 0 0; font-size: var(--text-base); min-height: var(--tap); cursor: pointer;
+}
+
+select, input[type=text], input[type=number], input[type=password], input[type=date], textarea {
+  width: 100%; padding: 11px var(--space-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  font-size: var(--text-base); background: var(--paper-2); color: var(--ink);
+  font-family: inherit; min-height: var(--tap);
+  transition: border-color var(--dur-micro) var(--ease-out);
+}
+input[type=number] { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+select:hover, input:hover, textarea:hover { border-color: var(--accent); }
+textarea { min-height: 88px; resize: vertical; line-height: 1.7; }
+input[type=checkbox], input[type=radio] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+
+.row { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: flex-end; }
+.row > * { flex: 1; min-width: 140px; }
+.row.tight > * { flex: 0 0 auto; min-width: 0; }
+
+.checkbox-list, .radio-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+
+.chip {
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: 10px var(--space-lg); font-size: var(--text-base); cursor: pointer; user-select: none;
+  background: var(--paper-2); min-height: var(--tap); display: inline-flex; align-items: center;
+  white-space: nowrap;
+  transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+.chip.small { padding: var(--space-xs) 14px; font-size: var(--text-sm); }
+.chip:active { transform: translateY(1px); }
+
+/* ===== ボタン =====
+   DADSの目安 中サイズ 96×48 / 小 80×36。当たり判定は44px以上。
+   文言は動詞で終える（「保存」ではなく「人数と学年を保存」）。 */
+button {
+  background: var(--accent); color: #fff; border: 1px solid var(--accent);
+  border-radius: var(--radius-input);
+  padding: var(--space-sm) var(--space-lg); font-size: var(--text-base); font-weight: 700;
+  cursor: pointer; min-height: 48px; min-width: 96px; font-family: inherit; line-height: 1.4;
+  white-space: nowrap;   /* 押せる文字は2行にしない */
+  transition: background-color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out);
+}
+button:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+button:active { transform: translateY(1px); }
+button.secondary { background: var(--paper-2); color: var(--accent); border-color: var(--accent); }
+button.secondary:hover { background: var(--accent-soft); }
+button.danger { background: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: var(--danger-dark); border-color: var(--danger-dark); }
+button.small { padding: var(--space-xs) 14px; font-size: var(--text-sm); min-height: 36px; min-width: 80px; margin: var(--space-2xs) 0; }
+/*
+  DADSは disabled を勧めていない（なぜ押せないかが伝わらないため）。
+  この画面では押せる状態のままにして、押したときに足りないものを文章で知らせている。
+  やむを得ず使う場所だけ、理由を必ず近くに書くこと。
+*/
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.msg {
+  padding: var(--space-sm) 14px; border-radius: var(--radius-input);
+  margin: var(--space-sm) 0; font-size: var(--text-base); line-height: 1.7;
+}
+.msg.success { background: var(--care-soft); color: var(--care); border: 1px solid var(--care); border-left-width: 4px; }
+.msg.error   { background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); border-left-width: 4px; }
+.msg.warning { background: var(--warning-soft); color: var(--warning); border: 1px solid var(--warning); border-left-width: 4px; }
+
+table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+th, td { border: 1px solid var(--rule); padding: 10px var(--space-sm); text-align: left; line-height: 1.5; }
+th { background: var(--paper-3); font-weight: 700; }
+
+.muted { color: var(--muted); font-size: var(--text-sm); }
+.hint { color: var(--muted); font-size: var(--text-sm); margin: var(--space-2xs) 0 0; line-height: 1.7; max-width: 65ch; }
+
+.list-item {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--space-sm);
+  padding: var(--space-sm) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap;
+}
+.list-item:last-child { border-bottom: none; }
+
+.tabs { display: flex; gap: var(--space-xs); margin-bottom: var(--space-md); flex-wrap: wrap; }
+.tabs button { background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); }
+.tabs button:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.tabs button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ===== 表のまわりの枠（Workbench） =====
+   まとめる側の画面は表が主役。表を枠で囲って「道具の一画面」として立たせ、
+   節と節はこの枠と余白だけで分ける（節ごとに罫線を引き足さない）。 */
+.grid-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--radius-input);
+  background: var(--paper-2);
+}
+/* 枠の内側で表の外周がもう一度出ると二重に見えるので、外周だけ消す */
+.grid-wrap > table.duty-grid > * > tr > *:first-child,
+.grid-wrap > table.assign-grid > * > tr > *:first-child { border-left: 0; }
+.grid-wrap > table.duty-grid > * > tr > *:last-child,
+.grid-wrap > table.assign-grid > * > tr > *:last-child { border-right: 0; }
+.grid-wrap > table.duty-grid > thead > tr > *,
+.grid-wrap > table.assign-grid > thead > tr > * { border-top: 0; }
+.grid-wrap > table.duty-grid > tbody > tr:last-child > *,
+.grid-wrap > table.assign-grid > tbody > tr:last-child > * { border-bottom: 0; }
+table.duty-grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 640px; font-size: var(--text-sm); }
+table.duty-grid th, table.duty-grid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; }
+table.duty-grid thead th { background: var(--paper-3); padding: var(--space-xs) var(--space-2xs); font-size: var(--text-base); font-weight: 700; }
+table.duty-grid th.rowhead {
+  background: var(--paper-3); text-align: left; padding: var(--space-xs) 10px; white-space: nowrap;
+  min-width: 96px; position: sticky; left: 0; z-index: var(--z-raised); font-size: var(--text-base);
+}
+/* 土日は色だけでなく文字（土・日）でも分かる */
+table.duty-grid thead th.sat { background: var(--accent-soft); color: var(--accent-dark); }
+table.duty-grid thead th.sun { background: var(--danger-soft); color: var(--danger); }
+
+/* 部員が押す1マス。押した順に第1〜第4希望の番号が付く。 */
+.pickcell {
+  display: block; width: 100%; min-height: 64px; padding: var(--space-xs) var(--space-2xs);
+  background: var(--paper-2); border: 0; cursor: pointer; user-select: none;
+  font-size: var(--text-sm); color: var(--muted); line-height: 1.4; font-family: inherit;
+  min-width: 0; border-radius: 0;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.pickcell:hover { background: var(--accent-soft); }
+.pickcell.picked { background: var(--accent-soft); }
+.pickcell.disabled { background: var(--paper-sunken); color: var(--muted); cursor: not-allowed; }
+.pickcell .rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--radius-pill);
+  background: var(--accent); color: #fff; font-weight: 700; font-size: var(--text-base);
+}
+/* 希望の順は濃さで表すが、数字そのものが読めるので色だけに頼っていない */
+.pickcell .rank.r1 { background: oklch(33% 0.150 262); }
+.pickcell .rank.r2 { background: oklch(40% 0.150 262); }
+.pickcell .rank.r3 { background: oklch(48% 0.150 262); }
+.pickcell .rank.r4 { background: oklch(56% 0.140 262); }
+.pickcell .cap { display: block; font-size: var(--text-xs); }
+
+/* 選んだ順の確認欄 */
+.picked-list { display: flex; flex-direction: column; gap: var(--space-xs); margin-top: 10px; }
+.picked-list .item {
+  display: flex; align-items: center; gap: var(--space-sm);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  padding: 10px var(--space-sm); background: var(--paper-2); flex-wrap: wrap;
+}
+.picked-list .item .n { flex: 0 0 auto; font-weight: 700; color: var(--accent); }
+.picked-list .item .what { flex: 1 1 auto; font-weight: 700; }
+.picked-list .item.empty { border-style: dashed; border-color: var(--rule-strong); color: var(--muted); background: var(--paper); }
+.picked-list .item.empty .what { font-weight: 400; }
+
+/* ===== 当番表・手入れ表（手で直す） ===== */
+table.assign-grid { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 760px; font-size: var(--text-sm); }
+table.assign-grid th, table.assign-grid td { border: 1px solid var(--rule-strong); padding: var(--space-xs); vertical-align: top; }
+table.assign-grid thead th { background: var(--paper-3); text-align: center; font-size: var(--text-base); }
+table.assign-grid th.rowhead { background: var(--paper-3); text-align: left; white-space: nowrap; min-width: 100px; position: sticky; left: 0; z-index: var(--z-raised); font-size: var(--text-base); }
+/* 過不足は色だけでなく、下の「〇人 / 下限〜上限」の文字でも分かる */
+table.assign-grid td.short { background: var(--danger-soft); }
+table.assign-grid td.over { background: var(--warning-soft); }
+
+.name-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2xs); margin: var(--space-3xs);
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: var(--space-2xs) var(--space-2xs) var(--space-2xs) 10px;
+  font-size: var(--text-sm); background: var(--paper-2); white-space: nowrap; min-height: 36px;
+}
+.name-chip .r { font-size: var(--text-xs); color: var(--muted); }
+.name-chip .r.off { color: var(--warning); font-weight: 700; }
+.name-chip.locked { border-color: var(--warning); border-width: 2px; }
+/* チップの中の小さなボタン。見た目は小さいが当たり判定は32px確保する */
+.name-chip .lock, .name-chip .x {
+  background: none; border: 0; cursor: pointer; font-size: var(--text-sm); font-family: inherit;
+  min-width: 32px; min-height: 32px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: var(--radius-input); color: var(--ink);
+}
+.name-chip .x { color: var(--danger); font-weight: 700; }
+.name-chip .lock:hover, .name-chip .x:hover { background: var(--paper-sunken); }
+.cell-count { display: block; font-size: var(--text-xs); color: var(--muted); text-align: right; margin-top: var(--space-2xs); }
+.cell-count.short { color: var(--danger); font-weight: 700; }
+/* マスの中の「人を足す」。selectの既定の高さを保ちつつ小さめに */
+.add-select { margin-top: var(--space-2xs); font-size: var(--text-sm); padding: var(--space-xs); min-height: 40px; }
+
+/* ===== 手入れ：曜日／カレンダーの◎○× ===== */
+.mark-row { display: flex; align-items: center; gap: var(--space-sm); padding: var(--space-xs) 0; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.mark-row:last-child { border-bottom: none; }
+.mark-row .k { flex: 0 0 104px; font-weight: 700; font-size: var(--text-base); }
+.mark-row .k.sat { color: var(--accent-dark); }
+.mark-row .k.sun { color: var(--danger); }
+.marks { display: flex; gap: var(--space-xs); }
+.mk {
+  width: 56px; height: var(--tap); border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  background: var(--paper-2); font-size: 22px; line-height: 1; cursor: pointer; user-select: none;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--muted);
+  font-weight: 700; font-family: inherit; min-width: 0; padding: 0;
+  transition: transform var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out);
+}
+.mk:hover { background: var(--accent-soft); }
+.mk:active { transform: translateY(1px); }
+/* 選ばれている状態は、色に加えて枠の太さでも分かるようにしてある */
+.mk.on { border-width: 3px; }
+.mk.on.m2 { background: var(--care-soft); border-color: var(--maru2); color: var(--maru2); }
+.mk.on.m1 { background: var(--accent-soft); border-color: var(--maru1); color: var(--maru1); }
+.mk.on.m0 { background: var(--paper-sunken); border-color: var(--batsu); color: var(--batsu); }
+
+/* カレンダー（月曜始まり） */
+.cal { margin-bottom: var(--space-md); }
+.cal h4 { margin: 0 0 var(--space-xs); font-size: 1.0625rem; line-height: 1.4; }
+table.cal-grid { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: var(--text-sm); }
+table.cal-grid th, table.cal-grid td { border: 1px solid var(--rule-strong); padding: 0; text-align: center; height: 68px; vertical-align: top; }
+table.cal-grid th { background: var(--paper-3); height: auto; padding: var(--space-2xs) 0; font-size: var(--text-sm); }
+table.cal-grid th.sat { background: var(--accent-soft); color: var(--accent-dark); }
+table.cal-grid th.sun { background: var(--danger-soft); color: var(--danger); }
+table.cal-grid td.off { background: var(--paper); }
+.calday { display: block; width: 100%; height: 100%; min-height: var(--tap); border: 0; background: transparent; cursor: pointer; padding: var(--space-2xs) var(--space-3xs); font-family: inherit; }
+.calday .d { display: block; font-size: var(--text-xs); color: var(--muted); }
+.calday .m { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; color: oklch(70% 0.015 262); }
+.calday.m2 { background: var(--care-soft); } .calday.m2 .m { color: var(--maru2); }
+.calday.m1 { background: var(--accent-soft); } .calday.m1 .m { color: var(--maru1); }
+.calday.m0 { background: var(--paper-sunken); } .calday.m0 .m { color: var(--batsu); }
+/* チーフ画面：期間の編集は開け閉めのボタンを出さず、閉じているあいだは枠ごと隠す（鉛筆で開く） */
+#planEditFold > summary { display: none; }
+#planEditFold:not([open]) { display: none; }
+/* チーフ画面：期間の行はどこを押しても開く */
+.plan-row { cursor: pointer; }
+/* チーフ画面：いま開いている期間 */
+button.linklike[aria-current="true"] { font-weight: 700; text-decoration: none; }
+button.linklike[aria-current="true"]::before { content: "▶ "; font-size: 0.8em; }
+/* 手入れ表の編集（2026-09-15）：押せる日のマスと、押すと出るプルダウン */
+.calday.editable { cursor: pointer; transition: background-color var(--dur-micro) var(--ease-out); }
+.calday.editable:hover { background: var(--care-soft); box-shadow: inset 0 0 0 2px var(--care); }
+select.day-pick { width: 100%; min-height: var(--tap); padding: var(--space-2xs); font-size: var(--text-sm); border-color: var(--care); }
+.calday .who { display: block; font-size: var(--text-xs); font-weight: 700; color: var(--ink); }
+
+/* チェックシート（サブを選ぶ） */
+.checksheet { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.checksheet label {
+  display: inline-flex; align-items: center; gap: var(--space-xs); margin: 0;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-input); padding: 10px 14px;
+  background: var(--paper-2); font-weight: 400; font-size: var(--text-base); cursor: pointer; min-height: var(--tap);
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.checksheet label:hover { background: var(--accent-soft); }
+/* チェック済みは、色に加えて枠の太さでも分かる */
+.checksheet label.on { border-color: var(--accent); border-width: 2px; background: var(--accent-soft); }
+.checksheet label .g { color: var(--muted); font-size: var(--text-sm); }
+
+/* ===== 見出しだけ出しておいて、押したら開く =====
+   使う頻度が低いわりに場所を取っていたところを畳んである。 */
+details.fold { border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); margin-top: var(--space-sm); }
+details.fold > summary {
+  cursor: pointer; padding: var(--space-sm) var(--space-md); font-weight: 700; font-size: var(--text-base);
+  min-height: var(--tap); display: flex; align-items: center; gap: var(--space-xs); list-style: none;
+  border-radius: var(--radius-input);
+}
+details.fold > summary::-webkit-details-marker { display: none; }
+details.fold > summary::before { content: "\25B6"; font-size: 13px; color: var(--accent); }
+details.fold[open] > summary::before { content: "\25BC"; }
+details.fold > summary:hover { background: var(--accent-soft); }
+details.fold[open] > summary { border-bottom: 1px solid var(--rule); border-radius: var(--radius-input) var(--radius-input) 0 0; }
+.fold-body { padding: var(--space-2xs) var(--space-md) var(--space-md); }
+
+/* ===== 決まりのまとまり =====
+   当番と手入れは別の表なのに、決まりが1枚に続けて並んでいて境目が見えなかった。
+   fieldset/legend で囲うと、目で見て分かれるだけでなく、読み上げでも
+   「当番の決まりの中の欄」と伝わる（DADS：関係のある入力欄はひとまとまりにする）。 */
+fieldset.rule {
+  border: 1px solid var(--rule-strong); border-left-width: 6px;
+  border-radius: var(--radius-card); padding: var(--space-xs) var(--space-md) var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+fieldset.rule > legend {
+  font-weight: 700; font-size: 1.0625rem; line-height: 1.4;
+  padding: var(--space-3xs) 10px; margin-left: -4px;
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); background: var(--paper-2);
+}
+/* 何の表に効くのかを、まとまりの頭に必ず書く */
+fieldset.rule .rule-what { margin: var(--space-2xs) 0 var(--space-sm); font-size: var(--text-sm); line-height: 1.6; color: var(--ink); }
+/* 枠は灰色ではなく、そのまとまりの色にする。
+   薄い青地の上では灰色の枠が 2.98:1 しか出ず、3:1 に届かなかった。 */
+fieldset.rule-duty { border-color: var(--accent); background: var(--accent-soft); }
+fieldset.rule-duty > legend { border-color: var(--accent); color: var(--accent-dark); }
+fieldset.rule-care { border-color: var(--care); background: var(--care-soft); }
+fieldset.rule-care > legend { border-color: var(--care); color: var(--care); }
+/* 色が付いた地の上でも、入力欄は白のままにして境目を残す */
+fieldset.rule input[type="number"], fieldset.rule input[type="text"] { background: var(--paper-2); }
+
+/* 数字だけの1行。以前は大きな箱を並べていて、場所のわりに情報が少なかった。 */
+.statline { font-size: var(--text-base); line-height: 1.9; }
+.statline b { font-size: var(--text-md); margin: 0 var(--space-3xs) 0 var(--space-2xs); }
+.statline b:first-child { margin-left: 0; }
+.statline .ng { color: var(--danger); }
+.statline .sep { color: var(--muted); margin: 0 var(--space-xs); }
+
+/* 一覧の要約（サブは誰か、など）。畳んだ中身の代わりに見せる。 */
+.summary-line { font-size: var(--text-base); line-height: 1.8; }
+.summary-line .none { color: var(--danger); font-weight: 700; }
+
+/* ===== 段（Narrative Workflow） =====
+   希望を出す画面は「1 だれの 2 押す 3 出す」という順番が本当にある。
+   段の番号を見出しの頭に大きく置き、カードの上を太い罫線で切って前の段と分ける。 */
+.card.stage-card { border-top: 4px solid var(--accent); border-top-left-radius: var(--radius-card); border-top-right-radius: var(--radius-card); }
+.card.stage-card.care { border-top-color: var(--care); }
+.stage { display: flex; align-items: baseline; gap: var(--space-sm); margin: 0 0 var(--space-sm); }
+.stage .n {
+  flex: 0 0 auto; font-family: var(--font-num); font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg); font-weight: 500; line-height: 1; color: var(--accent);
+}
+.card.stage-card.care .stage .n { color: var(--care); }
+.stage .h { font-size: var(--text-md); font-weight: 700; line-height: 1.35; letter-spacing: -0.015em; overflow-wrap: anywhere; min-width: 0; }
+
+/* 進み方の帯（Narrative Workflow・Workbench） */
+.steps { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin: 0 0 var(--space-md); font-size: var(--text-sm); list-style: none; padding: 0; }
+.steps .s {
+  border: 1px solid var(--rule-strong); border-radius: var(--radius-pill);
+  padding: var(--space-2xs) 14px; background: var(--paper-2); color: var(--muted);
+  display: inline-flex; align-items: center; gap: var(--space-2xs); white-space: nowrap;
+}
+.steps .s .no { font-weight: 500; margin-right: var(--space-3xs); }
+.steps .s.on { background: var(--care); border-color: var(--care); color: #fff; font-weight: 700; }
+.steps .s.done { border-color: var(--care); color: var(--care); }
+/* 当番の段は青、手入れの段は緑。どちらの話かが段だけで分かる */
+.steps.duty .s.on { background: var(--accent); border-color: var(--accent); }
+.steps.duty .s.done { border-color: var(--accent); color: var(--accent-dark); }
+
+.pill-list { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-xs); }
+.pill { border: 1px solid var(--rule-strong); border-radius: var(--radius-pill); padding: var(--space-2xs) var(--space-sm); font-size: var(--text-sm); background: var(--paper-2); }
+.pill.no { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+.pill.yes { background: var(--care-soft); border-color: var(--care); color: var(--care); }
+
+.summary-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.summary-grid .stat { border: 1px solid var(--rule); border-radius: var(--radius-input); padding: 10px 14px; background: var(--paper-2); min-width: 116px; }
+.summary-grid .stat b { display: block; font-size: var(--text-lg); line-height: 1.3; }
+.summary-grid .stat span { font-size: var(--text-sm); color: var(--muted); }
+
+.warn-list { max-height: 280px; overflow-y: auto; margin-top: 10px; }
+.warn-list div { font-size: var(--text-base); padding: var(--space-2xs) 0; border-bottom: 1px solid var(--rule); line-height: 1.7; }
+.warn-list div:last-child { border-bottom: none; }
+.warn-list .e { color: var(--danger); }
+.warn-list .w { color: var(--warning); }
+
+/* 画面に出さないが、読み上げには渡したい文言 */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* 通信中の表示。Apps Scriptは1往復に数秒かかるので、待ちを必ず見せる */
+#busy {
+  position: fixed; top: 0; left: 0; right: 0; z-index: var(--z-toast);
+  background: var(--warning); color: #fff; text-align: center;
+  padding: 10px; font-size: var(--text-base); font-weight: 700; display: none;
+}
+#busy.on { display: block; }
+
+.saving-bar {
+  position: sticky; bottom: 0; background: var(--paper-2); border-top: 3px solid var(--accent);
+  padding: var(--space-sm); display: none; align-items: center; gap: var(--space-sm);
+  justify-content: space-between; margin: 0 calc(var(--space-lg) * -1) calc(var(--space-lg) * -1);
+  flex-wrap: wrap; z-index: var(--z-sticky);
+}
+.saving-bar.on { display: flex; }
+
+/* ===== 動き =====
+   2つだけ。press（押している間 1px 沈む）と nudge（入口の行で印が少し寄る）。
+   出てくる演出は置いていない。道具の画面で毎回待たされる動きは邪魔にしかならないため。
+   press は button・.chip・.mk に、nudge は入口ページの中に書いてある。 */
+a.hub-link {
+  transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
+}
+@media (pointer: coarse) { button, .chip, .mk { min-height: 48px; } }
+
+/* 動きを減らす設定の人には、動きを出さない。フォーカスリングは元から動かしていない */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important; scroll-behavior: auto !important;
+  }
+}
+
+/* マイページから来たときの「◯◯ さんとして出します」。
+   入口で名前を選んでいるので、ここで選び直させない（2026-09-13）。
+   ちがう人のときは入口で選び直す（画面ごとに聞き直さない）。 */
+.wholine { font-size: var(--text-base); margin: var(--space-xs) 0 0; line-height: 1.7; }
+.wholine b { font-size: var(--text-md); }
+.wholine .hint { display: block; margin-top: var(--space-3xs); }
+
+/* ===== 部員×馬のチェック表（2026-09-13） =====
+   チーフの「サブをまとめて直す」（subs.html）と、副将画面の「サブ整理」タブで使う。
+   行＝部員、列＝馬。1マス＝「この人をこの馬のサブにするか」。 */
+.subs-wrap { max-height: 72vh; overflow: auto; }   /* 枠の中で縦にも動かして、見出しを上に貼り付ける */
+table.subs-grid { border-collapse: separate; border-spacing: 0; width: auto; min-width: 100%; }
+table.subs-grid th, table.subs-grid td {
+  border: 1px solid var(--rule-strong); border-width: 0 1px 1px 0;
+  padding: 0; text-align: center; vertical-align: middle;
+}
+table.subs-grid thead th {
+  position: sticky; top: 0; z-index: var(--z-raised); background: var(--paper-3);
+  padding: var(--space-xs); min-width: 112px; vertical-align: bottom; line-height: 1.4;
+}
+table.subs-grid .sub { display: block; font-size: var(--text-xs); font-weight: 400; color: var(--muted); }
+table.subs-grid .sub.ng { color: var(--danger); font-weight: 700; }
+table.subs-grid th.rowhead {
+  position: sticky; left: 0; z-index: calc(var(--z-raised) + 1); background: var(--paper-3);
+  text-align: left; padding: var(--space-xs) var(--space-sm); white-space: nowrap;
+}
+table.subs-grid thead th.rowhead { z-index: calc(var(--z-raised) + 2); }
+table.subs-grid td label {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2xs);
+  margin: 0; min-height: var(--tap); padding: var(--space-2xs) var(--space-xs); cursor: pointer; font-weight: 400;
+}
+table.subs-grid td label:hover { background: var(--accent-soft); }
+table.subs-grid td.on { background: var(--care-soft); }
+/* 保存していないマス。色だけでなく太い内枠でも分かる */
+table.subs-grid td.changed { box-shadow: inset 0 0 0 3px var(--warning); }
+table.subs-grid .tag { font-size: var(--text-xs); font-weight: 700; color: var(--care); }
+
+/* =====================================================================
+   2026-09-15「WebアプリのUIデザインを洗練させるための7つのヒント」（NRIネットコム）に沿って足した部品。
+   ユーザーが特に 3（ボタンを多用しない）と 7（インタラクション）を挙げた。人員表の画面と同じ作り。
+   動きは press と nudge の2つだったが、ユーザーの指示で7のぶんを足した（design.md の Motion に書いてある）。
+   動かすのは transform と opacity だけ。動きを減らす設定では上の決まりで止まる。
+   ===================================================================== */
+
+/* ボタンの中にアイコン（svg）を入れられるように */
+/* hidden を付けたものは必ず隠す。button などに display を付けると hidden が効かなくなり、バイトの「保存」「やめる」がいつも出ていた（2026-09-16） */
+[hidden] { display: none !important; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-xs); }
+button svg, summary svg { width: 20px; height: 20px; flex: 0 0 auto; }
+
+/* ----- アイコンボタン（ヒント3） -----
+   文字のボタンを並べる代わりに使う。アイコンだけなので、必ず aria-label と title を付ける。 */
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; min-width: 40px; min-height: 40px; padding: 0; margin: 0;
+  background: transparent; color: var(--muted); border: 1px solid transparent;
+  border-radius: var(--radius-input); cursor: pointer; font-weight: 400;
+}
+.icon-btn:hover { background: var(--accent-soft); color: var(--accent-dark); border-color: var(--accent); }
+.icon-btn.danger { background: transparent; color: var(--danger); border-color: transparent; }
+.icon-btn.danger:hover { background: var(--danger-soft); color: var(--danger-dark); border-color: var(--danger); }
+.icon-btn.ok { color: var(--care); }
+.icon-btn.ok:hover { background: var(--care-soft); color: var(--care-dark); border-color: var(--care); }
+/* 枠つき（前の月・次の月など、ずっと見えている操作） */
+.icon-btn.outline { border-color: var(--rule-strong); background: var(--paper-2); color: var(--ink); width: 44px; height: 44px; }
+.icon-btn.tiny { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+.icon-btn.tiny svg { width: 16px; height: 16px; }
+.icon-btn[aria-pressed="true"] { background: var(--warning-soft); color: var(--warning); border-color: var(--warning); }
+@media (pointer: coarse) {
+  .icon-btn, .icon-btn.tiny { width: var(--tap); height: var(--tap); min-width: var(--tap); min-height: var(--tap); }
+}
+
+/* ----- 行の操作。乗せた行・キーボードで入った行だけに出す（ヒント3） -----
+   マウスの無い端末（スマホ）では乗せられないので、いつも出しておく。 */
+.row-actions { display: inline-flex; align-items: center; gap: var(--space-3xs); flex: 0 0 auto; }
+@media (hover: hover) and (pointer: fine) {
+  .row-actions { opacity: 0; transition: opacity var(--dur-short) var(--ease-out); }
+  .is-row:hover .row-actions, .is-row:focus-within .row-actions,
+  .row-actions:has(details[open]) { opacity: 1; }
+}
+.list-item.is-row {
+  margin: 0 calc(var(--space-sm) * -1); padding-left: var(--space-sm); padding-right: var(--space-2xs);
+  border-radius: var(--radius-input);
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+.list-item.is-row:hover, .list-item.is-row:focus-within { background: var(--paper-3); }
+
+/* 一覧の名前そのものを押して開く（「開く」ボタンを並べない） */
+button.linklike {
+  background: none; border: 0; padding: var(--space-2xs) 0; min-height: 36px; min-width: 0;
+  color: var(--accent-dark); font-weight: 700; text-decoration: underline; text-underline-offset: 3px;
+  justify-content: flex-start; text-align: left; white-space: normal;
+}
+button.linklike:hover { background: none; color: var(--accent); text-decoration-thickness: 2px; }
+
+/* ----- メニュー（⋯ と、まとめて入れる など） -----
+   <details class="menu"> で作る。キーボードでも Enter で開ける。
+   表の枠（overflow）の中でも切れないよう、開いたときに下の script が画面に対する位置（fixed）で置く。 */
+details.menu { position: relative; display: inline-block; }
+details.menu > summary { list-style: none; cursor: pointer; }
+details.menu > summary::-webkit-details-marker { display: none; }
+details.menu[open] > summary { background: var(--accent-soft); color: var(--accent-dark); border-color: var(--accent); }
+/* 文字で出すメニューの口（「まとめて入れる」など）。副ボタンと同じ形 */
+summary.menu-text {
+  display: inline-flex; align-items: center; gap: var(--space-2xs);
+  min-height: 36px; padding: var(--space-2xs) 14px; margin: var(--space-2xs) 0;
+  background: var(--paper-2); color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-input);
+  font-size: var(--text-sm); font-weight: 700; white-space: nowrap;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+summary.menu-text:hover { background: var(--accent-soft); }
+summary.menu-text::after { content: "▾"; font-size: 12px; }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + var(--space-2xs)); z-index: var(--z-modal);
+  min-width: 220px; padding: var(--space-2xs);
+  background: var(--paper-2); border: 1px solid var(--rule-strong); border-radius: var(--radius-input);
+  box-shadow: var(--shadow-lift);
+  display: flex; flex-direction: column; gap: var(--space-3xs);
+  animation: menu-in var(--dur-short) var(--ease-out);
+}
+.menu-sep { height: 1px; background: var(--rule); margin: var(--space-2xs) 0; }
+.menu-item {
+  display: flex; align-items: center; justify-content: flex-start; gap: var(--space-sm);
+  width: 100%; min-height: var(--tap); min-width: 0; padding: var(--space-xs) var(--space-sm); margin: 0;
+  background: transparent; color: var(--ink); border: 0; border-radius: 6px;
+  font-weight: 400; font-size: var(--text-base); text-align: left; white-space: nowrap;
+}
+.menu-item svg { color: var(--muted); }
+.menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); color: var(--accent-dark); border: 0; }
+.menu-item:hover svg { color: var(--accent-dark); }
+/* 危ない項目は赤い文字だけ。button.danger の赤い塗りが残ると、赤地に赤文字で読めなくなる */
+.menu-item.danger { color: var(--danger); background: transparent; border: 0; }
+.menu-item.danger svg { color: var(--danger); }
+.menu-item.danger:hover { background: var(--danger-soft); color: var(--danger-dark); }
+@keyframes menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+/* ----- 触ったところへの応え（ヒント7） ----- */
+/* 知らせは出るときに少しだけ下りてくる */
+.msg { animation: msg-in var(--dur-short) var(--ease-out); }
+@keyframes msg-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* 押したばかりの札・マスが少し膨らんで戻る（下の script が just を付ける） */
+.just { animation: pick var(--dur-short) var(--ease-out); }
+@keyframes pick { from { transform: scale(0.94); } to { transform: none; } }
+/* 保存したところが一瞬光る（上に重ねた薄い緑の opacity だけを動かす） */
+.flash { position: relative; }
+.flash::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 1;
+  background: var(--care); opacity: 0; animation: flash 900ms var(--ease-out);
+}
+@keyframes flash { from { opacity: 0.28; } to { opacity: 0; } }
+/* 保存していない直しの帯は、下からせり上がる */
+.saving-bar.on { animation: bar-in var(--dur-short) var(--ease-out); box-shadow: 0 -8px 24px -12px oklch(21% 0.014 262 / 0.25); }
+@keyframes bar-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+/* 選んでいるタブは、塗りに加えて下の太線でも分かる */
+/* :focus-visible のときは付けない（黄＋黒のフォーカスリングを上書きしないため） */
+.tabs button.active:not(:focus-visible) { box-shadow: inset 0 -3px 0 oklch(0% 0 0 / 0.25); }
+
+/* 表の中の名前の札。鍵と×は、乗せた札・キーボードで入った札にだけ出す（鍵をかけてある札の鍵はいつも出す） */
+.name-chip .lock svg, .name-chip .x svg { width: 16px; height: 16px; }
+.name-chip .lock[aria-pressed="true"] { color: var(--warning); }
+@media (hover: hover) and (pointer: fine) {
+  .name-chip .x, .name-chip .lock[aria-pressed="false"] { opacity: 0; transition: opacity var(--dur-short) var(--ease-out); }
+  .name-chip:hover .x, .name-chip:hover .lock, .name-chip:focus-within .x, .name-chip:focus-within .lock { opacity: 1; }
+}
+.name-chip { transition: background-color var(--dur-micro) var(--ease-out); }
+.name-chip:hover { background: var(--paper-3); }
+</style>
+<script>
+/*
+  当番・手入れの全ページで使う部品（2026-09-15）。style.html はどのページにも入るので、ここに1回だけ書く。
+    部品.アイコン('edit')        … 線画のアイコンの <svg>。絵文字はアイコンの代わりに使わない（design.md）
+    部品.アイコンボタン(…)       … aria-label と title つきのアイコンだけのボタン
+    部品.光らせる([要素…])       … 保存したところを一瞬光らせる
+  あわせて次を全ページで効かせる：
+    ・details.menu … 外を押す／Esc／項目を押すと閉じる。上下の矢印で項目を移る。表の枠で切れない位置に出す
+    ・押した札・マス（.chip .mk .pickcell .calday .daycell .kindchip .checksheet label）… 押した直後に just を付けて少し膨らませる
+*/
+const 部品 = (() => {
+  const 線 = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+  const 絵 = {
+    edit: '<path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/>',
+    undo: '<path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/>',
+    refresh: '<path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/>',
+    eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    'eye-off': '<path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6A17 17 0 0 0 2 12s3.6 7 10 7a9.7 9.7 0 0 0 4.4-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+    'chev-left': '<path d="M15 6l-6 6 6 6"/>',
+    'chev-right': '<path d="M9 6l6 6-6 6"/>',
+    spark: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',
+    save: '<path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M8 3v5h7V3M8 21v-6h8v6"/>',
+  };
+  const アイコン = (名) => '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">' +
+    (名 === 'more'
+      ? '<g fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></g>'
+      : '<g ' + 線 + '>' + (絵[名] || '') + '</g>') + '</svg>';
+
+  const 守る = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // 属性は { 'data-delm': id } のように渡す（onclick は使わない。どのページも委ねた click で拾っている）
+  function アイコンボタン(名, 説明, 属性, cls) {
+    const 付け足し = Object.keys(属性 || {}).map((k) => ' ' + k + '="' + 守る(属性[k]) + '"').join('');
+    return '<button type="button" class="icon-btn' + (cls ? ' ' + cls : '') + '" aria-label="' + 守る(説明) + '" title="' + 守る(説明) + '"' +
+      付け足し + '>' + アイコン(名) + '</button>';
+  }
+
+  function 光らせる(els) {
+    Array.prototype.forEach.call(els || [], (el) => {
+      if (!el || !el.classList) return;
+      el.classList.remove('flash');
+      void el.offsetWidth;   // 続けて光らせても、もう一度始まるように
+      el.classList.add('flash');
+      setTimeout(() => el.classList.remove('flash'), 1000);
+    });
+  }
+
+  // ----- メニュー -----
+  function 置き直す(d) {
+    const 箱 = d.querySelector('.menu-list');
+    const 口 = d.querySelector('summary');
+    if (!箱 || !口) return;
+    const r = 口.getBoundingClientRect();
+    箱.style.position = 'fixed';
+    箱.style.right = 'auto';
+    箱.style.top = '0px';
+    箱.style.left = '0px';
+    const w = 箱.offsetWidth;
+    const h = 箱.offsetHeight;
+    let 左 = r.right - w;
+    if (左 < 8) 左 = Math.min(r.left, window.innerWidth - w - 8);
+    let 上 = r.bottom + 4;
+    if (上 + h > window.innerHeight - 8 && r.top - h - 4 > 8) 上 = r.top - h - 4;
+    箱.style.left = Math.max(8, 左) + 'px';
+    箱.style.top = Math.max(8, 上) + 'px';
+  }
+  const 閉じる = (除く) => {
+    document.querySelectorAll('details.menu[open]').forEach((d) => { if (d !== 除く) d.open = false; });
+  };
+  // toggle は泡立たないので、捕まえる側（capture）で聞く
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d.matches || !d.matches('details.menu') || !d.open) return;
+    閉じる(d);
+    置き直す(d);
+  }, true);
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('details.menu[open]').forEach((d) => {
+      if (!d.contains(e.target) || (e.target.closest && e.target.closest('.menu-item'))) d.open = false;
+    });
+  });
+  /*
+    画面や表が動いたら、メニューをボタンに付いたまま置き直す（fixed で置いたので、そのままだとずれて見える）。
+    ボタンが見えないところへ行ったときだけ閉じる。
+    前は動いたらすぐ閉じていたが、ボタンを押す直前に画面が少し動くと、開いた直後に閉じてしまっていた（2026-09-15）。
+  */
+  document.addEventListener('scroll', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.menu-list')) return;
+    document.querySelectorAll('details.menu[open]').forEach((d) => {
+      const s = d.querySelector('summary');
+      const r = s ? s.getBoundingClientRect() : null;
+      if (!r || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) d.open = false;
+      else 置き直す(d);
+    });
+  }, true);
+  window.addEventListener('resize', () => 閉じる(null));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('details.menu[open]').forEach((d) => { d.open = false; const s = d.querySelector('summary'); if (s) s.focus(); });
+      return;
+    }
+    if ((e.key !== 'ArrowDown' && e.key !== 'ArrowUp') || !e.target.closest) return;
+    const 開いた = e.target.closest('details.menu[open]');
+    if (!開いた) return;
+    const 項目 = Array.prototype.slice.call(開いた.querySelectorAll('.menu-item:not(:disabled)'));
+    if (!項目.length) return;
+    const i = 項目.indexOf(document.activeElement);
+    項目[(i + (e.key === 'ArrowDown' ? 1 : -1) + 項目.length) % 項目.length].focus();
+    e.preventDefault();
+  });
+
+  // ----- 押した札・マスを少し膨らませる -----
+  const 跳ねる = '.chip, .mk, .pickcell, .calday, .daycell, .kindchip, .checksheet label';
+  const 印の選び方 = (el) => {
+    const 元 = (el.attributes && Array.prototype.some.call(el.attributes, (a) => a.name.indexOf('data-') === 0)) ? el : el.querySelector('[data-plan],[data-horse],[data-sub],[data-key]');
+    if (!元) return '';
+    return Array.prototype.filter.call(元.attributes, (a) => a.name.indexOf('data-') === 0)
+      .map((a) => '[' + a.name + '="' + (window.CSS && CSS.escape ? CSS.escape(a.value) : a.value) + '"]').join('');
+  };
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest ? e.target.closest(跳ねる) : null;
+    if (!el) return;
+    const 印 = 印の選び方(el);
+    // 押したあと描き直すページが多いので、描き直しが済んでから同じ札を探して付ける
+    requestAnimationFrame(() => {
+      let 今の = null;
+      try { 今の = 印 ? document.querySelector(印) : null; } catch (err) { 今の = null; }
+      if (今の && !今の.matches(跳ねる)) 今の = 今の.closest(跳ねる);
+      if (!今の && el.isConnected) 今の = el;
+      if (!今の) return;
+      今の.classList.remove('just');
+      void 今の.offsetWidth;
+      今の.classList.add('just');
+      setTimeout(() => 今の.classList.remove('just'), 400);
+    });
+  }, true);
+
+  /*
+    副将のログイン（2026-09-15 ユーザーの指示：副将は入口でだけパスワードを入れ、マイページから行き来するあいだは聞かない）。
+    入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
+    副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
+  */
+  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
+  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
+    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
+})();
+</script>
+<style>
+/*
+  使い方（2026-09-16 ユーザーの指示で作った）。部員用・チーフ用・副将用の3つ。
+  サーバは呼ばない読むだけのページ。開いた人の立場（マイページが localStorage に覚えたもの）のところを最初に出す。
+  紙に印刷しても読めるように、印刷のときは3つとも出す。
+*/
+.use-sec h3 { margin: var(--space-lg) 0 var(--space-2xs); font-size: var(--text-base); }
+.use-sec h3:first-of-type { margin-top: var(--space-xs); }
+.use-sec ol, .use-sec ul { margin: 0 0 var(--space-xs); padding-left: 1.4em; }
+.use-sec li { line-height: 1.9; margin-bottom: var(--space-3xs); }
+.use-sec .step { border-left: 4px solid var(--accent); background: var(--paper-2); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin-bottom: var(--space-xs); }
+.use-sec .step b { display: block; }
+.use-sec .warn { border-left: 4px solid var(--warning); background: var(--warning-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
+.use-sec .key-note { border-left: 4px solid var(--danger); background: var(--danger-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
+.use-sec table { width: 100%; border-collapse: collapse; margin-bottom: var(--space-xs); }
+.use-sec th, .use-sec td { border: 1px solid var(--rule); padding: var(--space-2xs); text-align: left; font-size: var(--text-sm); vertical-align: top; }
+.use-sec th { background: var(--paper-3); white-space: nowrap; }
+@media print {
+  .tabs, .backhome, .print-hint { display: none !important; }
+  .use-sec { display: block !important; page-break-before: always; }
+  .use-sec:first-of-type { page-break-before: auto; }
+}
+</style>
+<style>
+/* 「マイページに戻る」は**いつでも左上**に出す（2026-09-13にユーザーが決めた）。
+   見出し帯ごと貼り付けておけば、下まで読んでいる途中でも戻れる。 */
+header.appbar { position: sticky; top: 0; z-index: var(--z-sticky); }
+header.appbar > span { margin-right: auto; }   /* 題が伸びて、ほかのリンクは右に寄る */
+header.appbar a.backhome {
+  border: 1px solid rgba(255, 255, 255, 0.75); border-radius: var(--radius-pill);
+  padding: 4px 14px; text-decoration: none; font-weight: 700;
+}
+header.appbar a.backhome:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* 出し終わったときに、知らせの下に出すボタン（2026-09-13にユーザーが決めた）。
+   出したあとは次の画面へ移ることが多いので、帯まで戻らなくても押せるところに置く。 */
+a.donehome {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--tap); margin-top: var(--space-sm); padding: var(--space-xs) var(--space-lg);
+  background: var(--accent); color: #fff; font-size: var(--text-base); font-weight: 700;
+  border-radius: var(--radius-input); text-decoration: none;
+}
+a.donehome:hover { background: var(--accent-dark); }
+</style>
+</head>
+<body>
+<header class="appbar">
+  <a class="backhome" href="index.html">← マイページ</a><span>使い方</span></header>
+
+<main class="wide">
+  <div class="tabs" role="tablist">
+    <button type="button" data-use="buin" class="active">部員用</button>
+    <button type="button" data-use="chief">チーフ用</button>
+    <button type="button" data-use="fukusho">副将用</button>
+  </div>
+  <p class="hint print-hint">自分のぶんだけ読めば足ります。印刷すると3つとも出ます。</p>
+
+  <!-- ===================== 部員用 ===================== -->
+  <section class="card use-sec" data-usepane="buin">
+    <h2>部員用の使い方</h2>
+    <p class="hint">出すものは4つ（大会の出欠・手入れの希望・休みの申し込み・当番の希望）。パスワードは要りません。</p>
+
+    <h3>1. 開く</h3>
+    <div class="step">
+      <b>配られたURLを開いて、自分の名前を選ぶ</b>
+      名前は次から覚えているので、選び直すのは人が変わるときだけです。このページをブックマークしておくと、毎回ここから入れます。
+    </div>
+    <p>マイページには、<b>これからの予定</b>（大会・手入れ・当番・休み）と、<b>まだ出していないもの</b>が出ます。出すものが残っていれば、そこから開けます。</p>
+
+    <h3>2. 出すもの</h3>
+    <table>
+      <tr><th>大会の出欠を出す</th><td>大会の日ごとに「行ける・行けない」を答えます。出る競技と馬があれば入れます。出場する競技には仕事が当たりません。</td></tr>
+      <tr><th>手入れの希望を出す</th><td>自分がサブに入っている馬の日に ◎（入りたい）・○（入れる）・×（入れない）を出します。<b>全部の日に出してください。</b>出していない日は担当に入りません。</td></tr>
+      <tr><th>休みを申し込む</th><td>有給休暇と季節休みを申し込みます。みんなの休みとバイトもここで見られます。</td></tr>
+      <tr><th>当番の希望を出す</th><td>昼当・夕当・投げ草の希望を4つ選びます。</td></tr>
+    </table>
+
+    <h3>3. 休みのきまり</h3>
+    <ul>
+      <li>有給休暇は1年度に決まった日数まで。残りはマイページと申し込みの画面で見られます。</li>
+      <li>申し込みは<b>先着順</b>で副将が了承します。了承されるまでは「了承待ち」です。</li>
+      <li><b>過ぎた日の休みは取り消せません。</b>早めに申し込んでください。</li>
+      <li><b>バイトは副将が入れます。</b>自分では申し込めません。</li>
+      <li>了承された休み・バイトの日は、手入れの担当から外れます。</li>
+    </ul>
+
+    <h3>4. カレンダー</h3>
+    <p>マイページの「カレンダーを見る」で、決まった手入れの担当とみんなの休みを月ごとに見られます。</p>
+
+    <div class="warn">
+      <b>リンクが開かないとき</b>
+      マイページの下にある「リンクが開かないときは」を開いてください。Googleに2つ以上のアカウントでログインしていると起きます。直らないときは、出ている画面をそのまま撮って副将に送ってください。
+    </div>
+  </section>
+
+  <!-- ===================== チーフ用 ===================== -->
+  <section class="card use-sec" data-usepane="chief" style="display:none;">
+    <h2>チーフ用の使い方</h2>
+    <p class="hint">部員として出すもの（4つ）に加えて、担当する馬の<b>手入れをまとめる</b>のがチーフの仕事です。</p>
+
+    <div class="key-note">
+      <b>鍵</b>
+      「手入れをまとめる」はチーフパスワードが要ります。副将のマイページからログインしている人は、そのまま開けます。
+    </div>
+
+    <h3>手入れ表ができるまで</h3>
+    <div class="step"><b>1. 馬を選ぶ</b>自分が担当する馬を選びます。馬のチーフを決めるのは副将です。</div>
+    <div class="step"><b>2. 期間を選ぶ・作る</b>期間の行を押すと開きます。新しく作るときは「期間を新しく作る」から、名前（後期・夏休みなど）と作り方を決めます。
+      <br>・<b>曜日</b>＝毎週おなじ担当　・<b>カレンダー</b>＝日付ごとに決める（最長400日）。どちらも開始日を入れてください。</div>
+    <div class="step"><b>3. サブを選ぶ</b>期間名の横の<b>鉛筆</b>を押すと「期間の編集」が開きます。ここで1日の人数やチーフの割合を決め、この馬を手入れする人にチェックを入れます。<b>チーフ本人もサブに入れてください。</b>選んだ人にだけ、部員の画面に◎○×の欄が出ます。</div>
+    <div class="step"><b>4. 投票を待つ・代理で入れる</b>「投票状況」で、誰が出していないか分かります。出せない人のぶんは代理で入れられます。</div>
+    <div class="step"><b>5. 手入れ表を作る</b>「作成する」を押すと、×の日を避けて◎の人から順に入ります。チーフは、ほかのサブより多め（既定でチーフ2：ほかのサブ1）に入ります。</div>
+
+    <h3>手で直す</h3>
+    <ul>
+      <li>カレンダーの上の「<b>編集</b>」を押すと、日を押して担当を選べます。プルダウンはサブだけで、上から ◎入りたい → ○入れる → ×入れない → まだ出していない の順です。</li>
+      <li>一覧にない人（OBなど）は「<b>✎ 名前を書く</b>」で名前を打てます。</li>
+      <li>「この日を空にする」で、その日の担当を外せます。</li>
+      <li>手で入れた担当には<b>鍵</b>が付きます。鍵の付いた担当は、作り直しても動きません。</li>
+      <li>直したら<b>保存</b>を押してください。保存していないときは画面の下に帯が出ます。</li>
+    </ul>
+
+    <div class="warn">
+      <b>気をつけること</b>
+      ・サブを外すと、その人のその馬の◎○×と、手入れ表に入っているぶんも消えます。<br>
+      ・期間を消すと、サブ・投票・手入れ表も消えます。<br>
+      ・了承された休み・バイトの日は担当から外れます。warnings（気になるところ）に出ます。
+    </div>
+  </section>
+
+  <!-- ===================== 副将用 ===================== -->
+  <section class="card use-sec" data-usepane="fukusho" style="display:none;">
+    <h2>副将用の使い方</h2>
+
+    <div class="key-note">
+      <b>ログインは1回だけ</b>
+      副将のマイページでパスワードを入れると、当番・手入れと人員表の両方にログインします。<b>タブを閉じるまで</b>、どの画面でもパスワードを聞かれません。閉じたら入れ直してください。パスワードは人に配らないでください。
+    </div>
+
+    <h3>1. 部員・馬匹管理</h3>
+    <ul>
+      <li><b>名簿は人員表と当番・手入れで1つ</b>です。ここで足す・直す・消すと、両方に入ります。</li>
+      <li>4年生以上は、足したときから「当番に入れない」が付きます。</li>
+      <li>まとめて足すときは、1行に1人（名前・入部年・役職・備考）で貼り付けます。</li>
+      <li>「馬とチーフ」で、馬と<b>その馬のチーフ</b>を決めます。チーフを決めるのは副将だけです。</li>
+      <li>「サブ整理」は、開始日ごとに決める<b>馬ごとの基本のサブ</b>です。チーフが期間を作るときに「最新のサブ整理に合わせる」で使えます。</li>
+      <li>パスワード（副将・チーフ）を変えるのも、この画面のいちばん下です。</li>
+    </ul>
+
+    <h3>2. 人員表をまとめる</h3>
+    <ol>
+      <li><b>大会・競技設定</b>で大会を作り、日ごとの競技と仕事の必要人数を入れます。競技名は「まとめて追加」に1行1競技で貼れます（開催順に並べてください）。</li>
+      <li>部員が出欠を出したら、<b>出場する競技と馬</b>を確かめます（足りなければここで直せます）。</li>
+      <li><b>人員表</b>で「自動生成」。出られない人・出場する競技には当てません。足りない競技は色で出ます。</li>
+      <li>直したら保存し、⋯ から<b>Excel に書き出し</b>て配ります。</li>
+    </ol>
+
+    <h3>3. バイト・休みをまとめる</h3>
+    <ul>
+      <li><b>申し込み</b>：先着順に「了承する」。却下や記録ごと消すのは ⋯ の中です。</li>
+      <li><b>休みを入れる</b>：部員の代わりに副将が入れる欄です。</li>
+      <li><b>バイト</b>：「どのバイト」の下の <b>＋</b> でバイト先を作り、カレンダーの日を押して、学年ごとに並んだ名前を押すと入ります。もう一度押すと外れます。入れた日はその人の休み（バイト）になります。</li>
+      <li><b>行った回数</b>：カレンダーに入れた日を数えます（入れた瞬間に増え、外すと減ります）。システムに入れる前のぶんは「回数を編集」で足せます。<b>この数は部員には見えません。</b></li>
+      <li><b>決まり</b>：有給の日数、年度の始まり月、了承ずみの休みを手入れの担当から外すか。</li>
+    </ul>
+
+    <h3>4. 当番をまとめる</h3>
+    <ol>
+      <li><b>当番の設定</b>：期間（前期・後期など）と当番（昼当・夕当・投げ草）、曜日ごとの必要な学年を決めます。</li>
+      <li><b>投票状況</b>：誰が出していないか見られます。代理でも入れられます。</li>
+      <li><b>当番表</b>：作って、手で直して、保存します。手入れの期間もここから作れます。</li>
+    </ol>
+
+    <h3>5. 手入れをまとめる</h3>
+    <p>チーフと同じ画面です。チーフが決まっていない馬や、チーフが手を付けられないときに副将が代わりに作れます。使い方は「チーフ用」を見てください。</p>
+
+    <h3>配るURL</h3>
+    <table>
+      <tr><th>部員に配る</th><td>マイページのURL（そのまま）</td></tr>
+      <tr><th>チーフに配る</th><td>マイページのURLに <span class="mono">?role=chieflinks</span> を付けたもの</td></tr>
+      <tr><th>副将が持つ</th><td>マイページのURLに <span class="mono">?role=admlinks</span> を付けたもの（<b>配らない</b>）</td></tr>
+    </table>
+    <p class="hint">この3本だけ配れば足ります。中の画面へは、それぞれのマイページから入れます。</p>
+  </section>
+</main>
+
+<script>
+/*
+  立場（マイページが覚えたもの）に合わせて、最初に出すところを決める。
+  ?for=buin / chief / fukusho でも選べる（人に「ここを読んで」と送るとき用）。
+*/
+const $ = (id) => document.getElementById(id);
+const 立場の表 = { links: 'buin', chieflinks: 'chief', admlinks: 'fukusho' };
+
+function 出す(名) {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), (b) => {
+    b.className = b.dataset.use === 名 ? 'active' : '';
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-usepane]'), (p) => {
+    p.style.display = p.dataset.usepane === 名 ? 'block' : 'none';
+  });
+}
+
+document.querySelector('.tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-use]');
+  if (b) 出す(b.dataset.use);
+});
+
+(function () {
+  const 指定 = new URLSearchParams(location.search).get('for');
+  let 名 = ['buin', 'chief', 'fukusho'].indexOf(指定) >= 0 ? 指定 : '';
+  if (!名) {
+    try { 名 = 立場の表[localStorage.getItem('role')] || 'buin'; } catch (e) { 名 = 'buin'; }
+  }
+  出す(名);
+})();
+</script>
+<script>
+/*
+  入口（マイページ）へ戻る道を2つ用意する。どちらも静的サイトだけのもの。
+    1. 見出し帯の「← マイページ」…… いつでも左上に見えている
+    2. 出し終わったときのボタン …… 送信できた知らせの下に足す
+
+  2は、知らせを出すところが画面ごとにバラバラ（show() だったり innerHTML だったり）なので、
+  **出てきた「成功の知らせ」を見つけて足す**形にしてある。そのぶん画面側は触らずに済む。
+*/
+(function () {
+  let 戻り先 = 'index.html';
+  try {
+    const 立場 = localStorage.getItem('role');
+    if (立場 && 立場 !== 'links') 戻り先 = 'index.html?role=' + encodeURIComponent(立場);
+  } catch (e) { /* 保存できない設定でも、部員用の入口には戻れる */ }
+  document.querySelectorAll('a.backhome').forEach((a) => { a.href = 戻り先; });
+
+  // 「前回の回答を読み込みました」のような成功の知らせもあるので、**出し終わった知らせだけ**に付ける
+  const 出し終わった = /(送信しました|出しました|申し込みました|受け付けました|登録しました|保存しました)/;
+
+  const 足す = (el) => {
+    if (!el || el.dataset.home === '1' || !出し終わった.test(el.textContent || '')) return;
+    el.dataset.home = '1';
+    // マイページが、サーバの返事を待たずに「まだ出していないもの」から消せるようにしておく
+    try {
+      localStorage.setItem('mypage:出したところ', JSON.stringify({
+        url: location.pathname.split('/').pop(), 時刻: Date.now(),
+      }));
+    } catch (e) { /* 保存できない設定なら、次に読んだときに正しくなる */ }
+    const a = document.createElement('a');
+    a.className = 'donehome';
+    a.href = 戻り先;
+    a.textContent = 'マイページに戻る';
+    el.insertAdjacentElement('afterend', a);
+  };
+  const 見る = (根) => {
+    if (!根 || 根.querySelectorAll === undefined) return;
+    if (根.classList && 根.classList.contains('msg') && 根.classList.contains('success')) 足す(根);
+    根.querySelectorAll('.msg.success').forEach(足す);
+  };
+  new MutationObserver((記録) => {
+    記録.forEach((m) => m.addedNodes.forEach(見る));
+  }).observe(document.body, { childList: true, subtree: true });
+  見る(document.body);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  使い方（2026-09-16 ユーザーの指示で作った）。部員用・チーフ用・副将用の3つ。
+  サーバは呼ばない読むだけのページ。開いた人の立場（マイページが localStorage に覚えたもの）のところを最初に出す。
+  紙に印刷しても読めるように、印刷のときは3つとも出す。
+*/
+.use-sec h3 { margin: var(--space-lg) 0 var(--space-2xs); font-size: var(--text-base); }
+.use-sec h3:first-of-type { margin-top: var(--space-xs); }
+.use-sec ol, .use-sec ul { margin: 0 0 var(--space-xs); padding-left: 1.4em; }
+.use-sec li { line-height: 1.9; margin-bottom: var(--space-3xs); }
+.use-sec .step { border-left: 4px solid var(--accent); background: var(--paper-2); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin-bottom: var(--space-xs); }
+.use-sec .step b { display: block; }
+.use-sec .warn { border-left: 4px solid var(--warning); background: var(--warning-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
+.use-sec .key-note { border-left: 4px solid var(--danger); background: var(--danger-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
+.use-sec table { width: 100%; border-collapse: collapse; margin-bottom: var(--space-xs); }
+.use-sec th, .use-sec td { border: 1px solid var(--rule); padding: var(--space-2xs); text-align: left; font-size: var(--text-sm); vertical-align: top; }
+.use-sec th { background: var(--paper-3); white-space: nowrap; }
+@media print {
+  .tabs, .backhome, .print-hint { display: none !important; }
+  .use-sec { display: block !important; page-break-before: always; }
+  .use-sec:first-of-type { page-break-before: auto; }
+}
+</style>
+</head>
+<body>
+<header class="appbar"><span>使い方</span></header>
+
+<main class="wide">
+  <div class="tabs" role="tablist">
+    <button type="button" data-use="buin" class="active">部員用</button>
+    <button type="button" data-use="chief">チーフ用</button>
+    <button type="button" data-use="fukusho">副将用</button>
+  </div>
+  <p class="hint print-hint">自分のぶんだけ読めば足ります。印刷すると3つとも出ます。</p>
+
+  <!-- ===================== 部員用 ===================== -->
+  <section class="card use-sec" data-usepane="buin">
+    <h2>部員用の使い方</h2>
+    <p class="hint">出すものは4つ（大会の出欠・手入れの希望・休みの申し込み・当番の希望）。パスワードは要りません。</p>
+
+    <h3>1. 開く</h3>
+    <div class="step">
+      <b>配られたURLを開いて、自分の名前を選ぶ</b>
+      名前は次から覚えているので、選び直すのは人が変わるときだけです。このページをブックマークしておくと、毎回ここから入れます。
+    </div>
+    <p>マイページには、<b>これからの予定</b>（大会・手入れ・当番・休み）と、<b>まだ出していないもの</b>が出ます。出すものが残っていれば、そこから開けます。</p>
+
+    <h3>2. 出すもの</h3>
+    <table>
+      <tr><th>大会の出欠を出す</th><td>大会の日ごとに「行ける・行けない」を答えます。出る競技と馬があれば入れます。出場する競技には仕事が当たりません。</td></tr>
+      <tr><th>手入れの希望を出す</th><td>自分がサブに入っている馬の日に ◎（入りたい）・○（入れる）・×（入れない）を出します。<b>全部の日に出してください。</b>出していない日は担当に入りません。</td></tr>
+      <tr><th>休みを申し込む</th><td>有給休暇と季節休みを申し込みます。みんなの休みとバイトもここで見られます。</td></tr>
+      <tr><th>当番の希望を出す</th><td>昼当・夕当・投げ草の希望を4つ選びます。</td></tr>
+    </table>
+
+    <h3>3. 休みのきまり</h3>
+    <ul>
+      <li>有給休暇は1年度に決まった日数まで。残りはマイページと申し込みの画面で見られます。</li>
+      <li>申し込みは<b>先着順</b>で副将が了承します。了承されるまでは「了承待ち」です。</li>
+      <li><b>過ぎた日の休みは取り消せません。</b>早めに申し込んでください。</li>
+      <li><b>バイトは副将が入れます。</b>自分では申し込めません。</li>
+      <li>了承された休み・バイトの日は、手入れの担当から外れます。</li>
+    </ul>
+
+    <h3>4. カレンダー</h3>
+    <p>マイページの「カレンダーを見る」で、決まった手入れの担当とみんなの休みを月ごとに見られます。</p>
+
+    <div class="warn">
+      <b>リンクが開かないとき</b>
+      マイページの下にある「リンクが開かないときは」を開いてください。Googleに2つ以上のアカウントでログインしていると起きます。直らないときは、出ている画面をそのまま撮って副将に送ってください。
+    </div>
+  </section>
+
+  <!-- ===================== チーフ用 ===================== -->
+  <section class="card use-sec" data-usepane="chief" style="display:none;">
+    <h2>チーフ用の使い方</h2>
+    <p class="hint">部員として出すもの（4つ）に加えて、担当する馬の<b>手入れをまとめる</b>のがチーフの仕事です。</p>
+
+    <div class="key-note">
+      <b>鍵</b>
+      「手入れをまとめる」はチーフパスワードが要ります。副将のマイページからログインしている人は、そのまま開けます。
+    </div>
+
+    <h3>手入れ表ができるまで</h3>
+    <div class="step"><b>1. 馬を選ぶ</b>自分が担当する馬を選びます。馬のチーフを決めるのは副将です。</div>
+    <div class="step"><b>2. 期間を選ぶ・作る</b>期間の行を押すと開きます。新しく作るときは「期間を新しく作る」から、名前（後期・夏休みなど）と作り方を決めます。
+      <br>・<b>曜日</b>＝毎週おなじ担当　・<b>カレンダー</b>＝日付ごとに決める（最長400日）。どちらも開始日を入れてください。</div>
+    <div class="step"><b>3. サブを選ぶ</b>期間名の横の<b>鉛筆</b>を押すと「期間の編集」が開きます。ここで1日の人数やチーフの割合を決め、この馬を手入れする人にチェックを入れます。<b>チーフ本人もサブに入れてください。</b>選んだ人にだけ、部員の画面に◎○×の欄が出ます。</div>
+    <div class="step"><b>4. 投票を待つ・代理で入れる</b>「投票状況」で、誰が出していないか分かります。出せない人のぶんは代理で入れられます。</div>
+    <div class="step"><b>5. 手入れ表を作る</b>「作成する」を押すと、×の日を避けて◎の人から順に入ります。チーフは、ほかのサブより多め（既定でチーフ2：ほかのサブ1）に入ります。</div>
+
+    <h3>手で直す</h3>
+    <ul>
+      <li>カレンダーの上の「<b>編集</b>」を押すと、日を押して担当を選べます。プルダウンはサブだけで、上から ◎入りたい → ○入れる → ×入れない → まだ出していない の順です。</li>
+      <li>一覧にない人（OBなど）は「<b>✎ 名前を書く</b>」で名前を打てます。</li>
+      <li>「この日を空にする」で、その日の担当を外せます。</li>
+      <li>手で入れた担当には<b>鍵</b>が付きます。鍵の付いた担当は、作り直しても動きません。</li>
+      <li>直したら<b>保存</b>を押してください。保存していないときは画面の下に帯が出ます。</li>
+    </ul>
+
+    <div class="warn">
+      <b>気をつけること</b>
+      ・サブを外すと、その人のその馬の◎○×と、手入れ表に入っているぶんも消えます。<br>
+      ・期間を消すと、サブ・投票・手入れ表も消えます。<br>
+      ・了承された休み・バイトの日は担当から外れます。warnings（気になるところ）に出ます。
+    </div>
+  </section>
+
+  <!-- ===================== 副将用 ===================== -->
+  <section class="card use-sec" data-usepane="fukusho" style="display:none;">
+    <h2>副将用の使い方</h2>
+
+    <div class="key-note">
+      <b>ログインは1回だけ</b>
+      副将のマイページでパスワードを入れると、当番・手入れと人員表の両方にログインします。<b>タブを閉じるまで</b>、どの画面でもパスワードを聞かれません。閉じたら入れ直してください。パスワードは人に配らないでください。
+    </div>
+
+    <h3>1. 部員・馬匹管理</h3>
+    <ul>
+      <li><b>名簿は人員表と当番・手入れで1つ</b>です。ここで足す・直す・消すと、両方に入ります。</li>
+      <li>4年生以上は、足したときから「当番に入れない」が付きます。</li>
+      <li>まとめて足すときは、1行に1人（名前・入部年・役職・備考）で貼り付けます。</li>
+      <li>「馬とチーフ」で、馬と<b>その馬のチーフ</b>を決めます。チーフを決めるのは副将だけです。</li>
+      <li>「サブ整理」は、開始日ごとに決める<b>馬ごとの基本のサブ</b>です。チーフが期間を作るときに「最新のサブ整理に合わせる」で使えます。</li>
+      <li>パスワード（副将・チーフ）を変えるのも、この画面のいちばん下です。</li>
+    </ul>
+
+    <h3>2. 人員表をまとめる</h3>
+    <ol>
+      <li><b>大会・競技設定</b>で大会を作り、日ごとの競技と仕事の必要人数を入れます。競技名は「まとめて追加」に1行1競技で貼れます（開催順に並べてください）。</li>
+      <li>部員が出欠を出したら、<b>出場する競技と馬</b>を確かめます（足りなければここで直せます）。</li>
+      <li><b>人員表</b>で「自動生成」。出られない人・出場する競技には当てません。足りない競技は色で出ます。</li>
+      <li>直したら保存し、⋯ から<b>Excel に書き出し</b>て配ります。</li>
+    </ol>
+
+    <h3>3. バイト・休みをまとめる</h3>
+    <ul>
+      <li><b>申し込み</b>：先着順に「了承する」。却下や記録ごと消すのは ⋯ の中です。</li>
+      <li><b>休みを入れる</b>：部員の代わりに副将が入れる欄です。</li>
+      <li><b>バイト</b>：「どのバイト」の下の <b>＋</b> でバイト先を作り、カレンダーの日を押して、学年ごとに並んだ名前を押すと入ります。もう一度押すと外れます。入れた日はその人の休み（バイト）になります。</li>
+      <li><b>行った回数</b>：カレンダーに入れた日を数えます（入れた瞬間に増え、外すと減ります）。システムに入れる前のぶんは「回数を編集」で足せます。<b>この数は部員には見えません。</b></li>
+      <li><b>決まり</b>：有給の日数、年度の始まり月、了承ずみの休みを手入れの担当から外すか。</li>
+    </ul>
+
+    <h3>4. 当番をまとめる</h3>
+    <ol>
+      <li><b>当番の設定</b>：期間（前期・後期など）と当番（昼当・夕当・投げ草）、曜日ごとの必要な学年を決めます。</li>
+      <li><b>投票状況</b>：誰が出していないか見られます。代理でも入れられます。</li>
+      <li><b>当番表</b>：作って、手で直して、保存します。手入れの期間もここから作れます。</li>
+    </ol>
+
+    <h3>5. 手入れをまとめる</h3>
+    <p>チーフと同じ画面です。チーフが決まっていない馬や、チーフが手を付けられないときに副将が代わりに作れます。使い方は「チーフ用」を見てください。</p>
+
+    <h3>配るURL</h3>
+    <table>
+      <tr><th>部員に配る</th><td>マイページのURL（そのまま）</td></tr>
+      <tr><th>チーフに配る</th><td>マイページのURLに <span class="mono">?role=chieflinks</span> を付けたもの</td></tr>
+      <tr><th>副将が持つ</th><td>マイページのURLに <span class="mono">?role=admlinks</span> を付けたもの（<b>配らない</b>）</td></tr>
+    </table>
+    <p class="hint">この3本だけ配れば足ります。中の画面へは、それぞれのマイページから入れます。</p>
+  </section>
+</main>
+
+<script>
+/*
+  立場（マイページが覚えたもの）に合わせて、最初に出すところを決める。
+  ?for=buin / chief / fukusho でも選べる（人に「ここを読んで」と送るとき用）。
+*/
+const $ = (id) => document.getElementById(id);
+const 立場の表 = { links: 'buin', chieflinks: 'chief', admlinks: 'fukusho' };
+
+function 出す(名) {
+  Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), (b) => {
+    b.className = b.dataset.use === 名 ? 'active' : '';
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-usepane]'), (p) => {
+    p.style.display = p.dataset.usepane === 名 ? 'block' : 'none';
+  });
+}
+
+document.querySelector('.tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-use]');
+  if (b) 出す(b.dataset.use);
+});
+
+(function () {
+  const 指定 = new URLSearchParams(location.search).get('for');
+  let 名 = ['buin', 'chief', 'fukusho'].indexOf(指定) >= 0 ? 指定 : '';
+  if (!名) {
+    try { 名 = 立場の表[localStorage.getItem('role')] || 'buin'; } catch (e) { 名 = 'buin'; }
+  }
+  出す(名);
+})();
+</script>
+</body>
+</html>
