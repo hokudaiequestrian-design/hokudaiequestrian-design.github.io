@@ -492,6 +492,32 @@ G.chiefSaveSubs(C, plan1.id, サブ達.map((m) => m.id));
 投げるはず('日が抜けていると受け取らない',
   () => G.submitCareVote(plan1.id, サブ達[0].id, { 月: '◎', 火: '○' }), '全部の日');
 
+// 希望の受付を止める・開ける（2026-09-16 ユーザーの指示）
+{
+  const 全部まる = { 月: '◎', 火: '◎', 水: '◎', 木: '◎', 金: '◎', 土: '◎', 日: '◎' };
+  const 期間 = () => G.loadPlans().filter((p) => p.id === plan1.id)[0];
+  確かめる('作った期間は、はじめは受付中', 期間().open === true);
+  G.chiefSetPlanOpen(C, plan1.id, false);
+  確かめる('受付を止められる', 期間().open === false);
+  投げるはず('止めているあいだは部員から出せない',
+    () => G.submitCareVote(plan1.id, サブ達[0].id, 全部まる), '受け付けていません');
+  G.chiefSaveVoteFor(C, plan1.id, サブ達[0].id, 全部まる);
+  確かめる('止めていてもチーフの代理入力はできる',
+    G.loadCareVotes(plan1.id).filter((v) => v.memberId === サブ達[0].id).length === 7);
+  確かめる('部員の画面には受付中かどうかが届く',
+    G.getCareMemberData(サブ達[0].id).plans.filter((p) => p.id === plan1.id)[0].open === false);
+  確かめる('止めた期間はマイページの「まだ出していないもの」に出ない',
+    !G.マイページの中身(サブ達[0].name).手入れ.some((x) => x.id === plan1.id));
+  投げるはず('合鍵なしでは切り替えられない', () => G.chiefSetPlanOpen('でたらめ', plan1.id, true), '有効期限');
+  G.chiefSetPlanOpen(C, plan1.id, true);
+  確かめる('開け直せる', 期間().open === true &&
+    G.マイページの中身(サブ達[0].name).手入れ.some((x) => x.id === plan1.id),
+    JSON.stringify([期間().open, G.マイページの中身(サブ達[0].name).手入れ.map((x) => [x.id, x.open])]));
+  G.chiefSavePlan(C, Object.assign({}, 期間(), { min: 1, max: 1 }));
+  確かめる('決まりを保存しても受付中は変わらない', 期間().open === true);
+  G.chiefClearVote(C, plan1.id, サブ達[0].id);
+}
+
 // 1年1：月火が◎、あとは×
 G.submitCareVote(plan1.id, サブ達[0].id, { 月: '◎', 火: '◎', 水: '×', 木: '×', 金: '×', 土: '×', 日: '×' });
 // 1年2：全部まる

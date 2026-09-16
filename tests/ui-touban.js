@@ -149,6 +149,7 @@ function 模擬で答える(req) {
       return 返す({ 作った: [{ horseId: 'h1', name: '北叡', id: 'pn', サブの元: '' }], 飛ばした: [], だめ: [] });
     case 'chiefLoadPlan': return 返す(手入れの期間());
     case 'chiefSaveTable': 模擬.送った.表 = a[2]; return 返す({ ok: true, count: (a[2] || []).length, warnings: [] });
+    case 'chiefSetPlanOpen': 模擬.送った.受付 = a.slice(1); return 返す({ ok: true, open: !!a[2], term: '後期' });
     // 休み
     case 'loginAndLoadYasumi': return 返す({ token: 'a_t', all: 休みの全部() });
     case 'yasumiLoadAll': return 返す(休みの全部());
@@ -327,6 +328,14 @@ function 模擬で答える(req) {
     確かめる('「期間の編集（ ）：決まり・サブ」の開け閉めボタンは出さず、閉じているあいだは枠ごと見えない',
       await page.$eval('#planEditFold', (f) => !f.querySelector('summary').checkVisibility() && !f.checkVisibility()));
     確かめる('サブがいる期間では、期間の編集は畳んだまま', !(await page.$eval('#planEditFold', (d) => d.open)));
+    // 希望の受付（2026-09-16）：期間の編集のチェックで、募集するかどうかを切り替える
+    確かめる('期間の編集に「希望の受付」のチェックがあり、はじめは入っている', await page.$eval('#planOpen', (c) => c.checked));
+    await page.$eval('#planOpen', (c) => c.click());
+    await page.waitForFunction(() => /受付を止めました/.test(document.getElementById('planOpenMsg2').textContent), { timeout: 3000 });
+    確かめる('外すと受付を止めたと送る', JSON.stringify(模擬.送った.受付) === JSON.stringify(['p1', false]), JSON.stringify(模擬.送った.受付));
+    await page.$eval('#planOpen', (c) => c.click());
+    await page.waitForFunction(() => /受け付けます/.test(document.getElementById('planOpenMsg2').textContent), { timeout: 3000 });
+    確かめる('入れ直すと受け付けると送る', JSON.stringify(模擬.送った.受付) === JSON.stringify(['p1', true]), JSON.stringify(模擬.送った.受付));
     確かめる('期間を開いた下には、決まり・サブのカードはもう無い（投票状況から）',
       await page.$eval('#planPane', (p) => !p.querySelector('#subSheet') && !p.querySelector('#savePlanBtn') && p.textContent.indexOf('3. 投票状況') >= 0));
     確かめる('開いている期間に印が付く', await page.$eval('#planList [data-open="p1"]', (b) => b.getAttribute('aria-current') === 'true'));

@@ -51,7 +51,13 @@
             <h3 style="margin:0;">期間の編集（<span id="planEditName"></span>）</h3>
             <button type="button" class="icon-btn" id="planEditClose" aria-label="期間の編集を閉じる" title="閉じる"></button>
           </div>
-          <h3 style="margin-top:12px;">この期間の決まり</h3>
+          <!-- 2026-09-16 ユーザーの指示：手入れの希望を募集するかどうかを、ここで切り替える -->
+          <h3 style="margin-top:12px;">希望の受付</h3>
+          <label class="inline"><input type="checkbox" id="planOpen"> この期間の希望を受け付ける（部員の画面に出す）</label>
+          <p class="hint" id="planOpenHint"></p>
+          <div id="planOpenMsg2" role="status" aria-live="polite"></div>
+
+          <h3 style="margin-top:20px;">この期間の決まり</h3>
           <div class="row">
             <!-- 曜日の期間だけ開始日を直せる。前に作った曜日の期間は開始日が空なので、ここで入れ直す -->
             <div id="editFromWrap"><label for="editFrom">開始日</label><input type="date" id="editFrom"></div>
@@ -364,7 +370,8 @@ function renderPlanList() {
     '<span class="row-actions" style="margin:0 4px;vertical-align:middle;">' + 部品.アイコンボタン('edit', p.term + 'の決まり・サブを編集', { 'data-editp': p.id }) + '</span>' +
     ' <span class="muted">' +
     (p.mode === 'カレンダー' ? esc(p.from) + ' 〜 ' + esc(p.to) : '曜日ごと' + (p.from ? '（' + esc(p.from) + ' から）' : '')) +
-    '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人</span></span>' +
+    '　1日 ' + p.min + (p.max === null ? '〜' : '〜' + p.max) + '人</span>' +
+    (p.open === false ? '<span class="pill no">受付を止めています</span>' : '<span class="pill yes">受付中</span>') + '</span>' +
     '<span class="row-actions">' +
     部品.アイコンボタン('trash', p.term + 'を削除', { 'data-delp': p.id }, 'danger') +
     '</span></div>').join('');
@@ -539,6 +546,11 @@ async function openPlan(planId) {
 function renderPlanSettings() {
   $('planTitle').textContent = (P.horse ? P.horse.name : '?') + '　' + P.plan.term;
   $('planEditName').textContent = P.plan.term;
+  const 受付中 = P.plan.open !== false;
+  $('planOpen').checked = 受付中;
+  $('planOpenHint').textContent = 受付中
+    ? '部員の画面にこの馬が出て、◎○× を出せます。集め終わったらチェックを外してください。'
+    : '部員の画面では「募集していません」と出て、◎○× を出せません。出ている票と手入れ表はそのまま残ります。代理入力はできます。';
   $('planPeriod').textContent = P.plan.mode === 'カレンダー'
     ? P.plan.from + ' 〜 ' + P.plan.to + '（' + P.keys.length + '日）'
     : '曜日ごと（毎週おなじ担当）' + (P.plan.from ? '・' + P.plan.from + ' から' : '・開始日がまだ入っていません（上の「期間の編集」で入れられます）');
@@ -565,6 +577,24 @@ function renderPlanSettings() {
           ? 'チーフは<b>' + esc(チーフ名) + '</b>さんです。'
           : '<b>ただし、この馬のチーフが決まっていないので効いていません。</b>上の「この馬のチーフ」に名前を入れ、その人をサブにも入れてください。'));
 }
+
+$('planOpen').addEventListener('change', async () => {
+  if (!P) return;
+  const 出す = $('planOpen').checked;
+  try {
+    await call('chiefSetPlanOpen', TOKEN, P.plan.id, 出す);
+    P.plan.open = 出す;
+    BASE = await call('chiefLoadAll', TOKEN);
+    renderPlanList();
+    renderPlanSettings();
+    msgIn('planOpenMsg2', 'success', 出す
+      ? '「' + P.plan.term + '」の希望を受け付けます。部員の画面に出ます。'
+      : '「' + P.plan.term + '」の受付を止めました。部員の画面では出せなくなります。');
+  } catch (e) {
+    msgIn('planOpenMsg2', 'error', (e && e.message) || e);
+    renderPlanSettings();
+  }
+});
 
 $('savePlanBtn').addEventListener('click', async () => {
   if (!P) return;

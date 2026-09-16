@@ -206,6 +206,11 @@ function renderPlan(plan) {
     '<div class="muted">' + esc(期間) + (plan.chief ? '　チーフ：' + esc(plan.chief) : '') + '</div>' +
     (plan.broken
       ? '<div class="msg error">この期間の設定がおかしくなっています。チーフに連絡してください。</div>'
+      // 受付を止めているあいだは出せない（2026-09-16 ユーザーの指示）。出したぶんは見られる
+      : plan.open === false
+        ? '<div class="msg warning">いまは希望を受け付けていません。' +
+          (Object.keys(plan.votes || {}).length ? '出した希望はチーフに届いています。' : 'チーフが受付を始めるまで待ってください。') + '</div>' +
+          (plan.mode === 'カレンダー' ? カレンダーの表(plan) : 曜日の表(plan))
       : (
         '<p class="hint">◎＝入りたい　○＝入れる　×＝入れない。<b>全部の日</b>に入れてください。' +
         (plan.mode === 'カレンダー' ? '日付を押すと ◎→○→× と変わります。' : '') + '</p>' +
