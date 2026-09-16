@@ -446,6 +446,13 @@ const C = G.loginChief('chiefpw');
 const horses = G.loadHorses();
 const 北汐 = horses.filter((h) => h.name === '北汐')[0];
 const r計画 = G.chiefSavePlan(C, { horseId: 北汐.id, term: '後期', mode: '曜日', min: 1, max: 1 });
+// 手入れは基本1人（2026-09-16）。画面は人数を送らないので、送られてこなければ1人にする
+{
+  const 省略 = G.chiefSavePlan(C, { horseId: 北汐.id, term: '人数を送らない', mode: '曜日' });
+  const p = G.findPlan(省略.id);
+  確かめる('1日の人数を送らなければ 下限も上限も1人', p.min === 1 && p.max === 1, JSON.stringify([p.min, p.max]));
+  G.chiefDeletePlan(C, 省略.id);
+}
 確かめる('曜日方式の期間が作れる', !!r計画.id);
 const plan1 = G.findPlan(r計画.id);
 確かめる('曜日方式は7日ぶん', G.planKeys(plan1).length === 7, String(G.planKeys(plan1).length));
