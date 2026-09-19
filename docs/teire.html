@@ -895,6 +895,12 @@ const 部品 = (() => {
 })();
 </script>
 <style>
+/* 朝手入れの順番（2026-09-20）。番号付きで並べ、自分のところだけ色を変える */
+.asa-order { margin: var(--space-2xs) 0 0; padding-left: 1.6em; }
+.asa-order li { padding: 2px 0; }
+.asa-order li.me { font-weight: 700; background: var(--warning-soft); outline: 2px solid var(--warning); border-radius: 4px; padding: 2px var(--space-2xs); }
+</style>
+<style>
 /* 「マイページに戻る」は**いつでも左上**に出す（2026-09-13にユーザーが決めた）。
    見出し帯ごと貼り付けておけば、下まで読んでいる途中でも戻れる。 */
 header.appbar { position: sticky; top: 0; z-index: var(--z-sticky); }
@@ -942,6 +948,14 @@ a.donehome:hover { background: var(--accent-dark); }
       <b>◎ 入りたい</b>　<b>○ 入れる</b>　<b>× 入れない</b>。×の日には入りません。馬ごとに出したら、その馬の「出す」を押してください。
     </p>
     <div id="plans"></div>
+
+    <!--
+      朝手入れのローテーション（2026-09-20 ユーザーの指示）。
+      チーフが「ローテーション」にしている馬だけ、その並びをサブに見せる。
+      カレンダー式にしている馬は、みんなのカレンダーの「手入れ予定」に出るのでここには出ない。
+      朝手入れは朝練が休みの日だけなので、希望（◎○×）は出さない＝見るだけの欄。
+    -->
+    <div id="asa"></div>
   </section>
 </main>
 
@@ -1195,6 +1209,26 @@ function renderPlans() {
   $('plans').innerHTML = DATA.plans.map(renderPlan).join('');
 }
 
+/*
+  朝手入れのローテーション（2026-09-20）。回る順番を並べて見せるだけで、押すところは無い。
+  自分のところに印を付ける。ローテーションにしている馬が無ければ、この欄ごと出さない。
+*/
+function render朝手入れ() {
+  const 馬たち = DATA.朝手入れ || [];
+  if (!馬たち.length) { $('asa').innerHTML = ''; return; }
+  $('asa').innerHTML = '<div class="card">' +
+    '<h2>朝手入れ（順番で回します）</h2>' +
+    '<p class="hint">朝練が休みの日の朝手入れです。<b>◎○× は出しません。</b>' +
+    'この順番で1人ずつ回します。変えたいときは、その馬のチーフに言ってください。</p>' +
+    馬たち.map((h) =>
+      '<div style="margin-top:var(--space-sm);">' +
+      '<h3 style="margin:0;">' + esc(h.horse) + (h.chief ? '　<span class="muted">チーフ：' + esc(h.chief) + '</span>' : '') + '</h3>' +
+      '<ol class="asa-order">' + h.順.map((x) =>
+        '<li' + (x.me ? ' class="me"' : '') + '>' + esc(x.name) + (x.me ? '（あなた）' : '') + '</li>').join('') +
+      '</ol></div>').join('') +
+    '</div>';
+}
+
 // 1枚だけ描き直す（ほかの馬の入力を消さないため）
 function refreshPlan(planId) {
   const plan = DATA.plans.filter((p) => p.id === planId)[0];
@@ -1279,15 +1313,17 @@ $('plans').addEventListener('click', async (e) => {
 async function onMemberChange() {
   const memberId = $('memberSelect').value;
   段を塗る(!!memberId);
-  if (!memberId) { $('plans').innerHTML = ''; return; }
+  if (!memberId) { $('plans').innerHTML = ''; $('asa').innerHTML = ''; return; }
   名前を覚える(DATA.members, memberId);
   $('plans').innerHTML = '<div class="card muted">読み込んでいます…</div>';
   try {
     const r = await call('getCareMemberData', memberId);
     DATA.plans = r.plans || [];
+    DATA.朝手入れ = r.朝手入れ || [];
     MARKS = {};
     DATA.plans.forEach((p) => { MARKS[p.id] = Object.assign({}, p.votes || {}); });
     renderPlans();
+    render朝手入れ();
   } catch (e) {
     $('plans').innerHTML = '<div class="card"><div class="msg error">' + esc((e && e.message) || e) + '</div></div>';
   }

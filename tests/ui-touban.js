@@ -86,7 +86,7 @@ const 当番の全部 = () => ({
 const チーフの全部 = {
   horses: [{ id: 'h1', name: '北叡', active: true, chief: '美浦' }, { id: 'h2', name: '北冴', active: true, chief: '' }],
   plans: [{ id: 'p1', horseId: 'h1', term: '後期', mode: '曜日', from: '2030-10-01', to: '', min: 1, max: null, chiefRatio: null }],
-  members: 当番の部員, 期間名: ['後期'], 既定のチーフ倍率: 2, 最新のサブ整理: null, subs: { p1: ['m1'] },
+  members: 当番の部員, 期間名: ['後期'], days: 曜日, 既定のチーフ倍率: 2, 最新のサブ整理: null, subs: { p1: ['m1'] },
 };
 // チーフ画面で開く手入れの期間（カレンダー3日。1日目は美浦が × で入っている）
 const 手入れの期間 = () => ({
@@ -97,6 +97,12 @@ const 手入れの期間 = () => ({
   votes: [{ memberId: 'm1', key: '2030-10-01', mark: '×' }, { memberId: 'm2', key: '2030-10-01', mark: '◎' }, { memberId: 'm1', key: '2030-10-02', mark: '○' }],
   cells: [{ key: '2030-10-01', memberId: 'm1', mark: '×', locked: false }], warnings: [],
 });
+// 朝手入れ（2026-09-20）。期間を持たず、馬ごとの設定をそのつど更新する
+const 朝手入れ = {
+  horse: { id: 'h1', name: '北叡', active: true, chief: '美浦' },
+  mode: '', 方式: ['カレンダー', 'ローテーション'],
+  days: [], order: [], 候補: ['m1', 'm2'], members: 当番の部員,
+};
 const 休みの全部 = () => ({
   members: 当番の部員, year: 2030, years: [2030], from: '2030-04-01', to: '2031-03-31', today: '2030-09-15',
   kinds: ['有給休暇', 'バイト', '季節休み'], states: ['申請中', '承認', '却下', '取消'],
@@ -148,6 +154,20 @@ function 模擬で答える(req) {
       模擬.送った.期間 = a.slice(1);
       return 返す({ 作った: [{ horseId: 'h1', name: '北叡', id: 'pn', サブの元: '' }], 飛ばした: [], だめ: [] });
     case 'chiefLoadPlan': return 返す(手入れの期間());
+    // 朝手入れ（2026-09-20）。期間を持たず、馬ごとの設定をそのつど更新する
+    case 'chiefLoadMorning': return 返す(朝手入れ);
+    case 'chiefSaveMorningMode':
+      模擬.送った.朝の方式 = a.slice(1);
+      朝手入れ.mode = a[2];
+      return 返す(朝手入れ);
+    case 'chiefSaveMorningDays':
+      模擬.送った.朝の担当 = a[2];
+      朝手入れ.days = a[2] || [];
+      return 返す(朝手入れ);
+    case 'chiefSaveMorningOrder':
+      模擬.送った.朝の順番 = a[2];
+      朝手入れ.order = a[2] || [];
+      return 返す(朝手入れ);
     case 'chiefSaveTable': 模擬.送った.表 = a[2]; return 返す({ ok: true, count: (a[2] || []).length, warnings: [] });
     case 'chiefSetPlanOpen': 模擬.送った.受付 = a.slice(1); return 返す({ ok: true, open: !!a[2], term: '後期' });
     // 休み
@@ -155,15 +175,29 @@ function 模擬で答える(req) {
     case 'yasumiLoadAll': return 返す(休みの全部());
     // 部員の画面
     case 'getCareMemberData':
-      return 返す(a[0] ? { plans: [{ id: 'p1', horse: '北叡', term: '後期', mode: '曜日', chief: '美浦', keys: 曜日.map((w) => ({ key: w, label: w + '曜' })), votes: {} }] }
-        : { members: 当番の部員 });
+      return 返す(a[0] ? {
+        plans: [{ id: 'p1', horse: '北叡', term: '後期', mode: '曜日', chief: '美浦', keys: 曜日.map((w) => ({ key: w, label: w + '曜' })), votes: {} }],
+        // ローテーション式の朝手入れは、サブの画面にだけ出す（2026-09-20）
+        朝手入れ: [{ horseId: 'h1', horse: '北叡', chief: '美浦', 順: [{ name: '美浦', me: true }, { name: '甲', me: false }] }],
+      } : { members: 当番の部員 });
     case 'getDutyMemberData':
       return 返す({ members: 当番の部員, days: 曜日, 希望の数: 4, terms: [{ id: 't1', name: '前期', duties: [{ id: 'd1', name: '昼当', slots: 曜日.map((w) => ({ day: w, grades: [] })) }] }] });
     case 'getMyDutyVote': return 返す(null);
     case 'getYasumiMemberData':
       return 返す({ members: 当番の部員, all: [], mine: [], kinds: ['有給休暇', '季節休み'], paid: { 付与: 10, 使った: 0, 待ち: 0, 残り: 10 }, year: 2030 });
     case 'getCalendarData':
-      return 返す({ 月: a[0] || '2030-09', from: (a[0] || '2030-09') + '-01', to: (a[0] || '2030-09') + '-30', 今日: '2030-09-15', 部員: [{ name: '美浦' }], 休み: [], 大会: [], 大会に出る: [], 手入れ: [], 毎週: [], 馬: [] });
+      return 返す({
+        月: a[0] || '2030-09', from: (a[0] || '2030-09') + '-01', to: (a[0] || '2030-09') + '-30', 今日: '2030-09-15',
+        部員: [{ name: '美浦' }, { name: '甲' }], 休み: [], 手入れ: [], 毎週: [], 馬: ['北叡'],
+        大会: [{ name: '春の大会', from: '2030-09-15', to: '2030-09-15', 日: ['2030-09-15'] }],
+        // 人員表ができていれば仕事の1文字で出す（2026-09-20）
+        大会に出る: [
+          { date: '2030-09-15', 名前: '美浦', 大会: '春の大会', 印: [{ 字: '出', 種: 'out', 題: '北叡で出場' }] },
+          { date: '2030-09-15', 名前: '甲', 大会: '春の大会', 印: [{ 字: '下', 種: 'horse', 題: '北叡の下付き' }, { 字: '運', 種: 'job', 題: '運営' }] },
+        ],
+        // カレンダー式の朝手入れは手入れ予定にだけ出す（2026-09-20）
+        朝手入れ: [{ date: '2030-09-16', 馬: '北叡', 名前: '美浦' }],
+      });
     case 'getMyPage':
       return 返す(どこ === '当番'
         ? { 版: 't1', me: { name: '美浦' }, members: [{ name: '美浦' }], 今日: '2030-09-15', 当番: { 期間: [], 決まったぶん: [] }, 手入れ: [], 毎週の手入れ: [], 予定: [], 休み: [] }
@@ -392,6 +426,66 @@ function 模擬で答える(req) {
     await page.click('#editTableBtn');
     確かめる('「編集を終える」で、日のマスはまた押せなくなる', !(await page.$('#calPreview [data-editkey]')));
 
+    // ---------- 朝手入れ（2026-09-20） ----------
+    console.log('\n== 朝手入れ ==');
+    await 上へ();
+    await page.waitForFunction(() => document.getElementById('asaCard').style.display === 'block', { timeout: 5000 });
+    確かめる('馬を選ぶと朝手入れの欄が出る（期間を開かなくても直せる）',
+      /まだ決めていません/.test(await page.$eval('#asaNow', (el) => el.textContent)));
+    await page.$eval('#asaFold', (d) => { d.open = true; });
+    確かめる('決めるまではどちらの欄も出ていない',
+      (await page.$eval('#asaCal', (el) => el.style.display)) === 'none' &&
+      (await page.$eval('#asaRot', (el) => el.style.display)) === 'none');
+    確かめる('期間を作る欄は無い（そのつど設定を変えて更新する）',
+      await page.$eval('#asaCard', (c) => !c.querySelector('input[type="date"]') && !/期間/.test(c.querySelector('h3').textContent)));
+
+    await page.click('input[name="asaMode"][value="カレンダー"]');
+    await 待つ(250);
+    確かめる('カレンダーを選ぶと、その場で設定が変わる',
+      JSON.stringify(模擬.送った.朝の方式) === JSON.stringify(['h1', 'カレンダー']), JSON.stringify(模擬.送った.朝の方式));
+    確かめる('いまの設定が題の横に出る', /いまは カレンダー式/.test(await page.$eval('#asaNow', (el) => el.textContent)));
+    確かめる('日を押せるカレンダーが出る', (await page.$$('#asaGrid [data-asaday]')).length >= 28);
+    {
+      const 日 = await page.$eval('#asaGrid [data-asaday]', (b) => b.dataset.asaday);
+      await page.click('#asaGrid [data-asaday="' + 日 + '"]');
+      await page.waitForSelector('#asaGrid select.day-pick', { timeout: 3000 });
+      確かめる('担当はサブから選ぶ（◎○× は出てこない）',
+        await page.$eval('#asaGrid select.day-pick', (s) => !s.querySelector('optgroup') && s.options.length === 3));
+      await page.select('#asaGrid select.day-pick', 'm2');
+      await 待つ(200);
+      確かめる('選んだ日に担当が入る', /相棒/.test(await page.$eval('#asaGrid [data-asaday="' + 日 + '"]', (b) => b.textContent)));
+      await page.click('#asaSaveDays');
+      await 待つ(250);
+      確かめる('保存すると日付と部員で送る',
+        JSON.stringify(模擬.送った.朝の担当) === JSON.stringify([{ date: 日, memberId: 'm2' }]), JSON.stringify(模擬.送った.朝の担当));
+    }
+    確かめる('入っていない日があっても、足りないとは言わない',
+      /足りない日の知らせは出しません/.test(await page.$eval('#asaCard', (c) => c.textContent)) &&
+      !/決まっていない日/.test(await page.$eval('#asaCard', (c) => c.textContent)));
+
+    // 保存のあとは画面が下へ動いていて、上の並びは貼り付いた帯の下に隠れる
+    await page.$eval('input[name="asaMode"][value="ローテーション"]', (el) => el.click());
+    await 待つ(250);
+    確かめる('ローテーションにすると、カレンダーは引っ込んで並びが出る',
+      (await page.$eval('#asaCal', (el) => el.style.display)) === 'none' &&
+      (await page.$eval('#asaRot', (el) => el.style.display)) === 'block');
+    await page.select('#asaAdd', 'm1');
+    await page.click('#asaAddBtn');
+    await page.select('#asaAdd', 'm2');
+    await page.click('#asaAddBtn');
+    await 待つ(150);
+    確かめる('選んだ人が順番に並ぶ', (await page.$$('#asaOrder .list-item')).length === 2);
+    await page.click('#asaOrder [data-asadown="m1"]');
+    await 待つ(150);
+    確かめる('「下へ」で並びが入れ替わる',
+      /相棒/.test(await page.$eval('#asaOrder .list-item', (r) => r.textContent)),
+      await page.$eval('#asaOrder', (el) => el.textContent.replace(/\s+/g, ' ')));
+    await page.click('#asaSaveOrder');
+    await 待つ(250);
+    確かめる('並びは部員IDの順で送る',
+      JSON.stringify(模擬.送った.朝の順番) === JSON.stringify(['m2', 'm1']), JSON.stringify(模擬.送った.朝の順番));
+    await 写す('4b-朝手入れ');
+
     // ---------- バイト・休みをまとめる ----------
     console.log('\n== バイト・休みをまとめる ==');
     await page.goto(元 + '/yasumi-admin.html');
@@ -420,6 +514,10 @@ function 模擬で答える(req) {
     await page.click('[data-card="p1"] .mk[data-key="月"][data-mark="○"]');
     const 膨らんだ = await page.waitForFunction(() => { const b = document.querySelector('[data-card="p1"] .mk[data-key="月"][data-mark="○"]'); return b && b.classList.contains('just'); }, { timeout: 600 }).then(() => true, () => false);
     確かめる('押した ◎○× が少し膨らむ（描き直したあとの札に付く）', 膨らんだ);
+    確かめる('サブにはローテーションの順番が出る（◎○× は出さない）',
+      !!(await page.$('#asa .asa-order')) && !(await page.$('#asa .mk')));
+    確かめる('自分のところに印が付く',
+      /美浦（あなた）/.test(await page.$eval('#asa .asa-order li.me', (el) => el.textContent)));
     await 写す('6-手入れの希望-スマホ');
 
     await page.goto(元 + '/touban.html');
@@ -431,9 +529,27 @@ function 模擬で答える(req) {
     await page.waitForSelector('#calGrid .daycell', { timeout: 10000 });
     確かめる('休み：月めくりはアイコン（説明つき）', await page.$eval('#prevMonth', (b) => b.classList.contains('icon-btn') && b.getAttribute('aria-label') === '前の月'));
     await page.setViewport({ width: 1280, height: 900 });
-    await page.goto(元 + '/calendar.html');
+    await page.goto(元 + '/calendar.html?tab=cal&month=2030-09');
     await page.waitForSelector('#view table.grid', { timeout: 10000 });
     確かめる('カレンダー：月めくりはアイコン', await page.$eval('#nextMonth', (b) => b.classList.contains('icon-btn') && !b.textContent.trim()));
+    // 人員表ができていれば「大」ではなく仕事の1文字（2026-09-20）
+    {
+      const 札 = await page.$$eval('#view table.grid .tag', (ts) => ts.map((t) => t.className + ':' + t.textContent));
+      確かめる('出場する選手は赤い「出」', 札.indexOf('tag entry:出') >= 0, JSON.stringify(札));
+      確かめる('馬に付く人は「下」', 札.indexOf('tag helper:下') >= 0, JSON.stringify(札));
+      確かめる('ほかの仕事は仕事名の1文字目', 札.indexOf('tag work:運') >= 0, JSON.stringify(札));
+      確かめる('人員表ができていれば「大」は出ない', 札.every((t) => t.indexOf('meet') < 0), JSON.stringify(札));
+      確かめる('凡例にも出・下・仕事がある',
+        /出場する選手/.test(await page.$eval('#legend', (el) => el.textContent)) &&
+        /下付き/.test(await page.$eval('#legend', (el) => el.textContent)));
+    }
+    // 朝手入れは手入れ予定にだけ出す（2026-09-20）
+    await page.goto(元 + '/calendar.html?tab=teire&month=2030-09');
+    await page.waitForSelector('#view .cal-days', { timeout: 10000 });
+    確かめる('朝手入れは手入れ予定に出る',
+      /朝/.test(await page.$eval('#view', (el) => el.textContent)) && !!(await page.$('#view .tag.asa')));
+    確かめる('朝手入れは大会・休み・バイトのカレンダーには出さない',
+      await page.$eval('#legend', (el) => /朝手入れ/.test(el.textContent)));
 
     // ---------- 入口 ----------
     console.log('\n== 入口 ==');

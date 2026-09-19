@@ -45,6 +45,12 @@ table.grid tr.me td.meet { background-image: none; }
 .tag.job { color: var(--danger); border-color: var(--danger); }
 .tag.meet { color: var(--care-dark); border-color: var(--care); }
 .tag.wait { border-style: dashed; font-weight: 400; }
+/* 人員表の仕事（2026-09-20）。色は決まっている組み合わせだけを使う（.pill.no / .pill.yes と同じ） */
+.tag.entry  { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
+.tag.helper { color: var(--care); border-color: var(--care); background: var(--care-soft); }
+.tag.work   { color: var(--ink); border-color: var(--rule-strong); }
+/* 朝手入れ（2026-09-20）。手入れ予定でだけ使う */
+.tag.asa    { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 
 /* ----- 手入れ予定（日ごとの行） ----- */
 .cal-days { border-top: 1px solid var(--rule-strong); }
@@ -194,9 +200,13 @@ function タブを描く() {
     ? バイト先.map((n) => '<span><b class="tag job">' + esc(Array.from(n)[0]) + '</b> ' + esc(n) + '</span>').join('')
     : '<span><b class="tag job">バ</b> バイト（バイトの名前の1文字目で出ます）</span>';
   $('legend').innerHTML = 手入れ
-    ? '<span>チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span><span><i class="sw"></i>大会がある日</span>'
+    ? '<span>チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span>' +
+      '<span><b class="tag asa">朝</b> 朝手入れ（朝練が休みの日だけ）</span><span><i class="sw"></i>大会がある日</span>'
     : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span>' + バイトの凡例 +
-      '<span><b class="tag meet">大</b> 大会に出る</span><span><b class="tag off wait">有</b> 点線は了承待ち</span><span><i class="sw"></i>大会がある日</span>';
+      '<span><b class="tag meet">大</b> 大会に出る（人員表ができる前）</span>' +
+      '<span><b class="tag entry">出</b> 出場する選手</span><span><b class="tag helper">下</b> 馬に付く（下付き）</span>' +
+      '<span><b class="tag work">運</b> 仕事（仕事名の1文字目）</span>' +
+      '<span><b class="tag off wait">有</b> 点線は了承待ち</span><span><i class="sw"></i>大会がある日</span>';
 }
 
 /*
@@ -248,8 +258,20 @@ function カレンダーを描く(d) {
         (l.label || l.kind) + (待ち ? '（了承待ち）' : ''));   // バイトはバイト先の名前で出す
     });
   });
+  /*
+    大会の日のマス（2026-09-20 ユーザーの指示）。
+    人員表ができていれば「大」ではなく、その人の仕事の1文字を出す。
+      出 … 出場する選手（赤）　下 … その馬に付く人　運・箱・在… … 仕事名の1文字目
+    人員表をまだ作っていない大会は、今までどおり「大」。
+  */
+  const 印のクラス = { out: 'entry', horse: 'helper', job: 'work' };
   (d.大会に出る || []).forEach((x) => {
-    置く(x.名前, x.date, '<b class="tag meet">大</b>', x.大会 + 'に出る');
+    const 印 = x.印 || [];
+    if (!印.length) return void 置く(x.名前, x.date, '<b class="tag meet">大</b>', x.大会 + 'に出る');
+    印.forEach((s) => {
+      置く(x.名前, x.date, '<b class="tag ' + (印のクラス[s.種] || 'work') + '">' + esc(s.字) + '</b>',
+        x.大会 + '：' + (s.題 || s.字));
+    });
   });
 
   // 行の並び：当番・手入れの名簿の順。名簿に無いが予定がある人（4年生など）は後ろに足す
@@ -286,12 +308,24 @@ function 手入れ予定を描く(d) {
   const 大会 = 大会の日(d);
   const 選んだ馬 = $('horseSelect').value;
   const 馬たち = (d.馬 || []).slice();
-  (d.手入れ || []).concat(d.毎週 || []).forEach((x) => { if (馬たち.indexOf(x.馬) < 0) 馬たち.push(x.馬); });
+  (d.手入れ || []).concat(d.毎週 || []).concat(d.朝手入れ || []).forEach((x) => { if (馬たち.indexOf(x.馬) < 0) 馬たち.push(x.馬); });
   $('horseSelect').innerHTML = '<option value="">すべての馬</option>' + 馬たち.map((h) => '<option' + (h === 選んだ馬 ? ' selected' : '') + '>' + esc(h) + '</option>').join('');
 
   const 私 = 私の名前();
   const 自分だけ = $('onlyMe').checked && !!私;
   const 表 = {};
+  /*
+    朝手入れ（2026-09-20 ユーザーの指示）。カレンダー式にしている馬のぶんだけ、その日の先頭に出す。
+    ローテーション式は日付を持たないので、ここには出ない（サブの「手入れの希望を出す」画面に出る）。
+    入っていない日は朝練があった日なので、「なし」でよい（足りない知らせは出さない）。
+  */
+  (d.朝手入れ || []).forEach((x) => {
+    if (選んだ馬 && x.馬 !== 選んだ馬) return;
+    if (自分だけ && x.名前 !== 私) return;
+    (表[x.date] = 表[x.date] || []).push(
+      '<span class="cal-item' + (x.名前 === 私 ? ' mine' : '') + '"><span class="h">' + esc(x.馬) + '</span>' +
+      '<b class="tag asa">朝</b>' + esc(x.名前) + '</span>');
+  });
   (d.手入れ || []).forEach((x) => {
     if (選んだ馬 && x.馬 !== 選んだ馬) return;
     if (自分だけ && x.名前 !== 私) return;

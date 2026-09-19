@@ -3,6 +3,11 @@
 <head>
 <base target="_top">
 <?!= include('style') ?>
+<style>
+/* 朝手入れ（2026-09-20）。月は上の送りボタンの横に出すので、カレンダーの中の見出しは出さない */
+#asaGrid .cal h4 { display: none; }
+#asaGrid .cal { margin-top: var(--space-xs); }
+</style>
 </head>
 <body>
 <div id="busy">通信中です…</div>
@@ -29,6 +34,67 @@
       <div id="chiefBox" style="display:none;margin-top:10px;">
         <p class="hint" id="chiefWho"></p>
       </div>
+    </div>
+
+    <!--
+      朝手入れ（2026-09-20 ユーザーの指示）。ふつうの手入れとは別枠。
+      ・手入れは毎日あるが、朝手入れは朝練が休みの日だけ → 入っていない日があっても普通。足りない日の知らせは出さない
+      ・サブの ◎○× は集めない。その馬のチーフが作る
+      ・期間は作らない。ここの設定を変えると、それがそのまま新しい決まりになる
+      1〜4の流れ（期間 → 投票 → 手入れ表）とは関係が無いので、番号を付けず畳んで置く。
+    -->
+    <div class="card" id="asaCard" style="display:none;">
+      <details class="fold" id="asaFold">
+        <summary>朝手入れ<span class="muted" id="asaNow"></span></summary>
+        <div class="fold-body">
+          <p class="hint">
+            ふつうの手入れとは<b>別枠</b>です。手入れは毎日ありますが、朝手入れは<b>朝練が休みの日だけ</b>なので、
+            入っていない日があっても大丈夫です（足りない日の知らせは出しません）。<br>
+            サブの ◎○× は集めません。<b>期間は作りません</b>。ここの設定を変えると、そのまま新しい決まりになります。
+          </p>
+
+          <h3 style="margin-top:16px;">作り方（どちらか片方）</h3>
+          <div class="radio-list">
+            <label class="inline"><input type="radio" name="asaMode" value=""> 使わない</label>
+            <label class="inline"><input type="radio" name="asaMode" value="カレンダー"> カレンダー</label>
+            <label class="inline"><input type="radio" name="asaMode" value="ローテーション"> ローテーション</label>
+          </div>
+          <p class="hint">
+            <b>カレンダー</b>＝日付ごとに担当を決める。みんなのカレンダーの<b>「手入れ予定」にだけ</b>出ます
+            （大会・休み・バイトのカレンダーには出ません）。<br>
+            <b>ローテーション</b>＝サブの並び順で1人ずつ回す。日付を持たないので、<b>サブの画面にだけ</b>順番が出ます。
+          </p>
+          <div id="asaModeMsg" role="status" aria-live="polite"></div>
+
+          <!-- カレンダー式 -->
+          <div id="asaCal" style="display:none;">
+            <h3 style="margin-top:20px;">担当を決める</h3>
+            <div class="row tight" style="align-items:center;">
+              <button type="button" class="secondary small" id="asaPrev">前の月</button>
+              <b id="asaMonth"></b>
+              <button type="button" class="secondary small" id="asaNext">次の月</button>
+              <button type="button" class="secondary small" id="asaToday">今月</button>
+            </div>
+            <p class="hint">日を押すと担当を選べます。<b>朝練がある日は空のままにしてください。</b>ほかの月に入れたぶんも、そのまま残ります。</p>
+            <div id="asaGrid"></div>
+            <div style="margin-top:16px;"><button id="asaSaveDays">朝手入れの担当を保存</button></div>
+            <div id="asaDaysMsg" role="status" aria-live="polite"></div>
+          </div>
+
+          <!-- ローテーション式 -->
+          <div id="asaRot" style="display:none;">
+            <h3 style="margin-top:20px;">回る順番</h3>
+            <p class="hint">上から順に1人ずつ回ります。「上へ」「下へ」で並べ替え、×ではずします。</p>
+            <div id="asaOrder"></div>
+            <div class="row tight" style="margin-top:10px;align-items:flex-end;">
+              <div><label for="asaAdd">足す人</label><select id="asaAdd"></select></div>
+              <button type="button" class="secondary" id="asaAddBtn">この人を足す</button>
+            </div>
+            <div style="margin-top:16px;"><button id="asaSaveOrder">回る順番を保存</button></div>
+            <div id="asaRotMsg" role="status" aria-live="polite"></div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <!-- 2. 期間 -->
@@ -332,7 +398,11 @@ $('horseSelect').addEventListener('change', () => {
   P = null;
   $('planPane').style.display = 'none';
   $('planEditFold').hidden = true;
-  if (!id) { $('termCard').style.display = 'none'; $('chiefBox').style.display = 'none'; renderSteps(1); return; }
+  if (!id) {
+    $('termCard').style.display = 'none'; $('chiefBox').style.display = 'none';
+    $('asaCard').style.display = 'none'; ASA = null;
+    renderSteps(1); return;
+  }
   const h = BASE.horses.filter((x) => x.id === id)[0];
   $('newHorseName').textContent = h.name;
   $('chiefBox').style.display = 'block';
@@ -344,6 +414,7 @@ $('horseSelect').addEventListener('change', () => {
   $('termCard').style.display = 'block';
   renderPlanList();
   renderSteps(2);
+  朝手入れを読む(id);   // 期間とは関係ないので、期間を開かなくても直せる
 });
 
 // ===================== 2. 期間 =====================
@@ -1062,6 +1133,214 @@ function 日の担当を選ぶ(マス) {
   sel.addEventListener('blur', () => { if (!選んだ) renderTable(); });
   sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); renderTable(); } });
 }
+
+// ===================== 朝手入れ（2026-09-20 ユーザーの指示） =====================
+/*
+  ふつうの手入れとは別枠。期間を作らず、この馬の設定をそのつど直して更新する。
+  方式を変えても、もう片方に入れた中身はサーバに残る（戻せば、そのまま使える）。
+  朝練が休みの日だけのものなので、入っていない日があっても知らせは出さない。
+*/
+let ASA = null;        // chiefLoadMorning の返り
+let ASA_DAYS = {};     // 日付 → 部員ID（全部の月ぶん。画面で直しているもの）
+let ASA_ORDER = [];    // 回る順番（部員IDの並び）
+let ASA_MONTH = '';    // カレンダーで見ている月（YYYY-MM）
+
+const 今の月 = () => { const d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2); };
+function 月をずらす(月, n) {
+  const d = new Date(Number(月.slice(0, 4)), Number(月.slice(5, 7)) - 1 + n, 1);
+  return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+}
+// その月の1日から末日まで。カレンダー() に渡す形にそろえる
+function 月の日たち(ym) {
+  const y = Number(ym.slice(0, 4));
+  const mo = Number(ym.slice(5, 7));
+  const 末日 = new Date(y, mo, 0).getDate();
+  const out = [];
+  for (let d = 1; d <= 末日; d++) {
+    const dow = (new Date(y, mo - 1, d).getDay() + 6) % 7;
+    out.push({
+      key: ym + '-' + ('0' + d).slice(-2),
+      label: mo + '/' + d + '（' + ((BASE.days || [])[dow] || '') + '）',
+      dow: dow,
+    });
+  }
+  return out;
+}
+
+async function 朝手入れを読む(horseId) {
+  $('asaCard').style.display = 'block';
+  $('asaNow').textContent = '　読み込んでいます…';
+  try {
+    朝手入れを入れる(await call('chiefLoadMorning', TOKEN, horseId));
+  } catch (e) {
+    ASA = null;
+    $('asaNow').textContent = '';
+    msgIn('asaModeMsg', 'error', '朝手入れを読めませんでした：' + ((e && e.message) || e));
+  }
+}
+
+function 朝手入れを入れる(データ) {
+  ASA = データ;
+  ASA_DAYS = {};
+  (ASA.days || []).forEach((d) => { ASA_DAYS[d.date] = d.memberId; });
+  ASA_ORDER = (ASA.order || []).slice();
+  if (!ASA_MONTH) ASA_MONTH = 今の月();
+  render朝手入れ();
+}
+
+function render朝手入れ() {
+  if (!ASA) return;
+  const mode = ASA.mode || '';
+  // いまの設定は、畳んでいても分かるように題の横に出す（2026-09-20 ユーザーの指示）
+  $('asaNow').textContent = mode ? '　いまは ' + mode + '式' : '　まだ決めていません';
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=asaMode]'), (el) => {
+    el.checked = el.value === mode;
+  });
+  $('asaCal').style.display = mode === 'カレンダー' ? 'block' : 'none';
+  $('asaRot').style.display = mode === 'ローテーション' ? 'block' : 'none';
+  if (mode === 'カレンダー') render朝カレンダー();
+  if (mode === 'ローテーション') render朝ローテーション();
+}
+
+function render朝カレンダー() {
+  $('asaMonth').textContent = Number(ASA_MONTH.slice(0, 4)) + '年' + Number(ASA_MONTH.slice(5, 7)) + '月';
+  $('asaGrid').innerHTML = カレンダー(月の日たち(ASA_MONTH), (k) => {
+    const who = ASA_DAYS[k.key] || '';
+    return '<button type="button" class="calday editable' + (who ? ' m2' : '') + '" data-asaday="' + esc(k.key) + '"' +
+      ' aria-label="' + esc(k.label) + 'の朝手入れの担当を選ぶ（いまは ' + esc(who ? 名(who) : 'なし') + '）">' +
+      '<span class="d">' + Number(k.key.slice(8)) + '</span>' +
+      (who ? '<span class="who">' + esc(名(who)) + '</span>' : '<span class="m">・</span>') +
+      '</button>';
+  });
+  // ほかの月に入れたぶんも消えないことが分かるように、合計を出す
+  const この月 = Object.keys(ASA_DAYS).filter((d) => d.slice(0, 7) === ASA_MONTH).length;
+  $('asaDaysMsg').innerHTML = '<p class="hint" style="margin:8px 0 0;">この月に ' + この月 + '日、全部で ' +
+    Object.keys(ASA_DAYS).length + '日 入っています。</p>';
+}
+
+function render朝ローテーション() {
+  $('asaOrder').innerHTML = ASA_ORDER.length
+    ? ASA_ORDER.map((id, i) =>
+        '<div class="list-item is-row">' +
+        '<span><b>' + (i + 1) + '.</b> ' + esc(名(id)) + '</span>' +
+        '<span class="row-actions">' +
+        '<button type="button" class="secondary small" data-asaup="' + esc(id) + '" aria-label="' + esc(名(id)) + 'を上へ">上へ</button>' +
+        '<button type="button" class="secondary small" data-asadown="' + esc(id) + '" aria-label="' + esc(名(id)) + 'を下へ">下へ</button>' +
+        部品.アイコンボタン('x', 名(id) + 'を朝手入れからはずす', { 'data-asaout': id }, 'danger') +
+        '</span></div>').join('')
+    : '<div class="muted">まだ誰も入っていません。下の「足す人」から入れてください。</div>';
+
+  const のこり = (ASA.候補 || []).filter((id) => ASA_ORDER.indexOf(id) < 0);
+  $('asaAdd').innerHTML = のこり.length
+    ? のこり.map((id) => '<option value="' + esc(id) + '">' + esc(名(id)) + '</option>').join('')
+    : '<option value="">（この馬のサブは全員入っています）</option>';
+}
+
+// ----- 方式を変える＝設定を更新する -----
+Array.prototype.forEach.call(document.querySelectorAll('input[name=asaMode]'), (el) => {
+  el.addEventListener('change', async () => {
+    if (!ASA) return;
+    try {
+      朝手入れを入れる(await call('chiefSaveMorningMode', TOKEN, ASA.horse.id, el.value));
+      msgIn('asaModeMsg', 'success', el.value ? el.value + '式に変えました。' : '朝手入れを使わないことにしました。');
+    } catch (e) {
+      msgIn('asaModeMsg', 'error', (e && e.message) || e);
+      render朝手入れ();   // 選び直しを元に戻す
+    }
+  });
+});
+
+// ----- カレンダー式 -----
+$('asaPrev').addEventListener('click', () => { ASA_MONTH = 月をずらす(ASA_MONTH, -1); render朝カレンダー(); });
+$('asaNext').addEventListener('click', () => { ASA_MONTH = 月をずらす(ASA_MONTH, 1); render朝カレンダー(); });
+$('asaToday').addEventListener('click', () => { ASA_MONTH = 今の月(); render朝カレンダー(); });
+
+$('asaGrid').addEventListener('click', (e) => {
+  const マス = e.target.closest('[data-asaday]');
+  if (マス) 朝の担当を選ぶ(マス);
+});
+
+/*
+  押した日をプルダウンに変える。朝手入れは希望を集めないので、候補はこの馬のサブをそのまま並べる。
+  「この日はなし」を選ぶと空に戻る（朝練があった日）。
+*/
+function 朝の担当を選ぶ(マス) {
+  const key = マス.dataset.asaday;
+  const 今 = ASA_DAYS[key] || '';
+  const sel = document.createElement('select');
+  sel.className = 'day-pick';
+  sel.setAttribute('aria-label', key + ' の朝手入れの担当');
+  sel.innerHTML = '<option value="">' + esc(key) + ' の担当を選ぶ</option>' +
+    (ASA.候補 || []).map((id) =>
+      '<option value="' + esc(id) + '"' + (id === 今 ? ' selected' : '') + '>' + esc(名(id)) + '</option>').join('') +
+    (今 ? '<option value="__空">— この日はなし（朝練がある日）</option>' : '');
+  マス.replaceWith(sel);
+  sel.focus();
+  if (sel.showPicker) { try { sel.showPicker(); } catch (err) { /* 対応していない環境ではそのまま選んでもらう */ } }
+
+  let 選んだ = false;
+  sel.addEventListener('change', () => {
+    const v = sel.value;
+    if (!v || v === 今) return;
+    選んだ = true;
+    if (v === '__空') delete ASA_DAYS[key];
+    else ASA_DAYS[key] = v;
+    render朝カレンダー();
+    部品.光らせる([$('asaGrid').querySelector('[data-asaday="' + key + '"]')]);
+  });
+  sel.addEventListener('blur', () => { if (!選んだ) render朝カレンダー(); });
+  sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); render朝カレンダー(); } });
+}
+
+$('asaSaveDays').addEventListener('click', async () => {
+  if (!ASA) return;
+  try {
+    const days = Object.keys(ASA_DAYS).sort().map((d) => ({ date: d, memberId: ASA_DAYS[d] }));
+    朝手入れを入れる(await call('chiefSaveMorningDays', TOKEN, ASA.horse.id, days));
+    部品.光らせる([$('asaGrid')]);
+    msgIn('asaDaysMsg', 'success', '保存しました（全部で' + days.length + '日）。');
+  } catch (e) { msgIn('asaDaysMsg', 'error', (e && e.message) || e); }
+});
+
+// ----- ローテーション式 -----
+$('asaOrder').addEventListener('click', (e) => {
+  const 上 = e.target.closest('[data-asaup]');
+  const 下 = e.target.closest('[data-asadown]');
+  const 外 = e.target.closest('[data-asaout]');
+  if (上) {
+    const i = ASA_ORDER.indexOf(上.dataset.asaup);
+    if (i > 0) { ASA_ORDER.splice(i - 1, 0, ASA_ORDER.splice(i, 1)[0]); render朝ローテーション(); }
+    else msgIn('asaRotMsg', 'warning', 'いちばん上なので、これ以上は上げられません。');
+    return;
+  }
+  if (下) {
+    const i = ASA_ORDER.indexOf(下.dataset.asadown);
+    if (i >= 0 && i < ASA_ORDER.length - 1) { ASA_ORDER.splice(i + 1, 0, ASA_ORDER.splice(i, 1)[0]); render朝ローテーション(); }
+    else msgIn('asaRotMsg', 'warning', 'いちばん下なので、これ以上は下げられません。');
+    return;
+  }
+  if (外) {
+    ASA_ORDER = ASA_ORDER.filter((id) => id !== 外.dataset.asaout);
+    render朝ローテーション();
+  }
+});
+
+$('asaAddBtn').addEventListener('click', () => {
+  const id = $('asaAdd').value;
+  if (!id) return void msgIn('asaRotMsg', 'warning', 'この馬のサブは全員入っています。');
+  if (ASA_ORDER.indexOf(id) < 0) ASA_ORDER.push(id);
+  render朝ローテーション();
+  msgIn('asaRotMsg', '', '');
+});
+
+$('asaSaveOrder').addEventListener('click', async () => {
+  if (!ASA) return;
+  try {
+    朝手入れを入れる(await call('chiefSaveMorningOrder', TOKEN, ASA.horse.id, ASA_ORDER));
+    部品.光らせる([$('asaOrder')]);
+    msgIn('asaRotMsg', 'success', '保存しました（' + ASA_ORDER.length + '人で回ります）。');
+  } catch (e) { msgIn('asaRotMsg', 'error', (e && e.message) || e); }
+});
 
 $('genBtn').addEventListener('click', () => 作る(true));
 $('genPreviewBtn').addEventListener('click', () => 作る(false));

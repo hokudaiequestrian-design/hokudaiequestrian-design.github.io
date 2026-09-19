@@ -105,6 +105,26 @@ const ss = {
   deleteSheet: (sh) => { delete SHEETS[sh.getName()]; },
 };
 
+/*
+  人員表システムのファイル（openById で開くほう）。
+  ふだんは「開けない」ままにしておく（前からのテストは、読めなかったときの振る舞いを見ているため）。
+  人員表を使う項目だけ 人員表を開ける = true にして開く。
+*/
+const SHEETS2 = {};
+const ss2 = {
+  getSheetByName: (n) => (SHEETS2[n] ? wrapSheet(SHEETS2[n]) : null),
+  insertSheet: (n) => { SHEETS2[n] = makeSheet(n); return wrapSheet(SHEETS2[n]); },
+  getSheets: () => Object.keys(SHEETS2).map((n) => wrapSheet(SHEETS2[n])),
+};
+let 人員表を開ける = false;
+// 見出し＋行を、人員表側のシートに置く
+function 人員表に置く(name, headers, rows) {
+  SHEETS2[name] = makeSheet(name);
+  const sh = wrapSheet(SHEETS2[name]);
+  const values = [headers].concat(rows);
+  sh.getRange(1, 1, values.length, headers.length).setValues(values);
+}
+
 const PROPS = {};
 let uuidCount = 0;
 
@@ -115,6 +135,10 @@ const sandbox = {
 
   SpreadsheetApp: {
     getActiveSpreadsheet: () => ss,
+    openById: () => {
+      if (!人員表を開ける) throw new Error('模擬環境では人員表システムのファイルを開けません');
+      return ss2;
+    },
     getUi: () => ({
       createMenu: () => ({ addItem() { return this; }, addSeparator() { return this; }, addToUi() {} }),
       alert: (m) => { ALERTS.push(m); },
@@ -1537,6 +1561,250 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
     ['baitoLoadAll', 'baitoSaveJob', 'baitoDeleteJob', 'baitoAssign', 'baitoUnassign', 'baitoSaveCount']
       .every((n) => G.外から呼べる関数.indexOf(n) >= 0)
     && G.外から呼べる関数.filter((n) => n.indexOf('baito') === 0).length === 6);
+}
+
+// ===================== 12. 朝手入れ =====================
+/*
+  ふつうの手入れとは別枠（2026-09-20 ユーザーの指示）。
+  ・期間を作らない。馬ごとの設定をそのつど直して更新する
+  ・カレンダー式は手入れカレンダーにだけ、ローテーションはサブの画面にだけ出す
+  ・朝練が休みの日だけなので、入っていない日があっても警告は出さない
+*/
+
+見出し('朝手入れ');
+{
+  const 名簿 = G.loadMembers();
+  const 馬たち = G.loadHorses();
+  const 朝の馬 = 馬たち.filter((h) => h.name === '北汐')[0];
+  const 甲 = 名簿[0];
+  const 乙 = 名簿[1];
+  const 丙 = 名簿[2];
+
+  確かめる('朝手入れのシートができている',
+    !!SHEETS['朝手入れ'] && !!SHEETS['朝手入れ表'] && !!SHEETS['朝手入れ順']);
+  確かめる('朝手入れの列は馬ごとに1行の形',
+    G.SCHEMA['朝手入れ'].join(',') === '馬ID,方式,備考', G.SCHEMA['朝手入れ'].join(','));
+  確かめる('期間を持たない（計画IDの列が無い）',
+    G.SCHEMA['朝手入れ表'].indexOf('計画ID') < 0 && G.SCHEMA['朝手入れ順'].indexOf('計画ID') < 0);
+
+  // ----- まだ決めていない -----
+  {
+    const d = G.chiefLoadMorning(C, 朝の馬.id);
+    確かめる('はじめは方式が決まっていない', d.mode === '', JSON.stringify(d.mode));
+    確かめる('選べるのは2つだけ', d.方式.join(',') === 'カレンダー,ローテーション', d.方式.join(','));
+  }
+  投げるはず('馬を選ばないと読めない', () => G.chiefLoadMorning(C, ''), '馬を選んで');
+  投げるはず('でたらめな方式は入らない',
+    () => G.chiefSaveMorningMode(C, 朝の馬.id, 'てきとう'), 'どちらか');
+
+  // ----- カレンダー式 -----
+  G.chiefSaveMorningMode(C, 朝の馬.id, 'カレンダー');
+  確かめる('方式を変えるとそのまま新しい設定になる',
+    G.chiefLoadMorning(C, 朝の馬.id).mode === 'カレンダー');
+
+  const 日 = (n) => '2026-04-' + ('0' + n).slice(-2);
+  G.chiefSaveMorningDays(C, 朝の馬.id, [
+    { date: 日(3), memberId: 甲.id },
+    { date: 日(10), memberId: 乙.id },
+    { date: 日(10), memberId: 丙.id },   // 同じ日は1人だけ
+    { date: 日(17), memberId: 甲.id },
+  ]);
+  {
+    const d = G.chiefLoadMorning(C, 朝の馬.id);
+    確かめる('入れた日だけが残る（1日1人）', d.days.length === 3, JSON.stringify(d.days));
+    確かめる('同じ日は先に渡したほうが残る',
+      d.days.filter((x) => x.date === 日(10))[0].memberId === 乙.id);
+    確かめる('日付の順に並ぶ', d.days[0].date === 日(3) && d.days[2].date === 日(17));
+  }
+
+  // ----- 手入れカレンダーに出る／ほかには出ない -----
+  {
+    const cal = G.getCalendarData('2026-04');
+    確かめる('カレンダー式は手入れカレンダーに出る', (cal.朝手入れ || []).length === 3,
+      JSON.stringify(cal.朝手入れ));
+    確かめる('馬の名前と担当の名前で返る',
+      cal.朝手入れ[0].馬 === '北汐' && cal.朝手入れ[0].名前 === 甲.name, JSON.stringify(cal.朝手入れ[0]));
+    確かめる('ふつうの手入れとは混ざらない',
+      (cal.手入れ || []).every((x) => !(x.馬 === '北汐' && x.date === 日(3))),
+      JSON.stringify((cal.手入れ || []).filter((x) => x.馬 === '北汐')));
+    確かめる('その月のぶんだけ返る', G.getCalendarData('2026-05').朝手入れ.length === 0);
+  }
+  {
+    const d = G.getCareMemberData(甲.id);
+    確かめる('カレンダー式はサブの画面には出さない', (d.朝手入れ || []).length === 0,
+      JSON.stringify(d.朝手入れ));
+  }
+
+  // ----- ローテーション式 -----
+  G.chiefSaveMorningOrder(C, 朝の馬.id, [乙.id, 甲.id, 丙.id, 甲.id]);
+  {
+    const d = G.chiefLoadMorning(C, 朝の馬.id);
+    確かめる('同じ人を2回入れても1回になる', d.order.length === 3, JSON.stringify(d.order));
+    確かめる('渡した順がそのまま回る順', d.order[0] === 乙.id && d.order[1] === 甲.id);
+  }
+  確かめる('方式がカレンダーのうちは、並びを入れてもサブの画面に出ない',
+    (G.getCareMemberData(甲.id).朝手入れ || []).length === 0);
+
+  G.chiefSaveMorningMode(C, 朝の馬.id, 'ローテーション');
+  {
+    const d = G.getCareMemberData(甲.id);
+    確かめる('ローテーション式はサブの画面に出る', (d.朝手入れ || []).length === 1, JSON.stringify(d.朝手入れ));
+    確かめる('回る順番が並んで返る',
+      d.朝手入れ[0].順.map((x) => x.name).join(',') === [乙, 甲, 丙].map((m) => m.name).join(','),
+      JSON.stringify(d.朝手入れ[0].順));
+    確かめる('自分のところに印が付く',
+      d.朝手入れ[0].順.filter((x) => x.me).length === 1 && d.朝手入れ[0].順[1].me === true);
+    確かめる('◎○× は集めないので票の欄が無い', JSON.stringify(d.朝手入れ[0]).indexOf('votes') < 0);
+  }
+  確かめる('並びに入っていない人には出ない',
+    (G.getCareMemberData(名簿[名簿.length - 1].id).朝手入れ || [])
+      .every((x) => x.horseId !== 朝の馬.id) || 名簿.length <= 3);
+  確かめる('ローテーション式は手入れカレンダーに出さない',
+    (G.getCalendarData('2026-04').朝手入れ || []).length === 0);
+
+  // ----- 片方に変えても、もう片方の中身は残る -----
+  G.chiefSaveMorningMode(C, 朝の馬.id, 'カレンダー');
+  確かめる('カレンダーに戻すと入れた日がそのまま残っている',
+    G.chiefLoadMorning(C, 朝の馬.id).days.length === 3);
+  G.chiefSaveMorningMode(C, 朝の馬.id, '');
+  {
+    const d = G.chiefLoadMorning(C, 朝の馬.id);
+    確かめる('「使わない」にできる', d.mode === '');
+    確かめる('使わないにしても中身は消えない', d.days.length === 3 && d.order.length === 3);
+    確かめる('使わないあいだはどちらの画面にも出ない',
+      (G.getCalendarData('2026-04').朝手入れ || []).length === 0 &&
+      (G.getCareMemberData(甲.id).朝手入れ || []).length === 0);
+  }
+
+  // ----- 馬ごとに分かれている -----
+  {
+    const ほかの馬 = 馬たち.filter((h) => h.name === '北陽')[0];
+    G.chiefSaveMorningMode(C, ほかの馬.id, 'カレンダー');
+    G.chiefSaveMorningDays(C, ほかの馬.id, [{ date: 日(5), memberId: 甲.id }]);
+    確かめる('ほかの馬を入れても、前の馬のぶんは消えない',
+      G.chiefLoadMorning(C, 朝の馬.id).days.length === 3);
+    確かめる('その馬のぶんだけ返る',
+      G.chiefLoadMorning(C, ほかの馬.id).days.length === 1);
+  }
+
+  // ----- 朝手入れは手入れ表の警告に出てこない -----
+  {
+    const plan = G.loadPlans().filter((p) => p.horseId === 朝の馬.id)[0];
+    if (plan) {
+      const 中身 = G.chiefLoadPlan(C, plan.id);
+      確かめる('朝手入れのことは手入れ表の警告に出ない',
+        (中身.warnings || []).every((w) => String(w.text || '').indexOf('朝') < 0),
+        JSON.stringify(中身.warnings));
+    } else {
+      確かめる('朝手入れのことは手入れ表の警告に出ない', true);
+    }
+  }
+
+  // ----- 合鍵 -----
+  投げるはず('合鍵なしでは読めない', () => G.chiefLoadMorning('でたらめ', 朝の馬.id), '有効期限');
+  投げるはず('合鍵なしでは方式を変えられない', () => G.chiefSaveMorningMode('でたらめ', 朝の馬.id, 'カレンダー'), '有効期限');
+  投げるはず('合鍵なしでは担当を入れられない', () => G.chiefSaveMorningDays('でたらめ', 朝の馬.id, []), '有効期限');
+  投げるはず('合鍵なしでは並びを直せない', () => G.chiefSaveMorningOrder('でたらめ', 朝の馬.id, []), '有効期限');
+  確かめる('外から呼べるのは4つ',
+    ['chiefLoadMorning', 'chiefSaveMorningMode', 'chiefSaveMorningDays', 'chiefSaveMorningOrder']
+      .every((n) => G.外から呼べる関数.indexOf(n) >= 0)
+    && G.外から呼べる関数.filter((n) => n.indexOf('Morning') >= 0).length === 4);
+}
+
+// ===================== 13. カレンダーの「大」を仕事の1文字にする =====================
+/*
+  2026-09-20 ユーザーの指示。人員表が保存されていれば、その人のマスを仕事の1文字で出す。
+    出（赤）… 出場する選手　下 … その馬に付く人（下付き）　運・箱・在 … 仕事名の1文字目
+  人員表をまだ作っていない大会は、今までどおり「大」。
+*/
+
+見出し('カレンダーの「大」を仕事の1文字にする');
+{
+  const 名簿 = G.loadMembers();
+  const 選手 = 名簿[0];
+  const 下付き = 名簿[1];
+  const 運営 = 名簿[2];
+  const 何も = 名簿[3];
+
+  // 人員表側のIDは当番・手入れとは別。名前で突き合わせる決まりなので、名前だけそろえておく
+  人員表に置く('部員', ['ID', '名前'], [
+    ['j1', 選手.name], ['j2', 下付き.name], ['j3', 運営.name], ['j4', 何も.name],
+  ]);
+  人員表に置く('大会', ['ID', '大会名', '開始日', '終了日'], [['e1', '春の大会', '2026-06-06', '2026-06-07']]);
+  人員表に置く('競技', ['ID', '大会ID', '日付', '競技名', '順番'], [
+    ['c1', 'e1', '2026-06-06', '馬場', 1],
+    ['c2', 'e1', '2026-06-07', '障害', 2],
+  ]);
+  人員表に置く('仕事', ['ID', '大会ID', '日付', '仕事名'], [
+    ['j_un', 'e1', '2026-06-06', '運営'],
+    ['j_zai', 'e1', '2026-06-07', '在'],
+  ]);
+  人員表に置く('出欠', ['大会ID', '部員ID', '日付', '出欠'], [
+    ['e1', 'j1', '2026-06-06', '出席'],
+    ['e1', 'j2', '2026-06-06', '出席'],
+    ['e1', 'j3', '2026-06-06', '出席'],
+    ['e1', 'j4', '2026-06-06', '出席'],
+    ['e1', 'j3', '2026-06-07', '出席'],
+  ]);
+  人員表に置く('出場', ['ID', '大会ID', '部員ID', '競技ID', '馬名', '馬付き人数'], [
+    ['en1', 'e1', 'j1', 'c1', '北汐', 1],
+  ]);
+  人員表に置く('人員表', ['大会ID', '部員ID', '競技ID', '仕事ID', '馬名', '固定'], [
+    ['e1', 'j2', 'c1', '', '北汐', ''],     // 馬に付く人＝下
+    ['e1', 'j3', 'c1', 'j_un', '', ''],     // 運営
+    ['e1', 'j3', 'c2', 'j_zai', '', ''],    // 次の日は在
+  ]);
+
+  人員表を開ける = true;
+  const d = G.getCalendarData('2026-06');
+  const 印 = (名前, 日) => {
+    const x = (d.大会に出る || []).filter((y) => y.名前 === 名前 && y.date === 日)[0];
+    return x ? (x.印 || []).map((s) => s.字).join('') : '（その日の行が無い）';
+  };
+  const 種 = (名前, 日) => {
+    const x = (d.大会に出る || []).filter((y) => y.名前 === 名前 && y.date === 日)[0];
+    return x ? (x.印 || []).map((s) => s.種).join(',') : '';
+  };
+
+  確かめる('人員表を読めている', d.大会を読めた === true && d.大会.length === 1, JSON.stringify(d.大会));
+  確かめる('出場する選手は「出」', 印(選手.name, '2026-06-06') === '出', 印(選手.name, '2026-06-06'));
+  確かめる('選手の印は赤にする種類で返る', 種(選手.name, '2026-06-06') === 'out', 種(選手.name, '2026-06-06'));
+  確かめる('馬に付く人は「下」', 印(下付き.name, '2026-06-06') === '下', 印(下付き.name, '2026-06-06'));
+  確かめる('仕事は仕事名の1文字目（運営→運）', 印(運営.name, '2026-06-06') === '運', 印(運営.name, '2026-06-06'));
+  確かめる('別の日は別の仕事（在）', 印(運営.name, '2026-06-07') === '在', 印(運営.name, '2026-06-07'));
+  確かめる('人員表に入っていない人は印なし（画面で「大」になる）',
+    印(何も.name, '2026-06-06') === '', 印(何も.name, '2026-06-06'));
+
+  // 馬に付く人の説明には馬の名前を出す
+  {
+    const x = (d.大会に出る || []).filter((y) => y.名前 === 下付き.name)[0];
+    確かめる('下付きは、どの馬に付くかが分かる', x.印[0].題.indexOf('北汐') >= 0, JSON.stringify(x.印));
+  }
+
+  // 出欠を出していなくても、人員表に入っていれば出す
+  人員表に置く('出欠', ['大会ID', '部員ID', '日付', '出欠'], [['e1', 'j1', '2026-06-06', '出席']]);
+  {
+    const d2 = G.getCalendarData('2026-06');
+    const x = (d2.大会に出る || []).filter((y) => y.名前 === 運営.name && y.date === '2026-06-06')[0];
+    確かめる('出欠を出していなくても人員表に入っていれば出る', !!x && x.印[0].字 === '運', JSON.stringify(x));
+    確かめる('その日の大会の名前が付く', x && x.大会 === '春の大会', x && x.大会);
+  }
+
+  // 人員表をまだ作っていない大会は「大」のまま
+  人員表に置く('人員表', ['大会ID', '部員ID', '競技ID', '仕事ID', '馬名', '固定'], []);
+  人員表に置く('出場', ['ID', '大会ID', '部員ID', '競技ID', '馬名', '馬付き人数'], []);
+  {
+    const d3 = G.getCalendarData('2026-06');
+    確かめる('人員表がまだなら印は付かない（画面で「大」）',
+      (d3.大会に出る || []).every((x) => !(x.印 || []).length), JSON.stringify(d3.大会に出る));
+  }
+
+  // 人員表のファイルが開けなくても、休み・手入れは出る
+  人員表を開ける = false;
+  {
+    const d4 = G.getCalendarData('2026-06');
+    確かめる('人員表を開けなくても止まらない', d4.大会を読めた === false && Array.isArray(d4.手入れ));
+  }
 }
 
 // ===================== まとめ =====================
