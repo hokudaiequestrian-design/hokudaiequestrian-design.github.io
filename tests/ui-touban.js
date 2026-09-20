@@ -192,8 +192,12 @@ function 模擬で答える(req) {
         大会: [{ name: '春の大会', from: '2030-09-15', to: '2030-09-15', 日: ['2030-09-15'] }],
         // 人員表ができていれば仕事の1文字で出す（2026-09-20）
         大会に出る: [
-          { date: '2030-09-15', 名前: '美浦', 大会: '春の大会', 印: [{ 字: '出', 種: 'out', 題: '北叡で出場' }] },
-          { date: '2030-09-15', 名前: '甲', 大会: '春の大会', 印: [{ 字: '下', 種: 'horse', 題: '北叡の下付き' }, { 字: '運', 種: 'job', 題: '運営' }] },
+          // 選手は仕事が当たっていても「出」だけ（2026-09-20）。色は画面で決めた赤なので付けない
+          { date: '2030-09-15', 名前: '美浦', 大会: '春の大会', 印: [{ 字: '出', 種: 'out', 題: '北叡で出場', 背景: '', 文字: '' }] },
+          { date: '2030-09-15', 名前: '甲', 大会: '春の大会', 印: [
+            { 字: '下', 種: 'horse', 題: '北叡の下付き', 背景: '', 文字: '' },
+            { 字: '運', 種: 'job', 題: '運営', 背景: '#ffe5a0', 文字: '#473821' },
+          ] },
         ],
         // カレンダー式の朝手入れは手入れ予定にだけ出す（2026-09-20）
         朝手入れ: [{ date: '2030-09-16', 馬: '北叡', 名前: '美浦' }],
@@ -542,6 +546,19 @@ function 模擬で答える(req) {
       確かめる('凡例にも出・下・仕事がある',
         /出場する選手/.test(await page.$eval('#legend', (el) => el.textContent)) &&
         /下付き/.test(await page.$eval('#legend', (el) => el.textContent)));
+      // 2026-09-20 ユーザーの指示
+      確かめる('「予定がある人だけ」の絞り込みは無い',
+        !(await page.$('#onlyBusy')) && !/予定がある人だけ/.test(await page.$eval('main', (el) => el.textContent)));
+      確かめる('仕事の1文字は人員表と同じ色で塗る',
+        await page.$eval('#view table.grid .tag.work', (t) => {
+          const s = getComputedStyle(t);
+          return s.backgroundColor === 'rgb(255, 229, 160)' && s.color === 'rgb(71, 56, 33)';
+        }), await page.$eval('#view table.grid .tag.work', (t) => t.getAttribute('style')));
+      確かめる('色が決まっていない仕事は今までどおり',
+        !(await page.$eval('#view table.grid .tag.helper', (t) => t.hasAttribute('style'))));
+      確かめる('凡例の仕事も同じ色で、何の仕事か分かる',
+        /運営/.test(await page.$eval('#legend', (el) => el.textContent)) &&
+        await page.$eval('#legend .tag.work', (t) => getComputedStyle(t).backgroundColor === 'rgb(255, 229, 160)'));
     }
     // 朝手入れは手入れ予定にだけ出す（2026-09-20）
     await page.goto(元 + '/calendar.html?tab=teire&month=2030-09');

@@ -93,9 +93,6 @@ table.week th { background: var(--paper-sunken); }
       <button type="button" class="secondary small" id="thisMonth">今月</button>
     </div>
 
-    <div class="cal-filter" id="calFilter">
-      <label class="inline"><input type="checkbox" id="onlyBusy"> 予定がある人だけ</label>
-    </div>
     <div class="cal-filter" id="teireFilter" style="display:none;">
       <label for="horseSelect" class="inline">馬
         <select id="horseSelect"><option value="">すべての馬</option></select>
@@ -189,7 +186,6 @@ function タブを描く() {
   const p = 見ている.月.split('-');
   $('monthTitle').textContent = p[0] + '年' + Number(p[1]) + '月';
   const 手入れ = 見ている.tab === 'teire';
-  $('calFilter').style.display = 手入れ ? 'none' : 'flex';
   $('teireFilter').style.display = 手入れ ? 'flex' : 'none';
   // バイトは、その月に出てくるバイト先ごとに「1文字目＝名前」を並べる（無い月は「バ」で説明だけ）
   const バイト先 = [];
@@ -199,14 +195,42 @@ function タブを描く() {
   const バイトの凡例 = バイト先.length
     ? バイト先.map((n) => '<span><b class="tag job">' + esc(Array.from(n)[0]) + '</b> ' + esc(n) + '</span>').join('')
     : '<span><b class="tag job">バ</b> バイト（バイトの名前の1文字目で出ます）</span>';
+  // 仕事は、その月に出てくるものを実際の色で並べる（2026-09-20）。1文字だけでは何の仕事か分からないため
+  const 仕事たち = [];
+  ((中身 && 中身.大会に出る) || []).forEach((x) => {
+    (x.印 || []).forEach((s) => {
+      if (s.種 === 'out') return;
+      // 下付きは馬ごとに題が違う（「北玖の下付き」）ので、凡例では1つにまとめる
+      const 題 = s.種 === 'horse' ? '馬に付く（下付き）' : s.題;
+      if (仕事たち.some((y) => y.題 === 題)) return;
+      仕事たち.push({ 字: s.字, 種: s.種, 題: 題, 背景: s.背景, 文字: s.文字 });
+    });
+  });
+  const 仕事の凡例 = 仕事たち.length
+    ? 仕事たち.map((s) => '<span>' + 仕事の札(s) + ' ' + esc(s.題) + '</span>').join('')
+    : '<span><b class="tag work">運</b> 仕事（人員表ができると、仕事名の1文字目で出ます）</span>';
   $('legend').innerHTML = 手入れ
     ? '<span>チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span>' +
       '<span><b class="tag asa">朝</b> 朝手入れ（朝練が休みの日だけ）</span><span><i class="sw"></i>大会がある日</span>'
     : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span>' + バイトの凡例 +
       '<span><b class="tag meet">大</b> 大会に出る（人員表ができる前）</span>' +
-      '<span><b class="tag entry">出</b> 出場する選手</span><span><b class="tag helper">下</b> 馬に付く（下付き）</span>' +
-      '<span><b class="tag work">運</b> 仕事（仕事名の1文字目）</span>' +
+      '<span><b class="tag entry">出</b> 出場する選手</span>' + 仕事の凡例 +
       '<span><b class="tag off wait">有</b> 点線は了承待ち</span><span><i class="sw"></i>大会がある日</span>';
+}
+
+/*
+  大会の日の1文字（2026-09-20 ユーザーの指示）。
+  仕事は**人員表と同じ色**で塗る（サーバが選択肢シートの 色・文字色 を付けて返す）。
+  色が決まっていない仕事は、今までどおりの白地・黒文字。出場する選手だけは決まった赤。
+*/
+const 印のクラス = { out: 'entry', horse: 'helper', job: 'work' };
+function 仕事の札(s) {
+  const 塗り = s.背景 || '';
+  const 文字 = s.文字 || (塗り ? '#000000' : '');
+  const style = 塗り
+    ? ' style="background:' + esc(塗り) + ';color:' + esc(文字) + ';border-color:' + esc(文字) + ';"'
+    : '';
+  return '<b class="tag ' + (印のクラス[s.種] || 'work') + '"' + style + '>' + esc(s.字) + '</b>';
 }
 
 /*
@@ -264,20 +288,17 @@ function カレンダーを描く(d) {
       出 … 出場する選手（赤）　下 … その馬に付く人　運・箱・在… … 仕事名の1文字目
     人員表をまだ作っていない大会は、今までどおり「大」。
   */
-  const 印のクラス = { out: 'entry', horse: 'helper', job: 'work' };
   (d.大会に出る || []).forEach((x) => {
     const 印 = x.印 || [];
     if (!印.length) return void 置く(x.名前, x.date, '<b class="tag meet">大</b>', x.大会 + 'に出る');
-    印.forEach((s) => {
-      置く(x.名前, x.date, '<b class="tag ' + (印のクラス[s.種] || 'work') + '">' + esc(s.字) + '</b>',
-        x.大会 + '：' + (s.題 || s.字));
-    });
+    印.forEach((s) => 置く(x.名前, x.date, 仕事の札(s), x.大会 + '：' + (s.題 || s.字)));
   });
 
   // 行の並び：当番・手入れの名簿の順。名簿に無いが予定がある人（4年生など）は後ろに足す
   const 名前たち = (d.部員 || []).map((m) => m.name);
   Object.keys(マス).forEach((n) => { if (名前たち.indexOf(n) < 0) 名前たち.push(n); });
-  const 並べる = $('onlyBusy').checked ? 名前たち.filter((n) => マス[n]) : 名前たち;
+  // 「予定がある人だけ」の絞り込みは 2026-09-20 にユーザーの指示でやめた（いつも名簿の全員を並べる）
+  const 並べる = 名前たち;
 
   const 列の印 = (day) => (大会[day.key] ? ' meet' : '') + (day.key === d.今日 ? ' today' : '');
   const 見出し = '<tr><th class="name" scope="col">名前</th>' + 日々.map((day) =>
@@ -396,7 +417,6 @@ $('prevMonth').addEventListener('click', () => 月を変える(月をずらす(�
 $('nextMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, 1)));
 $('thisMonth').addEventListener('click', () => 月を変える(今月()));
 $('horseSelect').addEventListener('change', 描く);
-$('onlyBusy').addEventListener('change', 描く);
 $('onlyMe').addEventListener('change', () => {
   if ($('onlyMe').checked && !私の名前()) {
     $('onlyMe').checked = false;
