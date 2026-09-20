@@ -378,14 +378,26 @@ table.matrix th.rowhead, table.matrix td.rowhead {
   position: sticky; left: 0; z-index: 3; background: var(--paper-2); text-align: left;
   border-right: 2px solid var(--rule-strong); min-width: 110px;
 }
-table.matrix td.rowhead .who { display: flex; align-items: center; gap: var(--space-2xs); font-size: 13px; font-weight: 700; }
+/* 名前・役職・状態を1行に（2026-09-20 ユーザーの指示）。行が2段だと表が縦に伸びて見渡せない */
+table.matrix td.rowhead .who { display: flex; align-items: center; gap: var(--space-3xs); font-size: 13px; font-weight: 700; }
+table.matrix td.rowhead .who .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+table.matrix td.rowhead .who .post-tag { flex: 0 0 auto; padding: 0 5px; line-height: 1.4; }
+table.matrix td.rowhead .who .off-tag { flex: 0 0 auto; }
+/* 1行になったぶん、行の高さを詰める（高さの下限は固定ボタン28px） */
+table.matrix td.rowhead { padding: 1px 4px; min-width: 156px; }
+
+/* 日付の切れ目（2026-09-20 ユーザーの指示）。列が多いと、どこで日が変わるか分からなくなるため */
+table.matrix th.dayline, table.matrix td.dayline { border-left: 3px solid var(--rule-strong); }
+table.matrix thead tr.days th { border-bottom: 2px solid var(--rule-strong); font-weight: 700; }
+/* 1日おきに、ごく薄く色を変える（線だけより日のまとまりが掴める） */
+table.matrix thead tr.days th.day-odd, table.matrix thead tr.comps th.day-odd { background: var(--paper-3); }
 table.matrix thead th.rowhead { z-index: 4; background: var(--paper-3); }
 /* 選んでいる行・列の見出し */
 table.matrix thead th.active, table.matrix td.rowhead.active { background: var(--accent-soft); color: var(--accent-dark); }
 
 td.cell {
   position: relative;
-  text-align: center; padding: 4px 2px; min-width: 76px; cursor: cell; user-select: none;
+  text-align: center; padding: 2px; min-width: 76px; cursor: cell; user-select: none;
   background: var(--jb, var(--paper-2)); color: var(--jf, var(--ink));
 }
 td.cell .v { display: block; min-height: 1.2em; }

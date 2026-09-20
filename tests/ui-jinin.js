@@ -279,6 +279,33 @@ function 模擬で答える(req) {
       押す前[0] !== 押した後[0] && 押す前[1] !== 押した後[1] && /#i-(un)?lock/.test(押した後[1]), JSON.stringify([押す前, 押した後]));
     確かめる('人員表に絵文字の錠前は残っていない', (await page.$eval('#tab-board', (el) => el.textContent)).indexOf('🔒') < 0);
 
+    /*
+      日付の切れ目と、1行になった名前（2026-09-20 ユーザーの指示）。
+      模擬データは 9/20 が c1・c2、9/21 が c3。切れ目は c3 の列。
+    */
+    確かめる('日がかわる列に太い縦線が入る',
+      await page.$eval('td.cell[data-key="m_001|c3"]', (td) => td.classList.contains('dayline') &&
+        parseFloat(getComputedStyle(td).borderLeftWidth) >= 3));
+    確かめる('日の途中の列には線を入れない',
+      !(await page.$eval('td.cell[data-key="m_001|c2"]', (td) => td.classList.contains('dayline'))));
+    確かめる('見出しの日付にも同じ切れ目が入る',
+      await page.$$eval('table.matrix thead tr.days th', (ths) =>
+        ths.length === 3 && !ths[1].classList.contains('dayline') && ths[2].classList.contains('dayline')));
+    確かめる('1日おきに色が変わるので、日のまとまりが分かる',
+      await page.$$eval('table.matrix thead tr.days th', (ths) => ths[2].classList.contains('day-odd') && !ths[1].classList.contains('day-odd')));
+
+    確かめる('名前と役職は1行に並ぶ',
+      await page.$eval('table.matrix tbody td.rowhead', (td) => {
+        const 名 = td.querySelector('.nm');
+        const 役 = td.querySelector('.post-tag');
+        return !!名 && !!役 && 役.parentElement === 名.parentElement &&
+          Math.abs(名.getBoundingClientRect().top - 役.getBoundingClientRect().top) < 6;
+      }));
+    {
+      const 高さ = await page.$eval('table.matrix tbody tr', (tr) => tr.getBoundingClientRect().height);
+      確かめる('行の高さが詰まっている（2行のころは45px前後あった）', 高さ <= 40, String(Math.round(高さ)));
+    }
+
     // 選んだマスの道具はアイコン
     確かめる('選んだマスの操作は、文字のボタンではなくアイコン（何のボタンかは説明で分かる）',
       await page.$$eval('#cellTools button', (bs) => bs.length === 6 && bs.every((b) => b.classList.contains('icon-btn') && b.getAttribute('aria-label') && !b.textContent.trim())));

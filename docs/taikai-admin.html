@@ -378,14 +378,26 @@ table.matrix th.rowhead, table.matrix td.rowhead {
   position: sticky; left: 0; z-index: 3; background: var(--paper-2); text-align: left;
   border-right: 2px solid var(--rule-strong); min-width: 110px;
 }
-table.matrix td.rowhead .who { display: flex; align-items: center; gap: var(--space-2xs); font-size: 13px; font-weight: 700; }
+/* 名前・役職・状態を1行に（2026-09-20 ユーザーの指示）。行が2段だと表が縦に伸びて見渡せない */
+table.matrix td.rowhead .who { display: flex; align-items: center; gap: var(--space-3xs); font-size: 13px; font-weight: 700; }
+table.matrix td.rowhead .who .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+table.matrix td.rowhead .who .post-tag { flex: 0 0 auto; padding: 0 5px; line-height: 1.4; }
+table.matrix td.rowhead .who .off-tag { flex: 0 0 auto; }
+/* 1行になったぶん、行の高さを詰める（高さの下限は固定ボタン28px） */
+table.matrix td.rowhead { padding: 1px 4px; min-width: 156px; }
+
+/* 日付の切れ目（2026-09-20 ユーザーの指示）。列が多いと、どこで日が変わるか分からなくなるため */
+table.matrix th.dayline, table.matrix td.dayline { border-left: 3px solid var(--rule-strong); }
+table.matrix thead tr.days th { border-bottom: 2px solid var(--rule-strong); font-weight: 700; }
+/* 1日おきに、ごく薄く色を変える（線だけより日のまとまりが掴める） */
+table.matrix thead tr.days th.day-odd, table.matrix thead tr.comps th.day-odd { background: var(--paper-3); }
 table.matrix thead th.rowhead { z-index: 4; background: var(--paper-3); }
 /* 選んでいる行・列の見出し */
 table.matrix thead th.active, table.matrix td.rowhead.active { background: var(--accent-soft); color: var(--accent-dark); }
 
 td.cell {
   position: relative;
-  text-align: center; padding: 4px 2px; min-width: 76px; cursor: cell; user-select: none;
+  text-align: center; padding: 2px; min-width: 76px; cursor: cell; user-select: none;
   background: var(--jb, var(--paper-2)); color: var(--jf, var(--ink));
 }
 td.cell .v { display: block; min-height: 1.2em; }
@@ -2250,10 +2262,22 @@ function renderMatrix() {
     else groups.push({ key: key, span: 1, label: prettyDate(c.date) });
   });
 
+  /*
+    日がかわる列に印を付ける（2026-09-20 ユーザーの指示）。
+    競技の列が横に並ぶだけだと、どこで日が変わるのか分からなくなるので、
+    日の頭の列に太い縦線を引く（見出しも中身も同じ列に付ける）。日ごとに色も薄く変える。
+  */
+  const 日の頭 = {};
+  comps.forEach((c, i) => { if (i > 0 && (c.date || '') !== (comps[i - 1].date || '')) 日の頭[i] = true; });
+  const 日の番号 = {};
+  { let n = -1; comps.forEach((c, i) => { if (i === 0 || 日の頭[i]) n++; 日の番号[i] = n; }); }
+  const 列のクラス = (i, ほか) => [ほか, 日の頭[i] ? 'dayline' : '', 日の番号[i] % 2 ? 'day-odd' : ''].filter(Boolean).join(' ');
+
   const head = '<thead><tr class="days"><th class="rowhead" rowspan="2">名前</th>' +
-    groups.map((g) => '<th colspan="' + g.span + '">' + esc(g.label) + '</th>').join('') + '</tr>' +
-    '<tr class="comps">' + comps.map((c) =>
-      '<th class="' + (shortCols[c.id] ? 'short' : '') + '">' +
+    groups.map((g, gi) => '<th colspan="' + g.span + '" class="' +
+      [gi ? 'dayline' : '', gi % 2 ? 'day-odd' : ''].filter(Boolean).join(' ') + '">' + esc(g.label) + '</th>').join('') + '</tr>' +
+    '<tr class="comps">' + comps.map((c, i) =>
+      '<th class="' + 列のクラス(i, shortCols[c.id] ? 'short' : '') + '">' +
       (c.allDay ? '<span class="muted">終日</span>' : esc(c.name)) + '</th>').join('') + '</tr></thead>';
 
   // 表の中身を、行×列で引けるようにしておく（選択やコピペのため）
@@ -2265,7 +2289,8 @@ function renderMatrix() {
       const key = m.id + '|' + c.id;
       const 場所 = ' data-r="' + ri + '" data-c="' + ci + '" data-key="' + key + '"';
       if (horseAt[key]) {
-        return '<td class="rider"' + 場所 + ' title="' + esc(m.name) + 'は' + esc(c.name) + 'に出場">★' + esc(horseAt[key]) + '</td>';
+        return '<td class="' + 列のクラス(ci, 'rider') + '"' + 場所 +
+          ' title="' + esc(m.name) + 'は' + esc(c.name) + 'に出場">★' + esc(horseAt[key]) + '</td>';
       }
       const cell = CELLS[key] || {};
       // その日に来られないと答えている人のマス。触らせない作りだったのを開放したので、
@@ -2273,7 +2298,8 @@ function renderMatrix() {
       const 来られない = !attendsOn(att, m.id, c.date);
       const cls = ['cell', 来られない ? 'absent' : '', cell.horse ? 'helper' : '', cell.locked ? 'locked' : '',
         shortCols[c.id] ? 'short' : '', DIRTY[key] ? 'dirty' : '',
-        選択に入っているか(ri, ci) ? 'sel' : '', (ANCHOR && ANCHOR.r === ri && ANCHOR.c === ci) ? 'anchor' : ''].filter(Boolean).join(' ');
+        選択に入っているか(ri, ci) ? 'sel' : '', (ANCHOR && ANCHOR.r === ri && ANCHOR.c === ci) ? 'anchor' : '',
+        日の頭[ci] ? 'dayline' : ''].filter(Boolean).join(' ');
       const 但し書き = 来られない
         ? ' data-absent="1" title="' + esc(m.name) + 'は' + esc(prettyDate(c.date)) +
           (att[m.id] ? 'は来られないと答えています' : 'の出欠をまだ出していません') +
@@ -2284,13 +2310,15 @@ function renderMatrix() {
     }).join('');
     // 名前の下に、来ない人だと分かる短い印だけ添える（色は付けず控えめに）
     const 状態 = !att[m.id] ? '未回答' : (!attendsAny(att, m.id) ? '全日欠' : '');
+    // 名前・役職・状態は1行に並べる（2026-09-20 ユーザーの指示。2行だと表が縦に伸びて見渡せない）
     return '<tr><td class="rowhead"><div class="who">' +
       '<button type="button" class="icon-btn tiny" data-lock="' + m.id + '" aria-pressed="' + (locked ? 'true' : 'false') + '"' +
       ' aria-label="' + esc(m.name) + 'を丸ごと固定する" title="この人を丸ごと固定する（自動生成で動かさない）">' +
-      アイコン(locked ? 'lock' : 'unlock') + '</button>' + esc(m.name) + '</div>' +
+      アイコン(locked ? 'lock' : 'unlock') + '</button>' +
+      '<span class="nm">' + esc(m.name) + '</span>' +
       '<span class="post-tag post-' + esc(m.post || '') + '">' + esc(m.post || '未設定') + '</span>' +
-      (状態 ? ' <span class="off-tag">' + 状態 + '</span>' : '') +
-      '</td>' + tds + '</tr>';
+      (状態 ? '<span class="off-tag">' + 状態 + '</span>' : '') +
+      '</div></td>' + tds + '</tr>';
   }).join('');
 
   // 作り直すとスクロール位置が戻ってしまうので、覚えておいて元に戻す
