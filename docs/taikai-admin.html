@@ -1381,14 +1381,42 @@ function renderEvents() {
     const 期間 = dates.length
       ? prettyDate(dates[0]) + (dates.length > 1 ? '〜' + prettyDate(dates[dates.length - 1]) : '') + '（' + dates.length + '日）'
       : '期間なし';
-    return '<div class="list-item is-row" data-row="' + ev.id + '"><div><strong>' + esc(ev.name) + '</strong><br><span class="muted">' +
+    // 公開＝できた人員表を部員に見せる（2026-09-21 ユーザーの指示）
+    const 印 = ev.open
+      ? '<span class="pill yes">公開中</span>'
+      : '<span class="pill no">公開していません</span>';
+    return '<div class="list-item is-row" data-row="' + ev.id + '"><div><strong>' + esc(ev.name) + '</strong> ' + 印 + '<br><span class="muted">' +
       esc(期間) + '／全' + comps.length + '競技／仕事' + jobs.length + '件</span></div>' +
       '<div class="row-actions">' +
+      '<button type="button" class="secondary small" data-publish="' + ev.id + '" onclick="togglePublish(\'' + ev.id + '\')">' +
+      (ev.open ? '公開をやめる' : '部員に公開する') + '</button>' +
       アイコンボタン('edit', ev.name + 'を編集', 'editEvent(\'' + ev.id + '\')') +
       アイコンボタン('trash', ev.name + 'を削除', 'deleteEvent(\'' + ev.id + '\')', 'danger') +
       '</div></div>';
   }).join('');
 }
+
+/*
+  人員表を部員に公開する・やめる（2026-09-21 ユーザーの指示）。
+  公開すると、部員の「人員表を見る」に表が出て、みんなのカレンダーの大会のマスも
+  「大」から仕事の1文字（出・下・運…）に変わる。公開するまでは作りかけとして隠す。
+*/
+window.togglePublish = async (id) => {
+  const ev = ALL.events.filter((x) => x.id === id)[0];
+  if (!ev) return;
+  const 次 = !ev.open;
+  if (次 && !confirm('「' + ev.name + '」の人員表を部員に公開します。\n' +
+    '部員の「人員表を見る」に表が出て、カレンダーにも仕事の1文字が出ます。よろしいですか？')) return;
+  try {
+    // adminSaveEvent は競技と仕事も書き替えるので、公開だけを直す専用の関数を呼ぶ
+    await call('adminSetEventOpen', TOKEN, ev.id, 次);
+    ev.open = 次;
+    renderEvents();
+    show($('eventMsg'), 'success', 次
+      ? '「' + ev.name + '」の人員表を公開しました。部員の「人員表を見る」と、みんなのカレンダーに出ます。'
+      : '「' + ev.name + '」の公開をやめました。部員には出なくなります。');
+  } catch (e) { handleError($('eventMsg'), e); }
+};
 
 function fillEventSelects() {
   [$('entryEventSelect'), $('boardEventSelect')].forEach((sel) => {

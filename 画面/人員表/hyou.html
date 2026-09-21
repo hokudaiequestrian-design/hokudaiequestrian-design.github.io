@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  部員が見る人員表（2026-09-21 ユーザーの指示）。
+  副将が「部員に公開する」を押した大会だけ出る。**全員の表をそのまま**見せるだけで、触れない。
+  副将の画面（admin.html）の表と同じ見た目にそろえてあるが、選ぶ・直す仕掛けは入れていない。
+*/
+.board-wrap { overflow: auto; max-height: 75vh; border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); }
+table.board { border-collapse: separate; border-spacing: 0; font-size: 12px; line-height: 1.5; width: auto; min-width: 100%; }
+table.board th, table.board td { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 2px 4px; white-space: nowrap; text-align: center; }
+table.board thead th { position: sticky; top: 0; z-index: 2; background: var(--paper-3); font-weight: 700; }
+table.board thead tr.days th { background: var(--paper-sunken); top: 0; height: 27px; border-bottom: 2px solid var(--rule-strong); }
+table.board thead tr.comps th { top: 27px; }
+table.board th.rowhead, table.board td.rowhead {
+  position: sticky; left: 0; z-index: 1; background: var(--paper-2); text-align: left;
+  border-right: 2px solid var(--rule-strong); min-width: 116px; font-weight: 400;
+}
+table.board thead th.rowhead { z-index: 3; background: var(--paper-3); }
+/* 日がかわる列に太い縦線／1日おきに見出しの色（副将の表と同じ） */
+table.board th.dayline, table.board td.dayline { border-left: 3px solid var(--rule-strong); }
+table.board thead th.day-odd { background: var(--paper-3); }
+table.board td { height: 2em; min-width: 76px; color: var(--jf, var(--ink)); background: var(--jb, var(--paper-2)); }
+table.board td.rider { color: var(--danger); font-weight: 700; }
+table.board tr.me td.rowhead { font-weight: 700; background: var(--warning-soft); }
+table.board tr.me td:not(.rowhead) { background-image: linear-gradient(var(--warning-soft), var(--warning-soft)); }
+.board-legend { display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-md); font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-sm); }
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar"><span>人員表を見る</span></header>
+
+<main class="wide">
+  <div id="loading" class="card muted">読み込んでいます…</div>
+
+  <div class="card" id="pickCard" style="display:none;">
+    <label for="eventSelect">大会</label>
+    <select id="eventSelect"></select>
+    <p class="hint" id="pickHint"></p>
+  </div>
+
+  <div class="card" id="boardCard" style="display:none;">
+    <h2 id="boardTitle"></h2>
+    <p class="muted" id="boardPeriod"></p>
+    <p class="board-legend">
+      <span><b style="color:var(--danger);">赤字の馬名</b>＝その競技に出る人</span>
+      <span><b>黒字の馬名</b>＝その馬の手伝い（馬付き）</span>
+      <span>黄色の行＝あなた（マイページで選んだ名前）</span>
+    </p>
+    <div id="board"></div>
+  </div>
+
+  <div class="card" id="noneCard" style="display:none;">
+    <p style="margin:0;" id="noneText"></p>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let busyCount = 0;
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler((r) => { busy(false); resolve(r); })
+      .withFailureHandler((e) => { busy(false); reject(e); })[fn].apply(null, args);
+  });
+}
+
+// 名前はマイページで選んだものを使う（当番・手入れと同じ覚え方。IDは2つのシステムで別物なので名前で持つ）
+function 覚えた名前() {
+  try { return localStorage.getItem('me') || ''; } catch (e) { return ''; }
+}
+function URLの(名) {
+  try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; }
+}
+
+let D = null;
+
+function 描く() {
+  if (!D || !D.event) {
+    $('boardCard').style.display = 'none';
+    return;
+  }
+  $('boardCard').style.display = 'block';
+  $('boardTitle').textContent = D.event.name;
+  const 日 = (D.days || []).map((x) => x.label);
+  $('boardPeriod').textContent = 日.length ? 日[0] + (日.length > 1 ? ' 〜 ' + 日[日.length - 1] : '') + '（' + 日.length + '日）' : '';
+
+  // 列は「日ごとの競技」を並べたもの。日がかわるところに太い線を引く（副将の表と同じ）
+  const 列 = [];
+  (D.days || []).forEach((day, di) => {
+    const comps = day.competitions.length ? day.competitions : [{ id: '', name: '' }];
+    comps.forEach((c, ci) => 列.push({ id: c.id, name: c.name, 日: day.label, 頭: ci === 0, 奇: di % 2 === 1, 終日: !c.id }));
+  });
+  if (!列.length) { $('board').innerHTML = '<p class="muted">まだ競技が入っていません。</p>'; return; }
+
+  const 群 = [];
+  列.forEach((c) => {
+    const 前 = 群[群.length - 1];
+    if (前 && 前.日 === c.日) 前.幅++;
+    else 群.push({ 日: c.日, 幅: 1, 奇: c.奇 });
+  });
+
+  const 頭 = '<thead><tr class="days"><th class="rowhead" rowspan="2">名前</th>' +
+    群.map((g, i) => '<th colspan="' + g.幅 + '" class="' + [i ? 'dayline' : '', g.奇 ? 'day-odd' : ''].filter(Boolean).join(' ') + '">' +
+      esc(g.日) + '</th>').join('') + '</tr><tr class="comps">' +
+    列.map((c) => '<th class="' + [c.頭 && 列.indexOf(c) ? 'dayline' : '', c.奇 ? 'day-odd' : ''].filter(Boolean).join(' ') + '">' +
+      (c.終日 ? '<span class="muted">終日</span>' : esc(c.name)) + '</th>').join('') + '</tr></thead>';
+
+  const 私 = (D.me || {}).id || '';
+  const 体 = (D.members || []).map((m) =>
+    '<tr' + (m.id === 私 ? ' class="me"' : '') + '><td class="rowhead">' + esc(m.name) +
+    (m.post ? ' <span class="muted">' + esc(m.post) + '</span>' : '') + '</td>' +
+    列.map((c, i) => {
+      const 線 = c.頭 && i ? ' dayline' : '';
+      if (!c.id) return '<td class="' + 線.trim() + '"></td>';
+      const k = m.id + '|' + c.id;
+      const 出 = (D.出場 || {})[k];
+      if (出) return '<td class="rider' + 線 + '">★' + esc(出) + '</td>';
+      const マス = (D.cells || {})[k] || {};
+      return '<td class="' + 線.trim() + '">' + esc(マス.馬 || マス.仕事 || '') + '</td>';
+    }).join('') + '</tr>').join('');
+
+  $('board').innerHTML = '<div class="board-wrap"><table class="board">' + 頭 + '<tbody>' + 体 + '</tbody></table></div>';
+}
+
+async function 大会を開く(id) {
+  try {
+    D = await call('getBoardForMember', id, 覚えた名前());
+    if (D.公開していない) {
+      $('boardCard').style.display = 'none';
+      $('noneCard').style.display = 'block';
+      $('noneText').textContent = '「' + D.name + '」の人員表は、まだ公開されていません。副将が公開するまで待ってください。';
+      return;
+    }
+    $('noneCard').style.display = 'none';
+    描く();
+  } catch (e) {
+    $('boardCard').style.display = 'none';
+    $('noneCard').style.display = 'block';
+    $('noneText').textContent = '開けませんでした：' + ((e && e.message) || e);
+  }
+}
+
+(async () => {
+  try {
+    const 一覧 = await call('getBoardForMember', '', 覚えた名前());
+    $('loading').style.display = 'none';
+    const events = 一覧.events || [];
+    if (!events.length) {
+      $('noneCard').style.display = 'block';
+      $('noneText').textContent = '公開されている人員表はまだありません。できあがると、ここに出ます。';
+      return;
+    }
+    $('pickCard').style.display = 'block';
+    $('eventSelect').innerHTML = events.map((e) => '<option value="' + esc(e.id) + '">' + esc(e.name) + '</option>').join('');
+    const 名 = 覚えた名前();
+    $('pickHint').textContent = 名
+      ? 名 + ' さんの行を黄色くしています。'
+      : 'マイページで名前を選んでおくと、自分の行が黄色くなります。';
+    $('eventSelect').addEventListener('change', () => 大会を開く($('eventSelect').value));
+    const 指定 = URLの('event');
+    if (指定 && events.some((e) => e.id === 指定)) $('eventSelect').value = 指定;
+    await 大会を開く($('eventSelect').value);
+  } catch (e) {
+    $('loading').innerHTML = '<div class="msg error">読み込めませんでした：' + esc((e && e.message) || e) + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

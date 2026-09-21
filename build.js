@@ -60,6 +60,8 @@ const ページ = [
   { 出す: 'calendar.html', 元: 当番 + '/calendar.html', api: API.当番, 題: 'カレンダーを見る' },
   { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
   { 出す: 'taikai-admin.html', 元: 人員表 + '/admin.html', api: API.人員表, 題: '人員表をまとめる' },
+  // 公開した人員表を部員が見る（2026-09-21 ユーザーの指示）
+  { 出す: 'taikai-hyou.html', 元: 人員表 + '/hyou.html', api: API.人員表, 題: '人員表を見る' },
   // 使い方（2026-09-16 ユーザーの指示）。読むだけのページなので api は無し（call() の差し替えをしない）
   { 出す: 'tsukaikata.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方' },
 ];

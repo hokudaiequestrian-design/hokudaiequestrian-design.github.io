@@ -58,7 +58,8 @@ const 全部 = {
     { id: 'm_003', name: '北山', joinYear: 2028, grade: 3, post: '箱番長', note: '寮' },
   ],
   horses: [{ id: 'h1', name: '北叡', active: true, chief: '美浦', note: '' }, { id: 'h2', name: '北冴', active: false, chief: '', note: '' }],
-  events: [{ id: 'e1', name: '春季大会', startDate: '2030-09-20', endDate: '2030-09-21' }],
+  // 公開＝できた人員表を部員に見せる（2026-09-21）。はじめは公開していない
+  events: [{ id: 'e1', name: '春季大会', startDate: '2030-09-20', endDate: '2030-09-21', open: false }],
   competitions: [
     { id: 'c1', eventId: 'e1', date: '2030-09-20', name: 'LA' },
     { id: 'c2', eventId: 'e1', date: '2030-09-20', name: 'LB' },
@@ -102,6 +103,30 @@ function 模擬で答える(req) {
     case 'adminShareUrl': return 返す({ memberUrl: 'https://example.test/taikai.html' });
     case 'adminLoadEvent': return 返す(大会());
     case 'adminSaveCells': 模擬.保存したマス = a[2]; return 返す({ warnings: [] });
+    // 人員表を部員に公開する・やめる（2026-09-21）
+    case 'adminSetEventOpen': {
+      模擬.公開 = a.slice(1);
+      全部.events.forEach((e) => { if (e.id === a[1]) e.open = !!a[2]; });
+      return 返す({ ok: true, id: a[1], open: !!a[2] });
+    }
+    // 部員が見る人員表（2026-09-21）
+    case 'getBoardForMember': {
+      const ev = 全部.events.filter((e) => e.open)[0];
+      if (!a[0]) return 返す({ events: 全部.events.filter((e) => e.open).map((e) => ({ id: e.id, name: e.name })) });
+      if (!ev || ev.id !== a[0]) return 返す({ events: [], event: null, 公開していない: true, name: '春季大会' });
+      return 返す({
+        events: [{ id: ev.id, name: ev.name }],
+        event: { id: ev.id, name: ev.name, startDate: ev.startDate, endDate: ev.endDate },
+        days: [
+          { date: '2030-09-20', label: '9/20（金）', competitions: [{ id: 'c1', name: 'LA' }, { id: 'c2', name: 'LB' }] },
+          { date: '2030-09-21', label: '9/21（土）', competitions: [{ id: 'c3', name: 'LA' }] },
+        ],
+        members: 全部.members.map((m) => ({ id: m.id, name: m.name, grade: m.grade, post: m.post })),
+        cells: { 'm_001|c1': { 仕事: '使役', 馬: '' }, 'm_002|c1': { 仕事: '', 馬: '北叡' } },
+        出場: { 'm_003|c1': '北叡' },
+        me: { id: 'm_001', name: '美浦' },
+      });
+    }
     case 'adminSaveMember': {
       const x = a[1];
       全部.members = 全部.members.map((m) => (m.id === x.id ? Object.assign({}, m, { name: x.name, note: x.note }) : m));
@@ -123,6 +148,7 @@ function 模擬で答える(req) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 900 });
   const 画面のエラー = [];
+  page.on('dialog', (d) => d.accept());   // 公開の確認窓など（2026-09-21）
   page.on('pageerror', (e) => 画面のエラー.push(e.message));
   await page.setRequestInterception(true);
   page.on('request', 模擬で答える);
@@ -280,6 +306,34 @@ function 模擬で答える(req) {
     確かめる('人員表に絵文字の錠前は残っていない', (await page.$eval('#tab-board', (el) => el.textContent)).indexOf('🔒') < 0);
 
     /*
+      人員表を部員に公開する・やめる（2026-09-21 ユーザーの指示）。
+      大会一覧の行から切り替える。公開すると、部員の「人員表を見る」に表が出て、
+      みんなのカレンダーの大会のマスも仕事の1文字に変わる。
+    */
+    await page.click('.tabs button[data-tab="events"]');
+    await page.waitForFunction(() => document.getElementById('tab-events').style.display !== 'none', { timeout: 5000 });
+    確かめる('大会一覧に「公開していません」と出る',
+      /公開していません/.test(await page.$eval('#eventList', (el) => el.textContent)),
+      await page.$eval('#eventList', (el) => el.textContent.replace(/\s+/g, ' ')));
+    確かめる('「部員に公開する」のボタンがある',
+      (await page.$$eval('#eventList button', (bs) => bs.map((b) => b.textContent.trim()))).indexOf('部員に公開する') >= 0,
+      JSON.stringify(await page.$$eval('#eventList button', (bs) => bs.map((b) => b.textContent.trim()))));
+    await page.click('#eventList [data-publish="e1"]');
+    await page.waitForFunction(() => /公開しました/.test(document.getElementById('eventMsg').textContent), { timeout: 10000 });
+    確かめる('公開すると、公開だけを直す関数を呼ぶ（競技と仕事は書き替えない）',
+      JSON.stringify(模擬.公開) === JSON.stringify(['e1', true]), JSON.stringify(模擬.公開));
+    確かめる('公開すると印が「公開中」に変わる',
+      /公開中/.test(await page.$eval('#eventList', (el) => el.textContent)),
+      await page.$eval('#eventList', (el) => el.textContent.replace(/\s+/g, ' ')));
+    確かめる('ボタンは「公開をやめる」になる',
+      (await page.$$eval('#eventList button', (bs) => bs.map((b) => b.textContent.trim()))).indexOf('公開をやめる') >= 0);
+    // 人員表のタブに戻す（このあとの項目は人員表の画面を見ている）
+    await page.click('.tabs button[data-tab="board"]');
+    await page.waitForSelector('td.cell[data-key="m_001|c1"]', { timeout: 5000 });
+
+
+
+    /*
       日付の切れ目と、1行になった名前（2026-09-20 ユーザーの指示）。
       模擬データは 9/20 が c1・c2、9/21 が c3。切れ目は c3 の列。
     */
@@ -368,6 +422,27 @@ function 模擬で答える(req) {
     await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
     await page.click('.chip[data-day="0"][data-val="0"]');
     確かめる('動きを減らす設定では、動きがほぼ0になる', (await page.$eval('.chip[data-day="0"][data-val="0"]', (c) => getComputedStyle(c).animationDuration)) === '0.001s');
+
+    // ---------- 部員が見る人員表 ----------
+    console.log(String.fromCharCode(10) + '== 部員：人員表を見る ==');
+    await page.evaluate(() => { try { localStorage.setItem('me', '美浦'); } catch (e) {} });
+    await page.goto(元 + '/taikai-hyou.html');
+    await page.waitForSelector('table.board', { timeout: 10000 });
+    確かめる('公開した大会が出る',
+      (await page.$eval('#boardTitle', (el) => el.textContent)) === '春季大会');
+    確かめる('全員ぶんの行が出る', (await page.$$('table.board tbody tr')).length === 3);
+    確かめる('仕事がマスに出る',
+      (await page.$$eval('table.board tbody tr', (rs) => rs[0].textContent)).indexOf('使役') >= 0,
+      await page.$$eval('table.board tbody tr', (rs) => rs[0].textContent));
+    確かめる('馬付きは馬名が黒字で出る',
+      (await page.$$eval('table.board tbody tr', (rs) => rs[1].textContent)).indexOf('北叡') >= 0);
+    確かめる('出場する人は赤字の馬名',
+      await page.$eval('table.board td.rider', (td) => /北叡/.test(td.textContent)));
+    確かめる('自分の行が黄色くなる',
+      await page.$eval('table.board tr.me td.rowhead', (td) => /美浦/.test(td.textContent)));
+    確かめる('触れない（入力欄もボタンも無い）',
+      (await page.$$('table.board input, table.board button, table.board select')).length === 0);
+    確かめる('日がかわる列に線が入る', (await page.$$('table.board th.dayline')).length > 0);
 
     確かめる('画面のエラーなし', 画面のエラー.length === 0, 画面のエラー.join(' / '));
   } catch (e) {
