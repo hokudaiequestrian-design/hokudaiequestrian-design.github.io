@@ -899,7 +899,8 @@ const 部品 = (() => {
   みんなのカレンダー（2026-09-13）。月ごとに見るだけの画面で、タブが2つ。
     カレンダー … 左に部員の名前、横に日付の表。休み（有給・季節休み・バイト）と大会（出る日）を入れる
                  （2026-09-13 ユーザーの指示で「休みカレンダー」から表の形・名前を変えた）
-    手入れ予定 … チーフが組んだ手入れ表を、日ごとの行で縦に並べる（1日に馬の数だけ名前が並ぶため）
+    当番・手入れ予定 … 当番表とチーフが組んだ手入れ表を、日ごとの行で縦に並べる（1日に馬の数だけ名前が並ぶため）
+      当番は曜日で回すので、期間に開始日・終了日を入れてある期間だけ、その範囲の日に出る（2026-09-21）
   大会がある日は、どちらのタブでも枠の色を少し変える（2026-09-13 ユーザーの指示）。
 */
 .cal-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin: var(--space-sm) 0; }
@@ -940,8 +941,10 @@ table.grid tr.me td.meet { background-image: none; }
 .tag.entry  { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 .tag.helper { color: var(--care); border-color: var(--care); background: var(--care-soft); }
 .tag.work   { color: var(--ink); border-color: var(--rule-strong); }
-/* 朝手入れ（2026-09-20）。手入れ予定でだけ使う */
+/* 朝手入れ（2026-09-20）。当番・手入れ予定でだけ使う */
 .tag.asa    { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+/* 当番（2026-09-21）。手入れ（緑）と見分けられるよう、当番の色（青）で出す */
+.cal-item.touban .h { color: var(--accent-dark); }
 
 /* ----- 手入れ予定（日ごとの行） ----- */
 .cal-days { border-top: 1px solid var(--rule-strong); }
@@ -995,7 +998,7 @@ a.donehome:hover { background: var(--accent-dark); }
   <div class="card">
     <div class="tabs" role="tablist" aria-label="見るもの">
       <button type="button" data-tab="cal" class="active" role="tab" aria-selected="true">カレンダー</button>
-      <button type="button" data-tab="teire" role="tab" aria-selected="false">手入れ予定</button>
+      <button type="button" data-tab="teire" role="tab" aria-selected="false">当番・手入れ予定</button>
     </div>
 
     <div class="cal-head">
@@ -1011,6 +1014,7 @@ a.donehome:hover { background: var(--accent-dark); }
         <select id="horseSelect"><option value="">すべての馬</option></select>
       </label>
       <label class="inline"><input type="checkbox" id="onlyMe"> 自分のぶんだけ</label>
+      <span class="muted">馬を選ぶと、その馬の手入れだけになります（当番は馬に紐づかないので出ません）。</span>
     </div>
     <p class="legend" id="legend"></p>
 
@@ -1159,7 +1163,7 @@ function タブを描く() {
     ? 仕事たち.map((s) => '<span>' + 仕事の札(s) + ' ' + esc(s.題) + '</span>').join('')
     : '<span><b class="tag work">運</b> 仕事（人員表ができると、仕事名の1文字目で出ます）</span>';
   $('legend').innerHTML = 手入れ
-    ? '<span>チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span>' +
+    ? '<span>副将が組んだ当番表と、チーフが組んだ手入れ表です。黄色の枠が自分のぶん（マイページで選んだ名前）。</span>' +
       '<span><b class="tag asa">朝</b> 朝手入れ（朝練が休みの日だけ）</span><span><i class="sw"></i>大会がある日</span>'
     : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span>' + バイトの凡例 +
       '<span><b class="tag meet">大</b> 大会に出る（人員表ができる前）</span>' +
@@ -1284,6 +1288,17 @@ function 手入れ予定を描く(d) {
   const 私 = 私の名前();
   const 自分だけ = $('onlyMe').checked && !!私;
   const 表 = {};
+  /*
+    当番（2026-09-21 ユーザーの指示）。その日の先頭に、昼当→夕当→投げ草の順で並べる。
+    当番は馬に紐づかないので、馬を選んでいるあいだは出さない。
+  */
+  if (!選んだ馬) {
+    (d.当番 || []).forEach((x) => {
+      if (自分だけ && x.名前 !== 私) return;
+      (表[x.date] = 表[x.date] || []).push(
+        '<span class="cal-item touban' + (x.名前 === 私 ? ' mine' : '') + '"><span class="h">' + esc(x.当番) + '</span>' + esc(x.名前) + '</span>');
+    });
+  }
   /*
     朝手入れ（2026-09-20 ユーザーの指示）。カレンダー式にしている馬のぶんだけ、その日の先頭に出す。
     ローテーション式は日付を持たないので、ここには出ない（サブの「手入れの希望を出す」画面に出る）。

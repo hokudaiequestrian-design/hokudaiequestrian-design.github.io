@@ -943,11 +943,14 @@ a.donehome:hover { background: var(--accent-dark); }
         <summary>期間を足す・名前を直す・消す</summary>
         <div class="fold-body">
           <p class="hint">
-            当番は曜日で回すので、期間は<b>名前だけ</b>です（日付は要りません）。<br>
+            当番は曜日で回すので、割り当てそのものに日付は要りません。<br>
+            <b>開始日と終了日</b>を入れると、その範囲の日に、みんなのカレンダーの<b>「当番・手入れ予定」</b>に出ます（2026-09-21）。空のままでも当番表は作れます。<br>
             新しい期間を作ると、<b>1つ前の期間の人数と学年をそのまま引き継ぎます</b>。毎回入れ直す必要はありません。
           </p>
           <div class="row">
             <div><label for="newTermName">足す期間の名前</label><input type="text" id="newTermName" placeholder="例：後期"></div>
+            <div><label for="newTermFrom">開始日</label><input type="date" id="newTermFrom"></div>
+            <div><label for="newTermTo">終了日</label><input type="date" id="newTermTo"></div>
             <div style="flex:0 0 auto;"><button id="addTermBtn">足す</button></div>
           </div>
           <hr style="border:0;border-top:1px solid var(--border);margin:20px 0;">
@@ -956,8 +959,11 @@ a.donehome:hover { background: var(--accent-dark); }
           <p class="hint" id="editTermNote"></p>
           <div class="row">
             <div><label for="renameTerm">新しい名前に直す</label><input type="text" id="renameTerm"></div>
-            <div style="flex:0 0 auto;"><button id="renameTermBtn" class="secondary">名前を直す</button></div>
+            <div><label for="termFrom">開始日</label><input type="date" id="termFrom"></div>
+            <div><label for="termTo">終了日</label><input type="date" id="termTo"></div>
+            <div style="flex:0 0 auto;"><button id="renameTermBtn" class="secondary">名前と日付を直す</button></div>
           </div>
+          <p class="hint">開始日と終了日は<b>両方入れるか、両方とも空</b>にしてください。入れると、その範囲の日にカレンダーの「当番・手入れ予定」へ出ます。</p>
           <div style="margin-top:16px;"><button id="delTermBtn" class="danger">この期間を消す</button></div>
           <p class="hint">消すと、その期間の投票と当番表も消えます。ほかの期間には影響しません。</p>
         </div>
@@ -1197,7 +1203,10 @@ function call(fn) {
 
 const memberById = (id) => D.members.filter((m) => m.id === id)[0];
 const dutyById = (id) => D.duties.filter((d) => d.id === id)[0];
-const 名 = (id) => { const m = memberById(id); return m ? m.name : '（消えた人）'; };
+// 当番表には、一覧から選ばずに名前を書いた人もいる（部員IDが「自由:名前」。2026-09-21）
+const 自由記述の頭 = '自由:';
+const 自由記述の名前 = (id) => (String(id || '').indexOf(自由記述の頭) === 0 ? String(id).slice(自由記述の頭.length) : '');
+const 名 = (id) => { const m = memberById(id); return m ? m.name : (自由記述の名前(id) || '（消えた人）'); };
 const 使う当番 = () => D.duties.filter((d) => d.active);
 const 枠 = (dutyId, day) => D.slots.filter((s) => s.dutyId === dutyId && s.day === day)[0] || null;
 const 曜日クラス = (w) => (w === '土' ? ' sat' : (w === '日' ? ' sun' : ''));
@@ -1273,11 +1282,15 @@ function renderTerms() {
     esc(x.name) + (x.open ? '（受付中）' : '') + '</option>').join('');
   $('termOpen').checked = !!(t && t.open);
   $('renameTerm').value = t ? t.name : '';
+  // いつからいつまでの当番表か（2026-09-21）。入っていればカレンダーに出る
+  $('termFrom').value = (t && t.from) || '';
+  $('termTo').value = (t && t.to) || '';
   $('slotTermName').textContent = t ? '（' + t.name + '）' : '';
   // 「いまの期間」だけでは何を指すか分かりにくいので、名前をそのまま書く
   $('editTermHead').textContent = t ? '「' + t.name + '」を直す' : '期間を直す';
   $('editTermNote').textContent = t
     ? 'いま上のプルダウンで選んでいる期間（' + t.name + '）が対象です。ほかの期間を直すときは、先に上で切り替えてください。'
+      + (t.from && t.to ? '　カレンダーには ' + t.from + ' 〜 ' + t.to + ' の日に出ます。' : '　日付が空なので、カレンダーには出ません。')
     : '期間がありません。上の「足す期間の名前」から作ってください。';
 }
 
@@ -1304,9 +1317,14 @@ $('termOpen').addEventListener('change', async () => {
 
 $('addTermBtn').addEventListener('click', async () => {
   try {
-    await call('adminSaveTerm', TOKEN, { name: $('newTermName').value, open: false });
+    await call('adminSaveTerm', TOKEN, {
+      name: $('newTermName').value, open: false,
+      from: $('newTermFrom').value, to: $('newTermTo').value,
+    });
     const 名 = $('newTermName').value;
     $('newTermName').value = '';
+    $('newTermFrom').value = '';
+    $('newTermTo').value = '';
     await loadAll(D.termId);
     const 新 = (D.terms || []).filter((x) => x.name === 名)[0];
     if (新) await loadAll(新.id);
@@ -1319,9 +1337,15 @@ $('renameTermBtn').addEventListener('click', async () => {
   const t = いまの期間();
   if (!t) return;
   try {
-    await call('adminSaveTerm', TOKEN, { id: t.id, name: $('renameTerm').value, open: t.open });
+    await call('adminSaveTerm', TOKEN, {
+      id: t.id, name: $('renameTerm').value, open: t.open,
+      from: $('termFrom').value, to: $('termTo').value,
+    });
     await loadAll(t.id);
-    msgIn('termMsg', 'success', '名前を直しました。');
+    const 直した = いまの期間() || {};
+    msgIn('termMsg', 'success', '直しました。' + (直した.from && 直した.to
+      ? 'カレンダーには ' + 直した.from + ' 〜 ' + 直した.to + ' の日に出ます。'
+      : '日付が空なので、カレンダーには出ません。'));
   } catch (e) { msgIn('termMsg', 'error', (e && e.message) || e); }
 });
 
@@ -1661,6 +1685,8 @@ function renderTable() {
       const add = '<select data-add="' + esc(d.id + '|' + w) + '" class="add-select" aria-label="' + esc(w + '曜の' + d.name) + 'に人を足す">' +
         '<option value="">＋ 人を足す</option>' +
         候補.map((m) => '<option value="' + m.id + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '）' : '') + '</option>').join('') +
+        // 名簿に入れない人（OBなど）も入れられる。手入れ表と同じ形（2026-09-21 ユーザーの指示）
+        '<option value="__自由">✎ 名前を書く（名簿にない人）</option>' +
         '</select>';
 
       html += '<td class="' + (足りない ? 'short' : (多い ? 'over' : '')) + '">' + chips + add +
@@ -1726,7 +1752,16 @@ $('assignGrid').addEventListener('change', (e) => {
   const sel = e.target.closest('[data-add]');
   if (!sel || !sel.value) return;
   const p = sel.dataset.add.split('|');
-  TABLE.push({ dutyId: p[0], day: p[1], memberId: sel.value, rank: 0, locked: true });
+  let memberId = sel.value;
+  if (memberId === '__自由') {
+    // 名簿にない人。書いた名前が一覧にいればその人として、いなければ「自由:名前」で入れる
+    const 名前 = String(prompt('名簿にない人の名前を書いてください（例：難波、OBの人）') || '').trim().replace(/\s+/g, ' ');
+    if (!名前) return void renderTable();
+    const 部員 = (D.members || []).filter((m) => m.name === 名前)[0];
+    memberId = 部員 ? 部員.id : 自由記述の頭 + 名前;
+  }
+  if (TABLE.some((c) => c.dutyId === p[0] && c.day === p[1] && c.memberId === memberId)) return void renderTable();
+  TABLE.push({ dutyId: p[0], day: p[1], memberId: memberId, rank: 0, locked: true });
   DIRTY = true;
   renderTable();
 });

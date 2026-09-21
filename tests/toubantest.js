@@ -1894,6 +1894,102 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   }
 }
 
+// ===================== 14. 当番をカレンダーに出す =====================
+/*
+  2026-09-21 ユーザーの指示。当番は曜日で回すので、それだけでは日付が決まらない。
+  期間に開始日・終了日を入れてあれば、その範囲の日に、その曜日の担当をカレンダーに並べる。
+*/
+
+見出し('当番をカレンダーに出す');
+{
+  const 名簿 = G.loadMembers();
+  const 甲 = 名簿[0];
+  const 乙 = 名簿[1];
+  const 昼当 = G.loadDuties().filter((d) => d.name === '昼当')[0];
+  const 夕当 = G.loadDuties().filter((d) => d.name === '夕当')[0];
+
+  確かめる('当番期間に開始日・終了日の列がある',
+    G.SCHEMA['当番期間'].join(',') === 'ID,期間名,開始日,終了日,受付中,並び順,備考', G.SCHEMA['当番期間'].join(','));
+
+  G.adminSaveTerm(T, { name: '26夏休み', open: false, from: '2026-08-01', to: '2026-09-30' });
+  const 夏 = G.loadDutyTerms().filter((t) => t.name === '26夏休み')[0];
+  確かめる('開始日と終了日が入る', 夏.from === '2026-08-01' && 夏.to === '2026-09-30', JSON.stringify([夏.from, 夏.to]));
+
+  投げるはず('終了日が開始日より前だと止まる',
+    () => G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '2026-09-30', to: '2026-08-01' }), '終了日');
+  投げるはず('片方だけだと止まる',
+    () => G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '2026-08-01', to: '' }), '両方');
+  確かめる('止まったときは前の日付のまま',
+    G.findDutyTerm(夏.id).from === '2026-08-01' && G.findDutyTerm(夏.id).to === '2026-09-30');
+
+  // 月曜の昼当＝甲、水曜の夕当＝乙
+  G.adminSaveTable(T, 夏.id, [
+    { dutyId: 昼当.id, day: '月', memberId: 甲.id },
+    { dutyId: 夕当.id, day: '水', memberId: 乙.id },
+  ]);
+
+  {
+    const d = G.getCalendarData('2026-09');
+    const 当番 = d.当番 || [];
+    // 2026-09 の月曜は 7・14・21・28、水曜は 2・9・16・23・30
+    const 甲の日 = 当番.filter((x) => x.名前 === 甲.name).map((x) => x.date);
+    const 乙の日 = 当番.filter((x) => x.名前 === 乙.name).map((x) => x.date);
+    確かめる('月曜の当番が9月の月曜に全部出る',
+      甲の日.join(',') === '2026-09-07,2026-09-14,2026-09-21,2026-09-28', 甲の日.join(','));
+    確かめる('水曜の当番が9月の水曜に全部出る',
+      乙の日.join(',') === '2026-09-02,2026-09-09,2026-09-16,2026-09-23,2026-09-30', 乙の日.join(','));
+    {
+      const 一つ = 当番.filter((x) => x.名前 === 甲.name)[0];
+      確かめる('当番の名前と期間の名前が付く',
+        一つ.当番 === '昼当' && 一つ.期間 === '26夏休み', JSON.stringify(一つ));
+    }
+    確かめる('同じ日は昼当→夕当の順に並ぶ',
+      (() => {
+        const 束 = {};
+        当番.forEach((x) => { (束[x.date] = 束[x.date] || []).push(x.当番); });
+        return Object.keys(束).every((k) => 束[k].slice().sort((a, b) => (a === '昼当' ? 0 : 1) - (b === '昼当' ? 0 : 1)).join() === 束[k].join());
+      })());
+  }
+
+  確かめる('期間の外の月には出ない', (G.getCalendarData('2026-10').当番 || []).length === 0);
+  {
+    // 8月は1日から。2026-08-01 は土曜なので、最初の月曜は 8/3
+    const 甲の日 = (G.getCalendarData('2026-08').当番 || []).filter((x) => x.名前 === 甲.name).map((x) => x.date);
+    確かめる('開始日より前には出ない', 甲の日[0] === '2026-08-03', 甲の日.join(','));
+  }
+
+  // 日付を空に戻すと出なくなる
+  G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '', to: '' });
+  確かめる('日付が空の期間はカレンダーに出ない', (G.getCalendarData('2026-09').当番 || []).length === 0);
+  確かめる('日付を空にしても当番表は消えない', G.loadDutyTable(夏.id).length === 2);
+
+  // 名簿にない人は「自由:名前」で入れられる（2026-09-21 ユーザーの指示。手入れ表と同じ形）
+  G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '2026-08-01', to: '2026-09-30' });
+  G.adminSaveTable(T, 夏.id, [
+    { dutyId: 昼当.id, day: '月', memberId: 甲.id },
+    { dutyId: 夕当.id, day: '水', memberId: 乙.id },
+    { dutyId: 夕当.id, day: '土', memberId: '自由:難波' },
+  ]);
+  確かめる('名簿にない人も当番表に入る', G.loadDutyTable(夏.id).length === 3, String(G.loadDutyTable(夏.id).length));
+  {
+    const 土 = (G.getCalendarData('2026-09').当番 || []).filter((x) => x.名前 === '難波');
+    // 2026-09 の土曜は 5・12・19・26
+    確かめる('名簿にない人もカレンダーに名前で出る',
+      土.length === 4 && 土[0].date === '2026-09-05' && 土[0].当番 === '夕当', JSON.stringify(土.map((x) => x.date)));
+  }
+  投げるはず('でたらめな部員IDは入らない', () => {
+    G.adminSaveTable(T, 夏.id, [{ dutyId: 昼当.id, day: '月', memberId: 'm_ない' }]);
+    if (G.loadDutyTable(夏.id).length !== 0) throw new Error('入ってしまった');
+    throw new Error('落とした');
+  }, '落とした');
+  // 名前だけ直す呼び出しで日付が消えないこと（画面の「受付中」の切り替えなど）
+  G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '2026-08-01', to: '2026-09-30' });
+  G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', open: true });
+  確かめる('受付の切り替えだけでは日付が消えない',
+    G.findDutyTerm(夏.id).from === '2026-08-01' && G.findDutyTerm(夏.id).to === '2026-09-30',
+    JSON.stringify(G.findDutyTerm(夏.id)));
+}
+
 // ===================== まとめ =====================
 
 console.log('\n============================');

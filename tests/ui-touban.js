@@ -145,6 +145,7 @@ function 模擬で答える(req) {
     // 当番の副将
     case 'loginAndLoad': return 返す({ token: 'a_t', all: 当番の全部() });
     case 'adminLoadAll': return 返す(当番の全部());
+    case 'adminSaveTerm': 模擬.送った.期間の日付 = a[1]; return 返す({ ok: true });
     case 'adminShareUrl': return 返す({});
     // チーフ
     case 'chiefMeta': return 返す({ 要パスワード: false });
@@ -197,8 +198,13 @@ function 模擬で答える(req) {
           { date: '2030-09-15', 名前: '甲', 大会: '春の大会', 印: [{ 字: '運', 種: 'job', 題: '運営', 背景: '#ffe5a0', 文字: '#473821' }] },
           { date: '2030-09-15', 名前: '相棒', 大会: '春の大会', 印: [{ 字: '下', 種: 'horse', 題: '北叡の下付き', 背景: '', 文字: '' }] },
         ],
-        // カレンダー式の朝手入れは手入れ予定にだけ出す（2026-09-20）
+        // カレンダー式の朝手入れは当番・手入れ予定にだけ出す（2026-09-20）
         朝手入れ: [{ date: '2030-09-16', 馬: '北叡', 名前: '美浦' }],
+        // 当番は期間に日付を入れてある期間だけ、その曜日の日に出る（2026-09-21）
+        当番: [
+          { date: '2030-09-16', 当番: '昼当', 並び: 1, 名前: '美浦', 期間: '26夏休み' },
+          { date: '2030-09-16', 当番: '夕当', 並び: 2, 名前: '甲', 期間: '26夏休み' },
+        ],
       });
     case 'getMyPage':
       return 返す(どこ === '当番'
@@ -560,13 +566,32 @@ function 模擬で答える(req) {
         /運営/.test(await page.$eval('#legend', (el) => el.textContent)) &&
         await page.$eval('#legend .tag.work', (t) => getComputedStyle(t).backgroundColor === 'rgb(255, 229, 160)'));
     }
-    // 朝手入れは手入れ予定にだけ出す（2026-09-20）
+    // 朝手入れ・当番は「当番・手入れ予定」にだけ出す（2026-09-20／2026-09-21）
     await page.goto(元 + '/calendar.html?tab=teire&month=2030-09');
     await page.waitForSelector('#view .cal-days', { timeout: 10000 });
-    確かめる('朝手入れは手入れ予定に出る',
+    確かめる('タブの名前は「当番・手入れ予定」',
+      (await page.$eval('.tabs button[data-tab="teire"]', (b) => b.textContent.trim())) === '当番・手入れ予定');
+    確かめる('朝手入れは当番・手入れ予定に出る',
       /朝/.test(await page.$eval('#view', (el) => el.textContent)) && !!(await page.$('#view .tag.asa')));
     確かめる('朝手入れは大会・休み・バイトのカレンダーには出さない',
       await page.$eval('#legend', (el) => /朝手入れ/.test(el.textContent)));
+    確かめる('当番も同じところに出る（昼当→夕当の順）',
+      await page.$$eval('#view .cal-item.touban', (xs) =>
+        xs.length === 2 && xs[0].textContent.indexOf('昼当') === 0 && xs[1].textContent.indexOf('夕当') === 0),
+      await page.$$eval('#view .cal-item.touban', (xs) => xs.map((x) => x.textContent)).catch(() => '（無い）'));
+    // 当番と朝手入れが同じ日（9/16）に入っている枠で見る
+    確かめる('当番は手入れより先に並ぶ',
+      await page.$$eval('#view .cal-day .x', (xs) => {
+        const 枠 = xs.filter((x) => x.querySelector('.touban') && x.querySelector('.cal-item:not(.touban)'))[0];
+        if (!枠) return false;
+        const 子 = Array.from(枠.children);
+        return 子.findIndex((e) => e.classList.contains('touban')) <
+          子.findIndex((e) => e.classList.contains('cal-item') && !e.classList.contains('touban'));
+      }));
+    await page.select('#horseSelect', '北叡');
+    await 待つ(150);
+    確かめる('馬を選ぶと当番は出ない（当番は馬に紐づかない）',
+      (await page.$$('#view .cal-item.touban')).length === 0);
 
     // ---------- 入口 ----------
     console.log('\n== 入口 ==');
