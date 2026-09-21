@@ -568,30 +568,35 @@ function 模擬で答える(req) {
     }
     // 朝手入れ・当番は「当番・手入れ予定」にだけ出す（2026-09-20／2026-09-21）
     await page.goto(元 + '/calendar.html?tab=teire&month=2030-09');
-    await page.waitForSelector('#view .cal-days', { timeout: 10000 });
+    await page.waitForSelector('#view .duty', { timeout: 10000 });
     確かめる('タブの名前は「当番・手入れ予定」',
       (await page.$eval('.tabs button[data-tab="teire"]', (b) => b.textContent.trim())) === '当番・手入れ予定');
     確かめる('朝手入れは当番・手入れ予定に出る',
       /朝/.test(await page.$eval('#view', (el) => el.textContent)) && !!(await page.$('#view .tag.asa')));
     確かめる('朝手入れは大会・休み・バイトのカレンダーには出さない',
       await page.$eval('#legend', (el) => /朝手入れ/.test(el.textContent)));
-    確かめる('当番も同じところに出る（昼当→夕当の順）',
-      await page.$$eval('#view .cal-item.touban', (xs) =>
-        xs.length === 2 && xs[0].textContent.indexOf('昼当') === 0 && xs[1].textContent.indexOf('夕当') === 0),
-      await page.$$eval('#view .cal-item.touban', (xs) => xs.map((x) => x.textContent)).catch(() => '（無い）'));
+    // 当番は列、手入れはその下の段（2026-09-21 ユーザーの指示で作り直し）
+    確かめる('当番は列になっていて、見出しは上に1回だけ（昼当→夕当の順）',
+      await page.$$eval('#view .duty-head .duty-slots > span', (xs) => xs.map((x) => x.textContent).join('|')) === '昼当|夕当',
+      await page.$$eval('#view .duty-head .duty-slots > span', (xs) => xs.map((x) => x.textContent).join('|')).catch(() => '（無い）'));
+    確かめる('列の中は名前だけ（「昼当」を名前ごとに繰り返さない）',
+      await page.$$eval('#view .duty-day .slot', (xs) => xs.length > 0 && xs.every((x) => !/昼当|夕当/.test(x.textContent))));
+    確かめる('列の見出しは下へ送っても残る（貼り付く）',
+      await page.$eval('#view .duty-head', (el) => getComputedStyle(el).position === 'sticky'));
     // 当番と朝手入れが同じ日（9/16）に入っている枠で見る
     確かめる('当番は手入れより先に並ぶ',
-      await page.$$eval('#view .cal-day .x', (xs) => {
-        const 枠 = xs.filter((x) => x.querySelector('.touban') && x.querySelector('.cal-item:not(.touban)'))[0];
+      await page.$$eval('#view .duty-day .b', (xs) => {
+        const 枠 = xs.filter((x) => x.querySelector('.slot .nm') && x.querySelector('.care-item'))[0];
         if (!枠) return false;
         const 子 = Array.from(枠.children);
-        return 子.findIndex((e) => e.classList.contains('touban')) <
-          子.findIndex((e) => e.classList.contains('cal-item') && !e.classList.contains('touban'));
+        return 子.findIndex((e) => e.classList.contains('duty-slots')) < 子.findIndex((e) => e.classList.contains('duty-care'));
       }));
+    確かめる('手入れは「馬 名前」の組で出る',
+      await page.$$eval('#view .care-item', (xs) => xs.length > 0 && xs.every((x) => !!x.querySelector('.h'))));
     await page.select('#horseSelect', '北叡');
     await 待つ(150);
     確かめる('馬を選ぶと当番は出ない（当番は馬に紐づかない）',
-      (await page.$$('#view .cal-item.touban')).length === 0);
+      (await page.$$('#view .slot')).length === 0 && !(await page.$('#view .duty-head')));
 
     // ---------- 入口 ----------
     console.log('\n== 入口 ==');

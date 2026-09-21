@@ -430,6 +430,64 @@ table.matrix tbody tr td.anchor { outline: 2px solid var(--accent); outline-offs
 .cell-tools .icon-btn { color: var(--accent-dark); }
 .cell-tools .icon-btn:hover { background: var(--paper-2); }
 
+/* ----- 表計算ソフトらしい操作（2026-09-21 ユーザーの指示：もっと操作しやすく） ----- */
+/* 仕事の札。押すと選んだマス全部に入る。色は人員表のマスと同じ（--jb / --jf） */
+.stamps { flex: 1 0 100%; display: flex; gap: var(--space-2xs); overflow-x: auto; min-height: 36px; padding-bottom: 2px; scrollbar-width: thin; }
+button.stamp {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+  min-height: 32px; min-width: 0; margin: 0; padding: 0 10px 0 4px;
+  background: var(--jb, var(--paper-2)); color: var(--jf, var(--ink));
+  border: 1px solid var(--rule-strong); border-radius: 6px; font-size: 13px; font-weight: 700; white-space: nowrap;
+}
+button.stamp:hover { background: var(--jb, var(--paper-2)); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+button.stamp .key { min-width: 1.5em; padding: 0 3px; border-radius: 4px; background: var(--paper-2); color: var(--muted); border: 1px solid var(--rule); font-family: var(--font-num); font-size: 11px; font-weight: 400; line-height: 1.5; }
+button.stamp .n { padding: 0 5px; border-radius: var(--radius-pill); background: var(--paper-2); color: var(--ink); font-family: var(--font-num); font-size: 11px; font-weight: 400; line-height: 1.6; }
+button.stamp .n.lack { background: var(--danger-soft); color: var(--danger-dark); font-weight: 700; }
+.stamps .sep { flex: 0 0 auto; align-self: center; font-size: 11px; color: var(--muted); padding: 0 2px 0 6px; }
+
+/* 選んだ範囲の右下の四角（引っぱると、その先へ写す）と、写す先の点線 */
+td.rider { position: relative; }
+table.matrix tbody td.corner::before {
+  content: ''; position: absolute; right: -1px; bottom: -1px; width: 7px; height: 7px;
+  background: var(--accent); border: 1px solid var(--paper-2); cursor: crosshair; z-index: 1;
+}
+table.matrix tbody td.fillto { background-image: linear-gradient(oklch(48% 0.15 262 / 0.10), oklch(48% 0.15 262 / 0.10)); outline: 1px dashed var(--accent); outline-offset: -1px; }
+.matrix-wrap.filling, .matrix-wrap.filling td { cursor: crosshair; }
+
+/* 見出しを押すと行・列をまとめて選ぶ */
+table.matrix thead tr.comps th, table.matrix tbody td.rowhead .nm { cursor: pointer; }
+table.matrix thead tr.comps th:hover { background: var(--accent-soft); }
+
+/* 編集の小窓 */
+.cell-editor {
+  position: fixed; z-index: var(--z-modal); width: 220px; padding: var(--space-2xs);
+  background: var(--paper-2); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); box-shadow: var(--shadow-lift);
+}
+.cell-editor[hidden] { display: none; }
+.cell-editor input { min-height: 36px; padding: 6px var(--space-xs); font-size: var(--text-sm); }
+.cell-editor .opts { max-height: 260px; overflow-y: auto; margin-top: var(--space-2xs); display: flex; flex-direction: column; gap: 1px; }
+.cell-editor .opt { display: flex; align-items: center; gap: var(--space-xs); padding: 5px var(--space-xs); border-radius: 4px; font-size: var(--text-sm); cursor: pointer; }
+.cell-editor .opt .sw { flex: 0 0 auto; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--rule-strong); background: var(--jb, var(--paper-2)); }
+.cell-editor .opt.on { background: var(--accent-soft); color: var(--accent-dark); font-weight: 700; }
+.cell-editor .opt .now { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 400; }
+.cell-editor .grp { padding: 4px var(--space-xs) 0; font-size: 11px; color: var(--muted); }
+.cell-editor .nohit { padding: 6px var(--space-xs); font-size: var(--text-sm); color: var(--muted); }
+.cell-editor .foot { margin: var(--space-2xs) 0 0; padding-top: var(--space-2xs); border-top: 1px solid var(--rule); font-size: 11px; color: var(--muted); }
+
+/* 表を画面いっぱいに広げる。説明や凡例はしまって、操作の帯と表だけにする */
+.board-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; }
+.board-bar .row-filter { margin: 0; }
+button.with-icon { display: inline-flex; align-items: center; gap: var(--space-2xs); }
+button.with-icon svg { width: 18px; height: 18px; }
+.card.board-max {
+  position: fixed; inset: 0; z-index: calc(var(--z-sticky) + 1); margin: 0; border: 0; border-radius: 0;
+  padding: var(--space-xs) var(--space-md); overflow: auto; display: flex; flex-direction: column;
+}
+.card.board-max > h2, .card.board-max > .hint, .card.board-max > details.howto, .card.board-max > .legend { display: none; }
+.card.board-max #matrixBox { flex: 1 1 auto; min-height: 0; display: flex; margin-top: var(--space-2xs) !important; }
+.card.board-max .matrix-wrap { max-height: none; flex: 1 1 auto; }
+body.board-max-on { overflow: hidden; }
+
 td.rider { text-align: center; color: var(--rider); font-weight: 700; background: var(--paper-2); }
 td.cell.helper { font-weight: 700; }
 .off-tag { font-size: 11px; color: var(--muted); }

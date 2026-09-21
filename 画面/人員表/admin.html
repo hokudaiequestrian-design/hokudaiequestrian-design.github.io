@@ -26,6 +26,8 @@
   <g id="i-settings" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/></g>
   <g id="i-spark" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M18.5 16.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z"/></g>
   <g id="i-chevron" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></g>
+  <g id="i-expand" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></g>
+  <g id="i-shrink" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h5V4M20 9h-5V4M4 15h5v5M20 15h-5v5"/></g>
 </defs></svg>
 <div id="busy">通信中です…</div>
 <header class="appbar">
@@ -190,12 +192,16 @@
     <div class="card">
       <h2>人員表</h2>
       <p class="hint">
-        クリックで選び、<b>ダブルクリックか Enter で編集</b>。<b>マスを右クリックすると、できることの一覧</b>が出ます。
+        マスを選んで（ドラッグで何マスでも）、<b>表の上に並ぶ仕事の札を押すと、選んだマス全部に入ります</b>。
+        <b>文字を打ち始めるか Enter</b> でも入れられます（名前で絞り込めます）。右クリックで、できることの一覧。
         固定したマスは自動生成で動きません。名前の横の錠前はその人を丸ごと固定します。
       </p>
       <details class="howto">
         <summary>キーボードでの操作と、灰色のマスについて</summary>
         <p>
+          <b>入れる</b>：札を押す／札の番号（<kbd>1</kbd>〜<kbd>9</kbd>）を押す／文字を打って絞り込み、<kbd>Enter</kbd> で決めて下へ・<kbd>Tab</kbd> で決めて右へ。どれも選んだマス全部に入ります。<br>
+          <b>広げる</b>：選んだ範囲の右下の小さな四角を引っぱると、その先へ同じ中身を写します（表計算ソフトのフィルと同じ）。<br>
+          <b>まとめて選ぶ</b>：競技の見出しを押すとその列、名前を押すとその行（<kbd>Ctrl</kbd>+<kbd>Space</kbd>／<kbd>Shift</kbd>+<kbd>Space</kbd> でも）。<br>
           ドラッグや <kbd>Shift</kbd>+クリックで範囲選択。矢印・<kbd>Tab</kbd>・<kbd>Home</kbd>・<kbd>End</kbd>・<kbd>PageUp</kbd>/<kbd>PageDown</kbd> で移動（<kbd>Ctrl</kbd>+矢印で端まで）。<br>
           <kbd>Ctrl</kbd>+<kbd>C</kbd> / <kbd>Ctrl</kbd>+<kbd>V</kbd> でコピー・貼り付け、<kbd>Ctrl</kbd>+<kbd>D</kbd> で一番上の行を下へ写す、<kbd>Delete</kbd> で空に、<kbd>Ctrl</kbd>+<kbd>L</kbd> で固定の切り替え、<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> で元に戻す・やり直す。<br>
           <b>行けないと答えている日のマス（灰色）も手で入れられます。</b>自動生成では入りませんが、手で入れたぶんは固定されるので組み直しても消えません。
@@ -209,11 +215,15 @@
         <span><span class="swatch" style="background:var(--warning-soft);border-color:var(--warning);"></span>未保存の変更</span>
         <span><span class="swatch" style="border-left:3px solid var(--warning);"></span>固定したマス</span>
       </div>
-      <label class="row-filter">
-        <input type="checkbox" id="showAllRows">
-        行けない人・未回答の人も表に出す
-        <span class="muted">（全日行けないと答えた人や、まだ出欠を出していない人の行も出します）</span>
-      </label>
+      <!-- 表を画面いっぱいに広げる（2026-09-21）。表はページの底の小さな枠の中にあって、列が多いと見渡せないため -->
+      <div class="board-bar">
+        <label class="row-filter">
+          <input type="checkbox" id="showAllRows">
+          行けない人・未回答の人も表に出す
+          <span class="muted">（全日行けないと答えた人や、まだ出欠を出していない人の行も出します）</span>
+        </label>
+        <button type="button" class="secondary small with-icon" id="maxBtn" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-expand"/></svg><span>表を広げる</span></button>
+      </div>
       <!-- 選んだマスの操作。文字のボタン4つをアイコンにした（2026-09-15、ヒント3）。何のボタンかは乗せると出る -->
       <!-- 選ぶ前から場所を取っておく（visibility で出し入れ）。display で出し入れすると、
            最初にマスを選んだ瞬間に表がこの帯の高さぶん下へずれ、右クリックが1段上の見出しに当たっていた（2026-09-15） -->
@@ -227,6 +237,9 @@
           <button type="button" class="icon-btn danger" id="clearBtn" aria-label="空にする（Delete）" title="空にする（Delete）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-clear"/></svg></button>
           <button type="button" class="icon-btn" id="cellMoreBtn" aria-label="ほかの操作（右クリックでも開けます）" title="ほかの操作（右クリックでも開けます）"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-more"/></svg></button>
         </span>
+        <!-- 仕事の札（2026-09-21）。押すと、選んだマス全部にその仕事が入る。数字は、いま選んでいる競技に入っている人数／要る人数。
+             1段に収めて横に送る（札の数で帯の高さが変わると、表が上下に動いてしまうため） -->
+        <div class="stamps" id="stamps" role="group" aria-label="選んだマスに入れる仕事"></div>
       </div>
       <div id="matrixBox" tabindex="0" style="margin-top:10px;" class="muted">大会を選択してください</div>
       <div class="saving-bar" id="savingBar" role="status">
@@ -251,6 +264,14 @@
   <div class="menu-sep"></div>
   <button type="button" class="menu-item" role="menuitem" data-do="undo"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-undo"/></svg>元に戻す<span class="kbd">Ctrl+Z</span></button>
   <button type="button" class="menu-item danger" role="menuitem" data-do="clear"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-clear"/></svg>空にする<span class="kbd">Delete</span></button>
+</div>
+
+<!-- マスの編集（2026-09-21）。前はマスの中に出すプルダウンだった。名前で絞り込めて、選んだマス全部に入る -->
+<div class="cell-editor" id="cellEditor" hidden>
+  <input type="text" id="cellEditorInput" autocomplete="off" aria-label="仕事の名前で絞り込む" placeholder="名前で絞り込む"
+    role="combobox" aria-expanded="true" aria-controls="cellEditorList" aria-autocomplete="list">
+  <div class="opts" id="cellEditorList" role="listbox" aria-label="入れるもの"></div>
+  <p class="foot"><kbd>Enter</kbd> 決めて下へ　<kbd>Tab</kbd> 決めて右へ　<kbd>Esc</kbd> やめる</p>
 </div>
 
 <script>
@@ -1264,6 +1285,8 @@ function updateDirtyBar() {
   const n = Object.keys(DIRTY).length;
   $('savingBar').className = 'saving-bar' + (n ? ' on' : '');
   $('dirtyCount').textContent = n ? n + '個のマスを変更しました（未保存）' : '';
+  // マスを変えたあとは必ずここを通るので、人数の数え直しもここで（2026-09-21）
+  if (GRID && EV) { 不足を塗り直す(); 札を描く(); }
 }
 
 // ===== 人員表のマス操作（選択・コピペ・鍵） =====
@@ -1333,6 +1356,7 @@ function 選択を塗り直す(寄せる) {
     const c = Number(td.dataset.c);
     td.classList.toggle('sel', 選択に入っているか(r, c));
     td.classList.toggle('anchor', !!ANCHOR && ANCHOR.r === r && ANCHOR.c === c);
+    td.classList.toggle('corner', !!SEL && SEL.r2 === r && SEL.c2 === c);   // 引っぱって写すための四角
   });
   // 選んでいる行と列の見出しを目立たせる（表計算ソフトと同じ）
   $('matrixBox').querySelectorAll('tr.comps th').forEach((th, i) => {
@@ -1380,6 +1404,122 @@ function updateToolbar() {
     ? GRID.rows[SEL.r1].name + '／' + GRID.comps[SEL.c1].name
     : 数 + 'マスを選択中';
   $('pasteBtn').disabled = !CLIP;
+  札を描く();
+}
+
+/*
+  ===== 仕事の札（2026-09-21 ユーザーの指示：表をもっと操作しやすく） =====
+  前は、マスに仕事を入れる手段が「1マスずつダブルクリック → プルダウン」しか無かった。
+  選んだマス（何マスでも）に1回で入れられるよう、その日の仕事を札にして表の上に並べる。
+    ・並ぶのは、いま選んでいる競技（選択の起点の列）の日の仕事。1列だけ選んでいれば、その競技の馬付きも
+    ・数字は、その競技にいま入っている人数／要る人数。足りなければ赤
+    ・先頭の番号は数字キー（1〜9）
+  仕事は名前で持つ（コピーと同じ）。日をまたいで選んでいても、その日に同じ名前の仕事があれば入る。
+*/
+let 札の並び = [];   // [{ job: 名前 } | { horse: 馬名 }] 数字キーで引く
+
+function 列の人数(comp) {
+  const 仕事ごと = {};
+  const 馬ごと = {};
+  GRID.rows.forEach((m) => {
+    const cell = CELLS[m.id + '|' + comp.id];
+    if (!cell) return;
+    if (cell.jobId) 仕事ごと[cell.jobId] = (仕事ごと[cell.jobId] || 0) + 1;
+    if (cell.horse) 馬ごと[cell.horse] = (馬ごと[cell.horse] || 0) + 1;
+  });
+  return { 仕事: 仕事ごと, 馬: 馬ごと };
+}
+
+function 札を描く() {
+  const 箱 = $('stamps');
+  if (!箱) return;
+  if (!GRID || !SEL || !ANCHOR) { 箱.innerHTML = ''; 札の並び = []; return; }
+  const comp = GRID.comps[ANCHOR.c];
+  const 人数 = 列の人数(comp);
+  札の並び = [];
+  const 番号 = () => (札の並び.length <= 9 ? '<span class="key">' + 札の並び.length + '</span>' : '');
+  let html = GRID.jobsFor(comp.date).map((j) => {
+    札の並び.push({ job: j.name });
+    const 色 = ALL.jobColors ? ALL.jobColors[j.name] : null;
+    const style = 色 && (色.背景 || 色.文字)
+      ? ' style="' + (色.背景 ? '--jb:' + esc(色.背景) + ';' : '') + (色.文字 ? '--jf:' + esc(色.文字) + ';' : '') + '"' : '';
+    const n = 人数.仕事[j.id] || 0;
+    return '<button type="button" class="stamp" data-stamp="' + (札の並び.length - 1) + '"' + style +
+      ' title="選んだマスに「' + esc(j.name) + '」を入れる">' + 番号() + esc(j.name) +
+      '<span class="n' + (j.min && n < j.min ? ' lack' : '') + '">' + n + (j.min ? '/' + j.min : '') + '</span></button>';
+  }).join('');
+  // 馬付きは競技ごとに違うので、1列だけ選んでいるときに出す
+  if (SEL.c1 === SEL.c2) {
+    const 馬たち = [];
+    EV.entries.forEach((x) => {
+      if (x.competitionId !== comp.id) return;
+      const h = x.horse || '出場';
+      if (馬たち.indexOf(h) < 0) 馬たち.push(h);
+    });
+    if (馬たち.length) html += '<span class="sep">馬付き</span>';
+    html += 馬たち.map((h) => {
+      札の並び.push({ horse: h });
+      return '<button type="button" class="stamp" data-stamp="' + (札の並び.length - 1) + '"' +
+        ' title="選んだマスを「' + esc(h) + '」の馬付きにする">' + 番号() + esc(h) +
+        '<span class="n">' + (人数.馬[h] || 0) + '</span></button>';
+    }).join('');
+  }
+  箱.innerHTML = html;
+}
+
+// 選んだマス全部に、同じ中身を入れる（札・数字キー・編集の小窓から）。出場のマスと、その日に無い仕事は飛ばす
+function 選択に入れる(中身) {
+  if (!SEL || !GRID) return;
+  控える();
+  let 件数 = 0;
+  let 飛ばした = 0;
+  for (let r = SEL.r1; r <= SEL.r2; r++) {
+    for (let c = SEL.c1; c <= SEL.c2; c++) {
+      if (GRID.horseAt[マスのキー(r, c)]) continue;          // 出場のマスは数えない（入らないのが当たり前）
+      const 変換 = 貼れるか(r, c, 中身);
+      if (変換 === null) { 飛ばした++; continue; }
+      マスに入れる(マスのキー(r, c), 変換.clear ? null : 変換, true);
+      マスを描き直す(r, c);
+      件数++;
+    }
+  }
+  updateDirtyBar();
+  const 名 = 中身.empty ? '空' : '「' + (中身.job !== undefined ? 中身.job : 中身.horse) + '」';
+  マスの知らせ(件数 + 'マスを' + 名 + 'にしました' +
+    (飛ばした ? '（' + 飛ばした + 'マスは入らず：その日に無い仕事、その競技に出ていない馬）' : ''), !!飛ばした);
+}
+
+$('stamps').addEventListener('mousedown', (e) => e.preventDefault());   // 表からフォーカスを奪わない（続けてキーで動けるように）
+$('stamps').addEventListener('click', (e) => {
+  const b = e.target.closest ? e.target.closest('[data-stamp]') : null;
+  if (!b || !札の並び[Number(b.dataset.stamp)]) return;
+  選択に入れる(札の並び[Number(b.dataset.stamp)]);
+  表に戻す();
+});
+
+/*
+  人数が足りない競技の列。前は表を作り直すときにしか数えていなかったので、
+  手で入れて足りても赤いままだった。マスが変わるたびに数え直して、見出しとマスの印だけを付け替える。
+*/
+function 足りない列() {
+  const out = {};
+  GRID.comps.forEach((c) => {
+    const 人数 = 列の人数(c).仕事;
+    GRID.jobsFor(c.date).forEach((job) => { if (job.min && (人数[job.id] || 0) < job.min) out[c.id] = true; });
+  });
+  return out;
+}
+function 不足を塗り直す() {
+  if (!GRID) return;
+  const 足りない = 足りない列();
+  $('matrixBox').querySelectorAll('tr.comps th').forEach((th, i) => {
+    th.classList.toggle('short', !!足りない[GRID.comps[i].id]);
+  });
+  $('matrixBox').querySelectorAll('td.cell[data-c]').forEach((td) => {
+    const on = !!足りない[GRID.comps[Number(td.dataset.c)].id];
+    td.classList.toggle('short', on);
+    if (on) td.dataset.short = '1'; else delete td.dataset.short;
+  });
 }
 
 // ===== マスを書き換える =====
@@ -1394,7 +1534,9 @@ function マスを描き直す(r, c) {
     cell.horse ? 'helper' : '', cell.locked ? 'locked' : '',
     td.dataset.short === '1' ? 'short' : '', DIRTY[key] ? 'dirty' : '',
     選択に入っているか(r, c) ? 'sel' : '',
-    (ANCHOR && ANCHOR.r === r && ANCHOR.c === c) ? 'anchor' : ''].filter(Boolean).join(' ');
+    (ANCHOR && ANCHOR.r === r && ANCHOR.c === c) ? 'anchor' : '',
+    (SEL && SEL.r2 === r && SEL.c2 === c) ? 'corner' : '',
+    td.classList.contains('dayline') ? 'dayline' : ''].filter(Boolean).join(' ');
   const 色 = マスの配色(key).replace(/^ style="|"$/g, '');
   td.setAttribute('style', 色);
   td.innerHTML = '<span class="v">' + esc(マスの表示(key, GRID.comps[c])) + '</span>';
@@ -1558,54 +1700,212 @@ function 下へ埋める() {
   マスの知らせ('一番上の行を' + 件数 + 'マスに写しました' + (飛ばした ? '（' + 飛ばした + 'マスは写せず）' : ''), !!飛ばした);
 }
 
-// ===== 編集（ダブルクリック / Enter でプルダウンを出す） =====
-function 編集を始める(r, c) {
-  if (!GRID) return;
-  const td = $('matrixBox').querySelector('td[data-r="' + r + '"][data-c="' + c + '"]');
-  if (!td || !td.classList.contains('cell')) return;
-  const key = マスのキー(r, c);
-  const comp = GRID.comps[c];
-  const cell = CELLS[key] || {};
+// ===== 編集（文字を打つ / Enter / ダブルクリックで小窓を出す） =====
+/*
+  2026-09-21 ユーザーの指示で作り直し。前はマスの中にブラウザのプルダウンを出していた：
+    ・1マスずつしか入れられない　・名前で探せない　・決めたあと次のマスへ進まない
+  いまは起点のマスの下に小窓を出す。上の欄に打つと名前で絞り込め、決めると **選んだマス全部** に入る。
+  Enter で決めて下へ、Tab で決めて右へ（表計算ソフトと同じ）。1マスだけ選んでいるときだけ進む。
+*/
+let 編集の候補 = [];   // いま小窓に出ている候補（絞り込んだあと）
+let 編集の位置 = 0;
 
+function 編集の全候補(r, c) {
+  const comp = GRID.comps[c];
+  const cell = CELLS[マスのキー(r, c)] || {};
+  const 候補 = [{ 中身: { empty: true }, 名: '（空にする）', いま: !cell.jobId && !cell.horse }];
+  GRID.jobsFor(comp.date).forEach((j) => 候補.push({ 中身: { job: j.name }, 名: j.name, いま: cell.jobId === j.id, 色: ALL.jobColors ? ALL.jobColors[j.name] : null }));
   const 馬たち = [];
   EV.entries.forEach((x) => {
     if (x.competitionId !== comp.id) return;
     const h = x.horse || '出場';
     if (馬たち.indexOf(h) < 0) 馬たち.push(h);
   });
-  const opts = '<option value="">—</option>' +
-    GRID.jobsFor(comp.date).map((j) =>
-      '<option value="j:' + j.id + '"' + (cell.jobId === j.id ? ' selected' : '') + '>' + esc(j.name) + '</option>').join('') +
-    (馬たち.length
-      ? '<optgroup label="馬付き">' + 馬たち.map((h) =>
-          '<option value="h:' + esc(h) + '"' + (cell.horse === h ? ' selected' : '') + '>' + esc(h) + '</option>').join('') + '</optgroup>'
-      : '');
-
-  編集中 = key;
-  td.innerHTML = '<select>' + opts + '</select>';
-  const sel = td.querySelector('select');
-  sel.focus();
-  if (sel.showPicker) { try { sel.showPicker(); } catch (e) { /* 対応していない環境では無視 */ } }
-
-  const 終わる = () => { 編集中 = null; マスを描き直す(r, c); updateDirtyBar(); };
-  sel.addEventListener('change', () => {
-    控える();
-    const v = sel.value;
-    if (!v) マスに入れる(key, null, true);
-    else if (v.indexOf('h:') === 0) マスに入れる(key, { horse: v.slice(2) }, true);
-    else マスに入れる(key, { job: v.slice(2) }, true);
-    終わる();
-  });
-  sel.addEventListener('blur', 終わる);
-  sel.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); 終わる(); } });
+  馬たち.forEach((h) => 候補.push({ 中身: { horse: h }, 名: h, 馬付き: true, いま: cell.horse === h }));
+  return 候補;
 }
+
+function 編集の一覧を描く(全候補, 文字) {
+  const 探す = (文字 || '').trim().toLowerCase();
+  編集の候補 = 全候補.filter((x) => !探す || (!x.中身.empty && x.名.toLowerCase().indexOf(探す) >= 0));
+  // 打っていないときは、いま入っているものに合わせる。打ったら先頭（Enter ですぐ決められるように）
+  const いまの = 編集の候補.findIndex((x) => x.いま);
+  編集の位置 = 探す || いまの < 0 ? 0 : いまの;
+  let 馬付きを出した = false;
+  $('cellEditorList').innerHTML = 編集の候補.length
+    ? 編集の候補.map((x, i) => {
+        const 見出し = x.馬付き && !馬付きを出した ? '<div class="grp">馬付き</div>' : '';
+        if (x.馬付き) 馬付きを出した = true;
+        const 色 = x.色 && x.色.背景 ? ' style="--jb:' + esc(x.色.背景) + ';"' : '';
+        return 見出し + '<div class="opt' + (i === 編集の位置 ? ' on' : '') + '" role="option" id="ceOpt' + i + '" data-i="' + i + '"' +
+          ' aria-selected="' + (i === 編集の位置 ? 'true' : 'false') + '">' +
+          (x.中身.empty ? '' : '<span class="sw"' + 色 + '></span>') + esc(x.名) + (x.いま ? '<span class="now">いま</span>' : '') + '</div>';
+      }).join('')
+    : '<div class="nohit">「' + esc(文字) + '」に合う仕事はありません</div>';
+  $('cellEditorInput').setAttribute('aria-activedescendant', 編集の候補.length ? 'ceOpt' + 編集の位置 : '');
+}
+
+function 編集の位置を動かす(n) {
+  if (!編集の候補.length) return;
+  編集の位置 = (編集の位置 + n + 編集の候補.length) % 編集の候補.length;
+  $('cellEditorList').querySelectorAll('.opt').forEach((el, i) => {
+    el.classList.toggle('on', i === 編集の位置);
+    el.setAttribute('aria-selected', i === 編集の位置 ? 'true' : 'false');
+    if (i === 編集の位置) el.scrollIntoView({ block: 'nearest' });
+  });
+  $('cellEditorInput').setAttribute('aria-activedescendant', 'ceOpt' + 編集の位置);
+}
+
+function 編集を始める(r, c, 初めの文字) {
+  if (!GRID) return;
+  const td = $('matrixBox').querySelector('td[data-r="' + r + '"][data-c="' + c + '"]');
+  if (!td || !td.classList.contains('cell')) return;
+  右クリックのメニューを閉じる(false);
+
+  編集中 = マスのキー(r, c);
+  const 全候補 = 編集の全候補(r, c);
+  const 窓 = $('cellEditor');
+  const 欄 = $('cellEditorInput');
+  欄.value = 初めの文字 || '';
+  窓.hidden = false;
+  編集の一覧を描く(全候補, 欄.value);
+  欄.oninput = () => 編集の一覧を描く(全候補, 欄.value);
+
+  // 起点のマスのすぐ下に。下にはみ出すなら上に、右にはみ出すなら左へ寄せる
+  const t = td.getBoundingClientRect();
+  const 高さ = 窓.offsetHeight;
+  窓.style.left = Math.max(8, Math.min(t.left, window.innerWidth - 窓.offsetWidth - 8)) + 'px';
+  // 上に出すときは下端をマスに合わせる（絞り込んで一覧が縮んでも、マスから離れないように）
+  const 上に出す = t.bottom + 高さ + 8 > window.innerHeight && t.top - 高さ > 8;
+  窓.style.top = 上に出す ? 'auto' : (t.bottom + 2) + 'px';
+  窓.style.bottom = 上に出す ? (window.innerHeight - t.top + 2) + 'px' : 'auto';
+  try { 欄.focus({ preventScroll: true }); } catch (e) { 欄.focus(); }
+}
+
+function 編集を終える() {
+  if (!編集中) return;
+  編集中 = null;
+  $('cellEditor').hidden = true;
+  表に戻す();
+}
+
+// 決める。進む = [行, 列]（1マスだけ選んでいるときに、決めたあと動く向き）
+function 編集を決める(進む) {
+  const x = 編集の候補[編集の位置];
+  if (!x) return;
+  const 一マス = SEL.r1 === SEL.r2 && SEL.c1 === SEL.c2;
+  編集を終える();
+  選択に入れる(x.中身);
+  if (進む && 一マス) { 選ぶ(ANCHOR.r + 進む[0], ANCHOR.c + 進む[1], false); 選択を塗り直す(true); }
+}
+
+$('cellEditorInput').addEventListener('keydown', (e) => {
+  if (e.isComposing || e.key === 'Process') return;   // 日本語の変換を確定する Enter は、決める Enter ではない
+  if (e.key === 'ArrowDown') { 編集の位置を動かす(1); e.preventDefault(); return; }
+  if (e.key === 'ArrowUp') { 編集の位置を動かす(-1); e.preventDefault(); return; }
+  if (e.key === 'Enter') { 編集を決める([1, 0]); e.preventDefault(); return; }
+  if (e.key === 'Tab') { 編集を決める([0, e.shiftKey ? -1 : 1]); e.preventDefault(); return; }
+  if (e.key === 'Escape') { 編集を終える(); e.preventDefault(); e.stopPropagation(); }
+});
+$('cellEditorList').addEventListener('mousedown', (e) => e.preventDefault());   // 欄からフォーカスを奪わない
+$('cellEditorList').addEventListener('click', (e) => {
+  const el = e.target.closest ? e.target.closest('.opt') : null;
+  if (!el) return;
+  編集の位置 = Number(el.dataset.i);
+  編集を決める(null);
+});
+// 外を押したらやめる
+document.addEventListener('mousedown', (e) => {
+  if (編集中 && !(e.target.closest && e.target.closest('#cellEditor'))) 編集を終える();
+}, true);
+window.addEventListener('resize', 編集を終える);
 
 // ===== マウスとキーボード =====
 let 引きずり中 = false;
 
+/*
+  引っぱって写す（2026-09-21）。選んだ範囲の右下の四角をつかんで引くと、その先へ同じ中身を写す。
+  縦か横の、より遠くへ引いたほうへだけ伸ばす（表計算ソフトと同じ）。元の範囲がくり返される。
+*/
+let 写し中 = null;   // { r1, c1, r2, c2 } 写したあとの範囲（元の範囲を含む）
+
+function 四角をつかんだか(e, td) {
+  if (!td.classList.contains('corner')) return false;
+  const t = td.getBoundingClientRect();
+  return e.clientX >= t.right - 10 && e.clientY >= t.bottom - 10;
+}
+function 写す先を塗る() {
+  $('matrixBox').querySelectorAll('td[data-r]').forEach((td) => {
+    const r = Number(td.dataset.r);
+    const c = Number(td.dataset.c);
+    td.classList.toggle('fillto', !!写し中 && r >= 写し中.r1 && r <= 写し中.r2 && c >= 写し中.c1 && c <= 写し中.c2 && !選択に入っているか(r, c));
+  });
+}
+function 写すのを決める() {
+  const 先 = 写し中;
+  写し中 = null;
+  const 枠 = $('matrixBox').querySelector('.matrix-wrap');
+  if (枠) 枠.classList.remove('filling');
+  if (!先 || (先.r1 === SEL.r1 && 先.r2 === SEL.r2 && 先.c1 === SEL.c1 && 先.c2 === SEL.c2)) { 写す先を塗る(); return; }
+  控える();
+  const 高さ = SEL.r2 - SEL.r1 + 1;
+  const 幅 = SEL.c2 - SEL.c1 + 1;
+  const 余り = (n, m) => ((n % m) + m) % m;
+  let 件数 = 0;
+  let 飛ばした = 0;
+  for (let r = 先.r1; r <= 先.r2; r++) {
+    for (let c = 先.c1; c <= 先.c2; c++) {
+      if (選択に入っているか(r, c) || GRID.horseAt[マスのキー(r, c)]) continue;
+      const 元 = マスの中身(SEL.r1 + 余り(r - SEL.r1, 高さ), SEL.c1 + 余り(c - SEL.c1, 幅));
+      const 変換 = 元.rider ? { clear: true } : 貼れるか(r, c, 元);   // 出場のマスを元にしたところは空にする
+      if (変換 === null) { 飛ばした++; continue; }
+      マスに入れる(マスのキー(r, c), 変換.clear ? null : 変換, true);
+      マスを描き直す(r, c);
+      件数++;
+    }
+  }
+  SEL = 先;
+  選択を塗り直す();
+  写す先を塗る();
+  updateDirtyBar();
+  マスの知らせ(件数 + 'マスに写しました' + (飛ばした ? '（' + 飛ばした + 'マスは写せず：その日に無い仕事など）' : ''), !!飛ばした);
+}
+
+// 見出しを押すと、その列・その行をまとめて選ぶ（Shift で、起点からそこまで）
+function 列を選ぶ(c, 広げる) {
+  const 最終行 = GRID.rows.length - 1;
+  if (!広げる || !ANCHOR) ANCHOR = { r: 0, c: c };
+  SEL = { r1: 0, r2: 最終行, c1: Math.min(ANCHOR.c, c), c2: Math.max(ANCHOR.c, c) };
+}
+function 行を選ぶ(r, 広げる) {
+  const 最終列 = GRID.comps.length - 1;
+  if (!広げる || !ANCHOR) ANCHOR = { r: r, c: 0 };
+  SEL = { r1: Math.min(ANCHOR.r, r), r2: Math.max(ANCHOR.r, r), c1: 0, c2: 最終列 };
+}
+
 $('matrixBox').addEventListener('mousedown', (e) => {
-  const td = e.target.closest ? e.target.closest('td[data-r]') : null;
-  if (!td || 編集中) return;
+  if (!GRID || 編集中 || !e.target.closest) return;
+  if (e.button === 0) {
+    const 列の見出し = e.target.closest('tr.comps th');
+    const 名前 = e.target.closest('td.rowhead .nm');
+    if (列の見出し || 名前) {
+      if (列の見出し) 列を選ぶ(Array.prototype.indexOf.call(列の見出し.parentNode.children, 列の見出し), e.shiftKey);
+      else 行を選ぶ(Array.prototype.indexOf.call(名前.closest('tbody').children, 名前.closest('tr')), e.shiftKey);
+      選択を塗り直す();
+      表に戻す();
+      e.preventDefault();
+      return;
+    }
+  }
+  const td = e.target.closest('td[data-r]');
+  if (!td) return;
+  if (e.button === 0 && SEL && 四角をつかんだか(e, td)) {
+    写し中 = { r1: SEL.r1, c1: SEL.c1, r2: SEL.r2, c2: SEL.c2 };
+    $('matrixBox').querySelector('.matrix-wrap').classList.add('filling');
+    表に戻す();
+    e.preventDefault();
+    return;
+  }
   // 右クリックが選んである範囲の中なら、選択はそのまま（範囲に対してメニューを出すため）
   if (e.button === 2 && 選択に入っているか(Number(td.dataset.r), Number(td.dataset.c))) return;
   選ぶ(Number(td.dataset.r), Number(td.dataset.c), e.shiftKey);
@@ -1616,6 +1916,20 @@ $('matrixBox').addEventListener('mousedown', (e) => {
 });
 
 $('matrixBox').addEventListener('mouseover', (e) => {
+  if (写し中) {
+    const 先 = e.target.closest ? e.target.closest('td[data-r]') : null;
+    if (!先) return;
+    const r = Number(先.dataset.r);
+    const c = Number(先.dataset.c);
+    // 元の範囲から、縦と横のどちらへ遠く出たか
+    const 縦 = r > SEL.r2 ? r - SEL.r2 : (r < SEL.r1 ? SEL.r1 - r : 0);
+    const 横 = c > SEL.c2 ? c - SEL.c2 : (c < SEL.c1 ? SEL.c1 - c : 0);
+    写し中 = 縦 >= 横
+      ? { r1: Math.min(SEL.r1, r), r2: Math.max(SEL.r2, r), c1: SEL.c1, c2: SEL.c2 }
+      : { r1: SEL.r1, r2: SEL.r2, c1: Math.min(SEL.c1, c), c2: Math.max(SEL.c2, c) };
+    写す先を塗る();
+    return;
+  }
   if (!引きずり中) return;
   const td = e.target.closest ? e.target.closest('td[data-r]') : null;
   if (!td) return;
@@ -1623,7 +1937,9 @@ $('matrixBox').addEventListener('mouseover', (e) => {
   選択を塗り直す();
 });
 
-document.addEventListener('mouseup', () => { 引きずり中 = false; });
+document.addEventListener('mouseup', () => { 引きずり中 = false; if (写し中) 写すのを決める(); });
+// 表を送ったら、編集の小窓は閉じる（マスから離れてしまうため）
+$('matrixBox').addEventListener('scroll', () => 編集を終える(), true);
 
 $('matrixBox').addEventListener('dblclick', (e) => {
   const td = e.target.closest ? e.target.closest('td.cell[data-r]') : null;
@@ -1665,9 +1981,27 @@ $('matrixBox').addEventListener('keydown', (e) => {
   if (押した('End')) { 選ぶ(制御 ? 最終行 : ANCHOR.r, 最終列, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
   if (押した('PageUp')) { 選ぶ(ANCHOR.r - 15, ANCHOR.c, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
   if (押した('PageDown')) { 選ぶ(ANCHOR.r + 15, ANCHOR.c, e.shiftKey); 選択を塗り直す(true); e.preventDefault(); return; }
-  if (押した('Escape')) { SEL = null; ANCHOR = null; 選択を塗り直す(); e.preventDefault(); return; }
+  if (押した('Escape')) { SEL = null; ANCHOR = null; 選択を塗り直す(); e.preventDefault(); e.stopPropagation(); return; }
 
   if (押した('Enter') || 押した('F2')) { 編集を始める(ANCHOR.r, ANCHOR.c); e.preventDefault(); return; }
+  // 列・行をまとめて選ぶ（表計算ソフトと同じ）
+  if (押した(' ') && 制御) { 列を選ぶ(ANCHOR.c, false); 選択を塗り直す(); e.preventDefault(); return; }
+  if (押した(' ') && e.shiftKey) { 行を選ぶ(ANCHOR.r, false); 選択を塗り直す(); e.preventDefault(); return; }
+  // 数字キーは札の番号（1〜9）
+  if (!制御 && !e.altKey && /^[1-9]$/.test(e.key) && 札の並び[Number(e.key) - 1]) {
+    選択に入れる(札の並び[Number(e.key) - 1]);
+    e.preventDefault();
+    return;
+  }
+  /*
+    文字を打ち始めたら、そのまま編集に入る（2026-09-21）。
+    ここでは preventDefault しない：欄へフォーカスを移しておけば、打った字はそのまま欄に入る。
+    日本語入力中は key が 'Process' になる。そのときも同じで、変換中の字が欄に出る。
+  */
+  if (!制御 && !e.altKey && (e.key === 'Process' || (e.key.length === 1 && e.key !== ' '))) {
+    編集を始める(ANCHOR.r, ANCHOR.c);
+    return;
+  }
   if (押した('Delete') || 押した('Backspace')) { 選択を消す(); e.preventDefault(); return; }
 
   if (制御 && (押した('c') || 押した('C'))) { コピーする(); e.preventDefault(); return; }
@@ -1832,6 +2166,21 @@ function renderMatrix() {
   updateDirtyBar();
 }
 
+// ===== 表を画面いっぱいに広げる（2026-09-21） =====
+function 表を広げる(on) {
+  const card = $('matrixBox').closest('.card');
+  card.classList.toggle('board-max', on);
+  document.body.classList.toggle('board-max-on', on);
+  $('maxBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
+  $('maxBtn').innerHTML = アイコン(on ? 'shrink' : 'expand') + '<span>' + (on ? '元の大きさに戻す' : '表を広げる') + '</span>';
+  編集を終える();
+  右クリックのメニューを閉じる(false);
+}
+$('maxBtn').addEventListener('click', () => {
+  表を広げる(!$('matrixBox').closest('.card').classList.contains('board-max'));
+  表に戻す();
+});
+
 // focus() は既定でその要素まで画面をスクロールさせる。表が上に飛ぶのでそれを止める。
 const 表に戻す = () => {
   try { $('matrixBox').focus({ preventScroll: true }); } catch (e) { $('matrixBox').focus(); }
@@ -1854,7 +2203,8 @@ function 右クリックのメニューを開く(x, y) {
   const m = $('cellMenu');
   const 一マス = SEL.r1 === SEL.r2 && SEL.c1 === SEL.c2;
   // できない操作は押せない形にして、なぜかは項目の名前で分かるようにしてある（貼り付け＝まだコピーしていない など）
-  m.querySelector('[data-do="edit"]').disabled = !(一マス && !GRID.horseAt[マスのキー(SEL.r1, SEL.c1)]);
+  // 範囲を選んでいても編集できる（決めたものが選んだマス全部に入る。2026-09-21）。起点が出場のマスのときだけ押せない
+  m.querySelector('[data-do="edit"]').disabled = !ANCHOR || !!GRID.horseAt[マスのキー(ANCHOR.r, ANCHOR.c)];
   m.querySelector('[data-do="paste"]').disabled = !CLIP;
   m.querySelector('[data-do="fill"]').disabled = SEL.r1 === SEL.r2;
   m.querySelector('[data-do="undo"]').disabled = !履歴.length;
@@ -1920,7 +2270,10 @@ $('matrixBox').addEventListener('scroll', () => 右クリックのメニュー�
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!$('cellMenu').hidden) { 右クリックのメニューを閉じる(true); e.preventDefault(); return; }
-    document.querySelectorAll('details.menu[open]').forEach((d) => { d.open = false; d.querySelector('summary').focus(); });
+    const 開いていた = document.querySelectorAll('details.menu[open]');
+    開いていた.forEach((d) => { d.open = false; d.querySelector('summary').focus(); });
+    // 広げた表は、ほかに閉じるものが無いときの Esc で戻す（選択を外す Esc は表の側で止めてある）
+    if (!開いていた.length && !編集中 && document.body.classList.contains('board-max-on')) 表を広げる(false);
     return;
   }
   if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;

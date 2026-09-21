@@ -382,15 +382,109 @@ function 模擬で答える(req) {
       確かめる('行の高さが詰まっている（2行のころは45px前後あった）', 高さ <= 40, String(Math.round(高さ)));
     }
 
-    // 選んだマスの道具はアイコン
+    // 選んだマスの道具はアイコン（仕事の札は別。札は名前が読めないと押せないので文字）
     確かめる('選んだマスの操作は、文字のボタンではなくアイコン（何のボタンかは説明で分かる）',
-      await page.$$eval('#cellTools button', (bs) => bs.length === 6 && bs.every((b) => b.classList.contains('icon-btn') && b.getAttribute('aria-label') && !b.textContent.trim())));
+      await page.$$eval('#cellTools .tools button', (bs) => bs.length === 6 && bs.every((b) => b.classList.contains('icon-btn') && b.getAttribute('aria-label') && !b.textContent.trim())));
+
+    /*
+      表計算ソフトらしい操作（2026-09-21 ユーザーの指示：もっと操作しやすく）。
+      ここまでで 美浦 の LA・LB（9/20）には「使役」が入っている。相棒は 9/20 の LA に出場、ほかは空。
+    */
+    console.log('\n== 管理者：人員表（札・編集の小窓・引っぱって写す） ==');
+    const マスの字 = (key) => page.$eval('td.cell[data-key="' + key + '"]', (td) => td.textContent);
+    const マスの真ん中 = (key, 角) => page.$eval('td[data-key="' + key + '"]', (td, 角) => {
+      const r = td.getBoundingClientRect();
+      return 角 ? { x: r.right - 3, y: r.bottom - 3 } : { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }, 角);
+
+    // 引っぱって写す：美浦の LB（使役）の右下の四角を、相棒の LB まで
+    await page.click('td.cell[data-key="m_001|c2"]');
+    確かめる('選んだ範囲の右下に、引っぱる四角が出る',
+      await page.$eval('td.cell[data-key="m_001|c2"]', (td) => td.classList.contains('corner') && getComputedStyle(td, '::before').width === '7px'));
+    {
+      const 角 = await マスの真ん中('m_001|c2', true);
+      const 先 = await マスの真ん中('m_002|c2', false);
+      await page.mouse.move(角.x, 角.y);
+      await page.mouse.down();
+      await page.mouse.move(先.x, 先.y, { steps: 4 });
+      確かめる('引いている間、写す先が点線で分かる', await page.$eval('td.cell[data-key="m_002|c2"]', (td) => td.classList.contains('fillto')));
+      await page.mouse.up();
+      確かめる('四角を引っぱると、その先へ写る', (await マスの字('m_002|c2')) === '使役', await マスの字('m_002|c2'));
+      確かめる('写したあとは、写した先までが選ばれている', /2マスを選択中/.test(await page.$eval('#cellCount', (el) => el.textContent)));
+      await page.keyboard.down('Control'); await page.keyboard.press('z'); await page.keyboard.up('Control');
+      確かめる('Ctrl+Z で写す前に戻る', (await マスの字('m_002|c2')) === '');
+    }
+
+    // 札：範囲を選んで押すと全部に入る（日をまたいでも、その日の同じ名前の仕事に読み替える）
+    確かめる('人が足りない競技の見出しは赤い（9/21 の LA にはまだ誰もいない）',
+      await page.$$eval('tr.comps th', (ths) => ths[2].classList.contains('short')));
+    await page.click('td.cell[data-key="m_002|c2"]');
+    await page.keyboard.down('Shift');
+    await page.click('td.cell[data-key="m_002|c3"]');
+    await page.keyboard.up('Shift');
+    確かめる('選ぶと、その日の仕事の札が並ぶ（番号と人数つき）',
+      await page.$eval('#stamps .stamp', (b) => /使役/.test(b.textContent) && b.querySelector('.key').textContent === '1' && /\/1$/.test(b.querySelector('.n').textContent)));
+    await page.click('#stamps .stamp');
+    確かめる('札を押すと、選んだマス全部に入る', (await マスの字('m_002|c2')) === '使役' && (await マスの字('m_002|c3')) === '使役',
+      [await マスの字('m_002|c2'), await マスの字('m_002|c3')].join('|'));
+    確かめる('足りたら、その場で見出しの赤が消える（前は保存か自動生成まで赤いままだった）',
+      await page.$$eval('tr.comps th', (ths) => !ths[2].classList.contains('short')));
+    確かめる('札を押したあとも、表にフォーカスが残る（続けてキーで動ける）',
+      (await page.evaluate(() => document.activeElement.id)) === 'matrixBox');
+
+    // 数字キー
+    await page.click('td.cell[data-key="m_001|c3"]');
+    await page.keyboard.press('Delete');
+    await page.keyboard.press('1');
+    確かめる('数字キーで、その番号の札が入る', (await マスの字('m_001|c3')) === '使役');
+
+    // 編集の小窓：Enter で開く → 名前で絞る → Enter で決めて下へ
+    await page.keyboard.press('Delete');
+    await page.keyboard.press('Enter');
+    確かめる('Enter で編集の小窓が出て、欄にカーソルが入る',
+      !(await page.$eval('#cellEditor', (el) => el.hidden)) && (await page.evaluate(() => document.activeElement.id)) === 'cellEditorInput');
+    確かめる('マスの中にブラウザのプルダウンは出さない', !(await page.$('td.cell select')));
+    await page.keyboard.type('使');
+    確かめる('打つと名前で絞り込まれる', (await page.$$eval('#cellEditorList .opt', (xs) => xs.map((x) => x.textContent).join('|'))) === '使役');
+    await 写す('4b-人員表-編集の小窓');
+    await page.keyboard.press('Enter');
+    確かめる('Enter で決まる', (await マスの字('m_001|c3')) === '使役' && (await page.$eval('#cellEditor', (el) => el.hidden)));
+    確かめる('決めたら1つ下のマスへ進む', (await page.$eval('#cellCount', (el) => el.textContent)) === '相棒／LA');
+    // 文字を打ち始めるだけでも編集に入る
+    await page.keyboard.press('x');
+    確かめる('マスの上で文字を打つと、そのまま編集に入る（打った字は欄に入る）',
+      !(await page.$eval('#cellEditor', (el) => el.hidden)) && (await page.$eval('#cellEditorInput', (el) => el.value)) === 'x');
+    確かめる('合うものが無いときは、そう出る', /合う仕事はありません/.test(await page.$eval('#cellEditorList', (el) => el.textContent)));
+    await page.keyboard.press('Escape');
+    確かめる('Esc でやめると、マスは変わらず、表に戻る',
+      (await page.$eval('#cellEditor', (el) => el.hidden)) && (await マスの字('m_002|c3')) === '使役' &&
+      (await page.evaluate(() => document.activeElement.id)) === 'matrixBox');
+
+    // 見出しで行・列をまとめて選ぶ
+    await page.click('tr.comps th:nth-child(2)');
+    確かめる('競技の見出しを押すと、その列が全部選ばれる', /2マスを選択中/.test(await page.$eval('#cellCount', (el) => el.textContent)));
+    await page.click('table.matrix tbody tr:first-child td.rowhead .nm');
+    確かめる('名前を押すと、その行が全部選ばれる', /3マスを選択中/.test(await page.$eval('#cellCount', (el) => el.textContent)));
+
+    // 表を広げる
+    await page.click('#maxBtn');
+    確かめる('「表を広げる」で、表が画面いっぱいになる',
+      await page.$eval('#matrixBox', (el) => {
+        const r = el.closest('.card').getBoundingClientRect();
+        return r.left === 0 && r.top === 0 && Math.abs(r.width - innerWidth) < 1 && Math.abs(r.height - innerHeight) < 1;
+      }));
+    確かめる('広げている間も、札と保存の帯は使える',
+      await page.$eval('#stamps .stamp', (b) => b.checkVisibility()) && await page.$eval('#saveCellsBtn', (b) => b.checkVisibility()));
+    await 待つ(200);
+    await 写す('4c-人員表-広げたところ');
+    await page.click('#maxBtn');
+    確かめる('もう一度押すと元に戻る', !(await page.$eval('#matrixBox', (el) => el.closest('.card').classList.contains('board-max'))));
 
     // 保存すると、保存したマスが光る
     await page.click('#saveCellsBtn');
     await page.waitForFunction(() => document.querySelectorAll('td.cell.flash').length > 0, { timeout: 5000 })
       .then(() => 確かめる('保存したマスが一瞬光る', true), () => 確かめる('保存したマスが一瞬光る', false));
-    確かめる('光るのは保存したマスだけ', (await page.$$eval('td.cell.flash', (tds) => tds.map((td) => td.dataset.key))).every((k) => ['m_001|c1', 'm_001|c2', 'm_001|c3'].indexOf(k) >= 0),
+    確かめる('光るのは保存したマスだけ', (await page.$$eval('td.cell.flash', (tds) => tds.map((td) => td.dataset.key))).every((k) => ['m_001|c1', 'm_001|c2', 'm_001|c3', 'm_002|c2', 'm_002|c3'].indexOf(k) >= 0),
       JSON.stringify(await page.$$eval('td.cell.flash', (tds) => tds.map((td) => td.dataset.key))));
     await 待つ(250);
     await 写す('5-人員表-保存したところ');
