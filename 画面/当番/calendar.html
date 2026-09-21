@@ -10,6 +10,8 @@
                  （2026-09-13 ユーザーの指示で「休みカレンダー」から表の形・名前を変えた）
     当番・手入れ予定 … 当番表とチーフが組んだ手入れ表を、日ごとの行で縦に並べる（1日に馬の数だけ名前が並ぶため）
       当番は列（昼当｜夕当｜投げ草）、手入れはその下の段。上に自分のこれから（2026-09-21 作り直し）
+      **月ごとではなく、きのうから30日ぶん**を出す（2026-09-21 ユーザーの指示）。月をまたぐので、かかる月を全部読んで合わせる。
+      カレンダーのタブは今までどおり月ごと
       当番は曜日で回すので、期間に開始日・終了日を入れてある期間だけ、その範囲の日に出る（2026-09-21）
   大会がある日は、どちらのタブでも枠の色を少し変える（2026-09-13 ユーザーの指示）。
 */
@@ -69,6 +71,8 @@ table.grid tr.me td.meet { background-image: none; }
 /* サイトでは上の青い帯が貼り付くので、そのぶん下げる（--bar-h は描くときに測る） */
 .duty-head { position: sticky; top: var(--bar-h, 0px); z-index: 2; background: var(--paper-2); border-bottom: 2px solid var(--rule-strong); font-weight: 700; font-size: var(--text-sm); color: var(--accent-dark); }
 
+/* 30日ぶんは月をまたぐので、月がかわるところに小さな見出しを入れる */
+.duty-month { padding: var(--space-xs) var(--space-2xs) var(--space-3xs); font-size: var(--text-sm); font-weight: 700; color: var(--muted); background: var(--paper-3); border-bottom: 1px solid var(--rule); }
 .duty-day { scroll-margin-top: calc(var(--bar-h, 0px) + 3.5rem); }
 .duty-day.wk { border-top: 2px solid var(--rule-strong); }   /* 週の切れ目（月曜の上） */
 .duty-day.meet { background: var(--meet-soft); }
@@ -198,19 +202,67 @@ function 月をずらす(月, n) {
   return new Date(Date.UTC(p[0], p[1] - 1 + n, 1)).toISOString().slice(0, 7);
 }
 
+function 今日の日付() { return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10); }
+function 日をずらす(日, n) {
+  const p = 日.split('-').map(Number);
+  return new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)).toISOString().slice(0, 10);
+}
+
+/*
+  当番・手入れ予定に出す範囲（2026-09-21 ユーザーの指示）：**きのうから30日ぶん**。
+  きのうを入れるのは、きのうの担当をあとから確かめたいことがあるため。
+  ＜＞ で30日ずつ前後に送れる。送っていないあいだ（始 が空）は、日付が変われば範囲も付いてくる。
+*/
+const 出す日数 = 30;
+function 出す範囲() {
+  const from = 見ている.始 || 日をずらす(今日の日付(), -1);
+  return { from: from, to: 日をずらす(from, 出す日数 - 1) };
+}
+function 範囲にかかる月(範囲) {
+  const out = [];
+  for (let 月 = 範囲.from.slice(0, 7); 月 <= 範囲.to.slice(0, 7); 月 = 月をずらす(月, 1)) out.push(月);
+  return out;
+}
+
+/*
+  月ごとに読んだ中身を、1つの範囲に合わせる。並ぶものは日付で範囲の中だけを残す。
+  毎週（曜日方式）と馬は月によらないので、同じものを1つにまとめる。
+*/
+function 月を合わせる(月ごと, 範囲) {
+  const 中 = (k) => k >= 範囲.from && k <= 範囲.to;
+  const 一つに = (xs) => { const 見た = {}; return xs.filter((x) => { const k = JSON.stringify(x); if (見た[k]) return false; 見た[k] = true; return true; }); };
+  const 集める = (名) => 一つに([].concat.apply([], 月ごと.map((d) => d[名] || [])));
+  const 頭 = 月ごと[0];
+  return {
+    月: 範囲.from, from: 範囲.from, to: 範囲.to, 今日: 頭.今日,
+    部員: 頭.部員, 馬: 集める('馬'),
+    当番: 集める('当番').filter((x) => 中(x.date)),
+    手入れ: 集める('手入れ').filter((x) => 中(x.date)),
+    朝手入れ: 集める('朝手入れ').filter((x) => 中(x.date)),
+    毎週: 集める('毎週'),
+    休み: 集める('休み'), 休みを読めた: 月ごと.every((d) => d.休みを読めた !== false),
+    大会: 集める('大会'), 大会に出る: 集める('大会に出る').filter((x) => 中(x.date)),
+    大会を読めた: 月ごと.every((d) => d.大会を読めた !== false),
+  };
+}
+
 // tab=teire なら手入れ予定。それ以外（cal・前の名前の yasumi）はカレンダー
-let 見ている = { tab: URLの('tab') === 'teire' ? 'teire' : 'cal', 月: /^\d{4}-\d{2}$/.test(URLの('month')) ? URLの('month') : 今月() };
+// 始 … 当番・手入れ予定の範囲の頭（?from=）。空なら「きのう」
+let 見ている = {
+  tab: URLの('tab') === 'teire' ? 'teire' : 'cal',
+  月: /^\d{4}-\d{2}$/.test(URLの('month')) ? URLの('month') : 今月(),
+  始: /^\d{4}-\d{2}-\d{2}$/.test(URLの('from')) ? URLの('from') : '',
+};
 let 中身 = null;
 let 読む番 = 0;
 
+// from〜to を1日ずつ。月をまたいでもよい（当番・手入れ予定は30日ぶん）
 function 日の並び(d) {
   const out = [];
-  const p = d.from.split('-').map(Number);
-  const 末 = Number(d.to.slice(8, 10));
-  for (let i = 1; i <= 末; i++) {
-    const key = p[0] + '-' + String(p[1]).padStart(2, '0') + '-' + String(i).padStart(2, '0');
-    const 曜 = new Date(Date.UTC(p[0], p[1] - 1, i)).getUTCDay();
-    out.push({ key: key, 日: i, label: p[1] + '/' + i + '（' + 曜日名[曜] + '）', 曜: 曜 });
+  for (let key = d.from, n = 0; key <= d.to && n < 400; key = 日をずらす(key, 1), n++) {
+    const p = key.split('-').map(Number);
+    const 曜 = new Date(Date.UTC(p[0], p[1] - 1, p[2])).getUTCDay();
+    out.push({ key: key, 月: p[1], 日: p[2], label: p[1] + '/' + p[2] + '（' + 曜日名[曜] + '）', 曜: 曜 });
   }
   return out;
 }
@@ -233,8 +285,15 @@ function タブを描く() {
     b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   const p = 見ている.月.split('-');
-  $('monthTitle').textContent = p[0] + '年' + Number(p[1]) + '月';
   const 手入れ = 見ている.tab === 'teire';
+  const 短く = (日) => Number(日.slice(5, 7)) + '/' + Number(日.slice(8, 10));
+  const 範囲 = 出す範囲();
+  $('monthTitle').textContent = 手入れ ? 短く(範囲.from) + ' 〜 ' + 短く(範囲.to) : p[0] + '年' + Number(p[1]) + '月';
+  [['prevMonth', 手入れ ? '前の30日' : '前の月'], ['nextMonth', 手入れ ? '次の30日' : '次の月']].forEach((x) => {
+    $(x[0]).setAttribute('aria-label', x[1]);
+    $(x[0]).title = x[1];
+  });
+  $('thisMonth').textContent = 手入れ ? 'きのうから' : '今月';
   $('teireFilter').style.display = 手入れ ? 'flex' : 'none';
   // バイトは、その月に出てくるバイト先ごとに「1文字目＝名前」を並べる（無い月は「バ」で説明だけ）
   const バイト先 = [];
@@ -432,9 +491,9 @@ function 手入れ予定を描く(d) {
   const 何かある = Object.keys(当番の表).length || Object.keys(手入れの表).length;
   if (!何かある || !日々.length) {
     $('view').innerHTML = '<p class="muted" style="padding:var(--space-sm) 0;">' +
-      (自分だけ ? 'この月に、' + esc(私) + 'さんの当番・手入れはありません。'
-        : 選んだ馬 ? 'この月の' + esc(選んだ馬) + 'の手入れ表はまだありません。'
-        : 'この月の当番表・手入れ表はまだありません。') + '</p>';
+      (自分だけ ? 'この30日に、' + esc(私) + 'さんの当番・手入れはありません。'
+        : 選んだ馬 ? 'この30日の' + esc(選んだ馬) + 'の手入れ表はまだありません。'
+        : 'この30日の当番表・手入れ表はまだありません。') + '</p>';
   } else {
     const 見出し = 列.length
       ? '<div class="duty-row duty-head" aria-hidden="true"><span></span><div class="duty-slots">' +
@@ -442,6 +501,7 @@ function 手入れ予定を描く(d) {
       : '';
     $('view').innerHTML = '<div class="duty" style="--cols:' + (列.length || 1) + ';">' + 見出し + 日々.map((day, i) => {
       const 今日 = day.key === d.今日;
+      const 月の頭 = i === 0 || 日々[i - 1].月 !== day.月 ? '<div class="duty-month">' + day.月 + '月</div>' : '';
       const 当 = 当番の表[day.key] || {};
       const 手 = 手入れの表[day.key] || [];
       // 見出しは見た目だけなので、読み上げには列の名前を1つずつ付ける
@@ -453,7 +513,7 @@ function 手入れ予定を描く(d) {
       const 手入れの段 = 手.length
         ? '<div class="duty-care"><span class="lab">手入れ</span><div class="care-list">' + 手.join('') + '</div></div>'
         : (列.length ? '' : '<div class="duty-care"><span class="none">—</span></div>');
-      return '<div class="duty-row duty-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') +
+      return 月の頭 + '<div class="duty-row duty-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') +
         (day.曜 === 1 && i > 0 ? ' wk' : '') + (大会[day.key] ? ' meet' : '') + (今日 ? ' today' : '') + '" id="d-' + day.key + '">' +
         '<div class="d" aria-label="' + esc(day.label + (今日 ? ' 今日' : '')) + '"><span class="n">' + day.日 + '</span><span class="w">' + (今日 ? '今日' : 曜日名[day.曜]) + '</span></div>' +
         '<div class="b">' + (大会[day.key] ? '<div class="ev">' + esc(大会[day.key].join('・')) + '</div>' : '') +
@@ -473,7 +533,7 @@ function 手入れ予定を描く(d) {
 
 /*
   自分のこれから（2026-09-21）。表の中から自分の名前を探さなくて済むように、いちばん上に並べる。
-  今月は今日から先だけ、ほかの月はその月のぶんを全部。押すとその日の行へ。
+  今日が入っている範囲では今日から先だけ、＜＞で送った先ではその30日ぶんを全部。押すとその日の行へ。
 */
 function 自分のこれからを描く(d, 私) {
   if (!私) {
@@ -488,11 +548,11 @@ function 自分のこれからを描く(d, 私) {
   const 先 = 件.filter((x) => !今月を見ている || x.date >= d.今日)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.順 - b.順));
   const 日の名 = {};
-  日の並び(d).forEach((day) => { 日の名[day.key] = day.key === d.今日 ? '今日' : day.日 + '（' + 曜日名[day.曜] + '）'; });
-  $('mine').innerHTML = '<div class="my-next"><h3>' + esc(私) + 'さんの' + (今月を見ている ? 'これから' : 'この月') + '</h3>' +
+  日の並び(d).forEach((day) => { 日の名[day.key] = day.key === d.今日 ? '今日' : day.label; });
+  $('mine').innerHTML = '<div class="my-next"><h3>' + esc(私) + 'さんの' + (今月を見ている ? 'これから' : 'この30日') + '</h3>' +
     (先.length
       ? '<div class="list">' + 先.map((x) => '<a href="#d-' + x.date + '" data-go="d-' + x.date + '"><b>' + esc(日の名[x.date] || x.date) + '</b>' + x.html + '</a>').join('') + '</div>'
-      : '<p>' + (今月を見ている ? 'この月は、もう当番・手入れは入っていません。' : 'この月の当番・手入れは入っていません。') + '</p>') + '</div>';
+      : '<p>' + (今月を見ている ? 'この先（' + esc(日の名[d.to] || '') + 'まで）の当番・手入れは入っていません。' : 'この30日の当番・手入れは入っていません。') + '</p>') + '</div>';
 }
 
 // 毎週決まっている手入れ（曜日方式）。期間の名前ごとに、馬×曜日の表にする
@@ -516,17 +576,25 @@ function 毎週の手入れを描く(d, 選んだ馬, 自分だけ, 私) {
   }).join('');
 }
 
-// 前に見た月の中身を先に出し、届いたら差し替える
+/*
+  前に見た月の中身を先に出し、届いたら差し替える。
+  カレンダーは月1つ。当番・手入れ予定は、範囲にかかる月（ふつう2つ）を並べて読み、1つに合わせる。
+  どちらも月ごとに覚えるので、タブを行き来しても同じ月は読み直しの前にすぐ出る。
+*/
 async function 読む() {
   const 番 = ++読む番;
-  const 月 = 見ている.月;
-  中身 = 覚え.取る('calendar:' + 月);
+  const 手入れ = 見ている.tab === 'teire';
+  const 範囲 = 出す範囲();
+  const 月たち = 手入れ ? 範囲にかかる月(範囲) : [見ている.月];
+  const まとめる = (月ごと) => (手入れ ? 月を合わせる(月ごと, 範囲) : 月ごと[0]);
+  const 覚えていた = 月たち.map((月) => 覚え.取る('calendar:' + 月));
+  中身 = 覚えていた.every(Boolean) ? まとめる(覚えていた) : null;
   描く();
   try {
-    const d = await call('getCalendarData', 月);
+    const 月ごと = await Promise.all(月たち.map((月) => call('getCalendarData', 月)));
     if (番 !== 読む番) return;
-    覚え.置く('calendar:' + 月, d);
-    中身 = d;
+    月ごと.forEach((d, i) => 覚え.置く('calendar:' + 月たち[i], d));
+    中身 = まとめる(月ごと);
     描く();
   } catch (e) {
     if (番 !== 読む番) return;
@@ -536,20 +604,31 @@ async function 読む() {
 }
 
 function URLを合わせる() {
-  try { history.replaceState(null, '', '?tab=' + 見ている.tab + '&month=' + 見ている.月); } catch (e) { /* GAS の枠の中では変えられない */ }
+  const 手入れ = 見ている.tab === 'teire';
+  try {
+    history.replaceState(null, '', '?tab=' + 見ている.tab + (手入れ ? (見ている.始 ? '&from=' + 見ている.始 : '') : '&month=' + 見ている.月));
+  } catch (e) { /* GAS の枠の中では変えられない */ }
 }
 function 月を変える(月) { 見ている.月 = 月; URLを合わせる(); 読む(); }
+// 当番・手入れ予定は30日ずつ送る。n = 0 で「きのうから」に戻す
+function 範囲を送る(n) {
+  見ている.始 = n ? 日をずらす(出す範囲().from, n * 出す日数) : '';
+  今日へ送った = '';
+  URLを合わせる();
+  読む();
+}
 
 document.querySelector('.tabs').addEventListener('click', (e) => {
   const b = e.target.closest ? e.target.closest('[data-tab]') : null;
   if (!b) return;
   見ている.tab = b.dataset.tab;
   URLを合わせる();
-  描く();
+  読む();   // カレンダーは月、当番・手入れ予定は30日。出す範囲が違うので読み直す（覚えていればすぐ出る）
 });
-$('prevMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, -1)));
-$('nextMonth').addEventListener('click', () => 月を変える(月をずらす(見ている.月, 1)));
-$('thisMonth').addEventListener('click', () => 月を変える(今月()));
+const 手入れを見ている = () => 見ている.tab === 'teire';
+$('prevMonth').addEventListener('click', () => (手入れを見ている() ? 範囲を送る(-1) : 月を変える(月をずらす(見ている.月, -1))));
+$('nextMonth').addEventListener('click', () => (手入れを見ている() ? 範囲を送る(1) : 月を変える(月をずらす(見ている.月, 1))));
+$('thisMonth').addEventListener('click', () => (手入れを見ている() ? 範囲を送る(0) : 月を変える(今月())));
 $('horseSelect').addEventListener('change', 描く);
 // みんな／自分だけ。札は button ではない（button は全部青い決まりなので）ので、Enter・スペースも拾う
 function だれのぶんを切り替える(b) {

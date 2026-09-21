@@ -567,8 +567,38 @@ function 模擬で答える(req) {
         await page.$eval('#legend .tag.work', (t) => getComputedStyle(t).backgroundColor === 'rgb(255, 229, 160)'));
     }
     // 朝手入れ・当番は「当番・手入れ予定」にだけ出す（2026-09-20／2026-09-21）
-    await page.goto(元 + '/calendar.html?tab=teire&month=2030-09');
+    // 月ごとではなく、きのうから30日ぶん（2026-09-21 ユーザーの指示）。まず何も付けずに開いて、範囲の頭を見る
+    await page.goto(元 + '/calendar.html?tab=teire');
+    await page.waitForFunction(() => /〜/.test(document.getElementById('monthTitle').textContent), { timeout: 10000 });
+    {
+      const きのう = new Date(Date.now() + 9 * 3600 * 1000 - 86400000).toISOString().slice(0, 10);
+      const 末 = new Date(Date.parse(きのう) + 29 * 86400000).toISOString().slice(0, 10);
+      const 短く = (d) => Number(d.slice(5, 7)) + '/' + Number(d.slice(8, 10));
+      確かめる('当番・手入れ予定は、きのうから30日ぶん（見出しに範囲が出る）',
+        (await page.$eval('#monthTitle', (el) => el.textContent)) === 短く(きのう) + ' 〜 ' + 短く(末),
+        await page.$eval('#monthTitle', (el) => el.textContent));
+      確かめる('＜＞は30日ずつ送る・戻すボタンは「きのうから」',
+        (await page.$eval('#nextMonth', (b) => b.getAttribute('aria-label'))) === '次の30日' &&
+        (await page.$eval('#thisMonth', (b) => b.textContent)) === 'きのうから');
+    }
+    // 模擬データは 2030年9月なので、範囲の頭を指定して開く（?from=）
+    await page.goto(元 + '/calendar.html?tab=teire&from=2030-09-10');
     await page.waitForSelector('#view .duty', { timeout: 10000 });
+    確かめる('30日ぶんの行が出て、月をまたぐところに月の見出しが入る',
+      (await page.$$('#view .duty-day')).length === 30 &&
+      (await page.$$eval('#view .duty-month', (xs) => xs.map((x) => x.textContent).join('|'))) === '9月|10月',
+      (await page.$$('#view .duty-day')).length + ' 行 ' + await page.$$eval('#view .duty-month', (xs) => xs.map((x) => x.textContent).join('|')));
+    確かめる('範囲の頭と末の日が合っている',
+      await page.$$eval('#view .duty-day', (xs) => xs[0].id === 'd-2030-09-10' && xs[xs.length - 1].id === 'd-2030-10-09'));
+    確かめる('カレンダーのタブへ移ると、今までどおり月ごと',
+      await (async () => {
+        await page.click('.tabs button[data-tab="cal"]');
+        await page.waitForSelector('#view table.grid', { timeout: 10000 });
+        const 題 = await page.$eval('#monthTitle', (el) => el.textContent);
+        await page.click('.tabs button[data-tab="teire"]');
+        await page.waitForSelector('#view .duty', { timeout: 10000 });
+        return /年[0-9]+月$/.test(題);
+      })());
     確かめる('タブの名前は「当番・手入れ予定」',
       (await page.$eval('.tabs button[data-tab="teire"]', (b) => b.textContent.trim())) === '当番・手入れ予定');
     確かめる('朝手入れは当番・手入れ予定に出る',
