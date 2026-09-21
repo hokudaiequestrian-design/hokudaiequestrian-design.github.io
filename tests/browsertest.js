@@ -69,13 +69,31 @@ const 模擬 = {
   削除: 'ok',         // ok / 断る
   削除の遅れ: 1500,
   // 休み（副将）とバイト
-  baito: { jobs: [], 割当: [], 調整: {}, today: '2030-09-18' },
+  // 自動割り当て（2026-09-21）。needs＝日ごとに要る人数、skips＝自動で入れない人
+  baito: { jobs: [], 割当: [], 調整: {}, needs: {}, skips: [], today: '2030-09-18' },
   yasumiの全部: () => ({
     members: DATA.members, year: 2030, years: [2030], from: '2030-04-01', to: '2031-03-31',
     today: 模擬.baito.today, kinds: ['有給休暇', 'バイト', '季節休み'], states: ['申請中', '承認', '却下', '取消'],
     leaves: [], paid: {}, grants: [], settings: { 有給日数: 10, 年度始まり月: 4, 休みを外す: true }, maxDays: 60,
   }),
 };
+
+// 自動割り当ての口の模擬（2026-09-21）。baitoLoadAll と同じ形を返す
+function バイトの全部(jobId) {
+  const job = 模擬.baito.jobs.filter((j) => j.id === jobId)[0] || null;
+  const 割当 = job ? 模擬.baito.割当.filter((x) => x.jobId === job.id) : [];
+  const 自動 = {};
+  割当.forEach((x) => { 自動[x.memberId] = (自動[x.memberId] || 0) + 1; });
+  return {
+    jobs: 模擬.baito.jobs, job: job, members: DATA.members, today: 模擬.baito.today,
+    needs: 模擬.baito.needs, skips: 模擬.baito.skips, 月の上限の既定: 2,
+    割当: 割当.map((x) => Object.assign({}, x, { name: (DATA.members.filter((m) => m.id === x.memberId)[0] || {}).name })),
+    counts: DATA.members.map((m) => ({
+      memberId: m.id, name: m.name, 自動: 自動[m.id] || 0,
+      調整: 模擬.baito.調整[m.id] || 0, 回数: (自動[m.id] || 0) + (模擬.baito.調整[m.id] || 0),
+    })),
+  };
+}
 
 function 答える(req, status, body, 遅れ) {
   setTimeout(() => {
@@ -122,6 +140,7 @@ function 模擬で答える(req) {
     割当.forEach((x) => { 自動[x.memberId] = (自動[x.memberId] || 0) + 1; });   // 入れた日を全部数える（2026-09-16）
     return 返す({
       jobs: 模擬.baito.jobs, job: job, members: DATA.members, today: 模擬.baito.today,
+      needs: 模擬.baito.needs, skips: 模擬.baito.skips, 月の上限の既定: 2,
       割当: 割当.map((x) => ({ id: x.id, date: x.date, memberId: x.memberId, name: (DATA.members.filter((m) => m.id === x.memberId)[0] || {}).name })),
       counts: DATA.members.map((m) => ({
         memberId: m.id, name: m.name,
@@ -134,8 +153,49 @@ function 模擬で答える(req) {
   if (本文.fn === 'baitoSaveJob') {
     const x = 本文.args[1] || {};
     if (x.id) 模擬.baito.jobs.forEach((j) => { if (j.id === x.id) j.name = x.name; });
-    else 模擬.baito.jobs.push({ id: 'b' + (模擬.baito.jobs.length + 1), name: x.name, active: true });
+    else 模擬.baito.jobs.push({ id: 'b' + (模擬.baito.jobs.length + 1), name: x.name, active: true, monthMax: 2 });
     return 返す({ ok: true, jobs: 模擬.baito.jobs });
+  }
+  // ----- 自動割り当て（2026-09-21） -----
+  if (本文.fn === 'baitoSaveNeeds') {
+    const a = 本文.args;
+    // その月のぶんを入れ替える
+    Object.keys(模擬.baito.needs).forEach((d) => { if (d.slice(0, 7) === a[2]) delete 模擬.baito.needs[d]; });
+    Object.keys(a[3] || {}).forEach((d) => { 模擬.baito.needs[d] = Number(a[3][d]) || 0; });
+    return 返す(バイトの全部(a[1]));
+  }
+  if (本文.fn === 'baitoSaveSkips') {
+    模擬.baito.skips = (本文.args[2] || []).slice();
+    return 返す(バイトの全部(本文.args[1]));
+  }
+  if (本文.fn === 'baitoSaveMonthMax') {
+    模擬.baito.jobs.forEach((j) => { if (j.id === 本文.args[1]) j.monthMax = Number(本文.args[2]) || 2; });
+    return 返す(バイトの全部(本文.args[1]));
+  }
+  if (本文.fn === 'baitoGenerate') {
+    const a = 本文.args;
+    const 月 = a[2];
+    const 保存 = !!a[3];
+    // 回数の少ない人から、日ごとに要る人数ぶん入れる（本物と同じ考え方の、ごく簡単な模擬）
+    const 数 = {};
+    模擬.baito.割当.forEach((x) => { 数[x.memberId] = (数[x.memberId] || 0) + 1; });
+    const cells = [];
+    Object.keys(模擬.baito.needs).filter((d) => d.slice(0, 7) === 月).sort().forEach((d) => {
+      const 候補 = DATA.members.filter((m) => 模擬.baito.skips.indexOf(m.id) < 0)
+        .sort((x, y) => (数[x.id] || 0) - (数[y.id] || 0));
+      候補.slice(0, 模擬.baito.needs[d]).forEach((m) => {
+        cells.push({ date: d, memberId: m.id, name: m.name });
+        数[m.id] = (数[m.id] || 0) + 1;
+      });
+    });
+    if (!保存) return 返す({ ためし: true, count: cells.length, 残した: 0, warnings: [], cells: cells });
+    模擬.baito.割当 = 模擬.baito.割当.filter((x) => !(x.jobId === a[1] && x.date.slice(0, 7) === 月));
+    cells.forEach((c, i) => 模擬.baito.割当.push({ id: 'g' + i, jobId: a[1], date: c.date, memberId: c.memberId }));
+    const v = バイトの全部(a[1]);
+    v.入れた = cells.length;
+    v.残した = 0;
+    v.warnings = [];
+    return 返す(v);
   }
   if (本文.fn === 'baitoDeleteJob') {
     模擬.baito.jobs = 模擬.baito.jobs.filter((j) => j.id !== 本文.args[1]);
@@ -159,6 +219,14 @@ function 模擬で答える(req) {
   if (本文.fn === 'chiefMeta') return 返す({ 要パスワード: false });
   if (本文.fn === 'loginChiefAndLoad') return 返す({ token: 'c_test', base: 模擬.chiefのBASE });
   if (本文.fn === 'chiefLoadAll') return 返す(模擬.chiefのBASE);
+  // 朝手入れ（2026-09-20）。チーフ画面は馬を選ぶたびに読む
+  if (本文.fn === 'chiefLoadMorning') {
+    return 返す({
+      horse: { id: 本文.args[1], name: '北叡', active: true, chief: '美浦' },
+      mode: '', 方式: ['カレンダー', 'ローテーション'],
+      days: [], order: [], 候補: ['m_001'], members: 模擬.chiefのBASE.members,
+    });
+  }
   if (本文.fn === 'chiefDeletePlan') {
     if (模擬.削除 === '断る') return 答える(req, 200, { ok: false, error: 'その期間はもうありません。' }, 模擬.削除の遅れ);
     模擬.chiefのBASE = Object.assign({}, 模擬.chiefのBASE, {
@@ -235,6 +303,16 @@ function 模擬で答える(req) {
   const 元 = 'http://localhost:' + srv.address().port;
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ['--no-first-run'] });
   const page = await browser.newPage();
+  /*
+    押す前に、そのボタンを画面の真ん中まで寄せる。
+    ページが長くなると、貼り付いた見出しの帯の下にボタンが入ることがあり、
+    puppeteer は隠れていてもそのまま押すので帯を押してしまう（人は隠れたボタンを押さない）。
+  */
+  const 押す = async (sel) => {
+    await page.$eval(sel, (el) => el.scrollIntoView({ block: 'center' }));
+    await new Promise((r) => setTimeout(r, 120));
+    await page.click(sel);
+  };
   const 画面のエラー = [];
   page.on('pageerror', (e) => 画面のエラー.push(e.message));
   await page.setRequestInterception(true);
@@ -544,7 +622,7 @@ function 模擬で答える(req) {
   確かめる('決まりは「2. 期間を選ぶ」の「期間の編集」にしまってある', await page.$eval('#termCard', (c) => !!c.querySelector('#planEditFold:not([hidden]) #editFrom')));
   await page.$eval('#planEditFold', (el) => { el.open = true; });
   await page.$eval('#editFrom', (el) => { el.value = '2030-04-01'; });
-  await page.click('#savePlanBtn');
+  await 押す('#savePlanBtn');
   await page.waitForFunction(() => /保存しました/.test(document.getElementById('planMsg').textContent), { timeout: 15000 });
   確かめる('開始日を入れ直して送れる（方式は曜日のまま）',
     (模擬.期間の保存 || {}).id === 'p1' && 模擬.期間の保存.from === '2030-04-01' && 模擬.期間の保存.mode === '曜日', JSON.stringify(模擬.期間の保存));
@@ -653,6 +731,8 @@ function 模擬で答える(req) {
   await page.waitForFunction(() => /名簿にありません/.test(document.getElementById('baitoMsg').textContent), { timeout: 15000 });
   確かめる('名簿に無い名前はその場で断る', 模擬.baito.割当.length === 1);
 
+
+
   // 回数（副将だけが見る）。全員ぶんを学年ごとに横4列。手で直すのは下の「回数を編集」1つから
   確かめる('回数は全員ぶん、学年ごとに横4列',
     (await page.$$('#baitoCountGrid [data-count]')).length === 2 &&
@@ -696,6 +776,65 @@ function 模擬で答える(req) {
   await page.waitForFunction(() => Array.from(document.getElementById('baitoSelect').options).some((o) => o.textContent === 'フロンテア'), { timeout: 15000 }).catch(() => {});
   確かめる('ページを開き直してバイトのタブを開くと、作ったバイトがプルダウンに出る',
     await page.$eval('#baitoSelect', (sel) => Array.from(sel.options).some((o) => o.textContent === 'フロンテア')));
+
+  // ---------- 自動で入れる（2026-09-21 ユーザーの指示） ----------
+  console.log('\n== 休み副将：バイトを自動で入れる ==');
+  await page.select('#baitoSelect', 模擬.baito.jobs[0].id);
+  await page.waitForFunction(() => document.getElementById('baitoCalCard').style.display === 'block', { timeout: 15000 });
+  await page.$eval('#baitoAutoFold', (d) => { d.open = true; });
+  確かめる('「自動で入れる」の欄がある', await page.$eval('#baitoAutoFold', (d) => d.open));
+  確かめる('1か月の上限のはじめの値は2', (await page.$eval('#monthMax', (i) => i.value)) === '2');
+
+  // 日を選んで、要る人数を入れる
+  await page.click('[data-day="2030-09-22"]');
+  await page.waitForFunction(() => /9月22日/.test(document.getElementById('needDayName').textContent), { timeout: 10000 });
+  await page.$eval('#needCount', (i) => { i.value = '2'; });
+  await page.click('#needSet');
+  確かめる('カレンダーのマスに「いま/ほしい」が出る',
+    /0\/2/.test(await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent)),
+    await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent));
+  確かめる('足りない日は色が変わる',
+    await page.$eval('[data-day="2030-09-22"]', (el) => el.classList.contains('need-short')));
+  await page.click('#needSave');
+  await page.waitForFunction(() => /保存しました/.test(document.getElementById('needMsg').textContent), { timeout: 10000 });
+  確かめる('要る人数がサーバに届く', 模擬.baito.needs['2030-09-22'] === 2, JSON.stringify(模擬.baito.needs));
+
+  // 入れない人
+  await page.click('#skipPicker [data-skip="m_002"]');
+  確かめる('押すと「入れない人」の印が付く',
+    (await page.$eval('#skipPicker [data-skip="m_002"]', (b) => b.getAttribute('aria-pressed'))) === 'true');
+  await page.click('#skipSave');
+  await page.waitForFunction(() => /入れない人/.test(document.getElementById('skipMsg').textContent), { timeout: 10000 });
+  確かめる('入れない人がサーバに届く', JSON.stringify(模擬.baito.skips) === '["m_002"]', JSON.stringify(模擬.baito.skips));
+
+  // 組んで中身だけ見る
+  await page.click('#autoPreview');
+  await page.waitForFunction(() => /組んでみました/.test(document.getElementById('autoMsg').textContent), { timeout: 10000 });
+  確かめる('中身だけ見るときは保存しない',
+    !模擬.baito.割当.some((x) => x.date === '2030-09-22'), JSON.stringify(模擬.baito.割当.map((x) => x.date)));
+  確かめる('組んだ中身が日ごとに出る',
+    /9\/22/.test(await page.$eval('#autoPreviewBox', (el) => el.textContent)),
+    await page.$eval('#autoPreviewBox', (el) => el.textContent));
+  確かめる('入れない人は組んだ中身に出ない',
+    !/相棒/.test(await page.$eval('#autoPreviewBox', (el) => el.textContent)),
+    await page.$eval('#autoPreviewBox', (el) => el.textContent));
+
+  // 入れない人を戻してから組む（2人とも入るか見る）
+  await page.click('#skipPicker [data-skip="m_002"]');
+  await page.click('#skipSave');
+  await page.waitForFunction(() => /0 人/.test(document.getElementById('skipMsg').textContent), { timeout: 10000 });
+
+  // 本当に入れる
+  await page.click('#autoRun');
+  await page.waitForFunction(() => /入れました/.test(document.getElementById('autoMsg').textContent), { timeout: 10000 });
+  確かめる('自動で入れるとカレンダーに入る',
+    模擬.baito.割当.filter((x) => x.date === '2030-09-22').length === 2,
+    JSON.stringify(模擬.baito.割当.map((x) => x.date)));
+  確かめる('入ったぶんはマスに出る',
+    /2\/2/.test(await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent)),
+    await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent));
+  確かめる('足りた日は色が戻る',
+    !(await page.$eval('[data-day="2030-09-22"]', (el) => el.classList.contains('need-short'))));
 
   確かめる('画面でエラーが起きていない', 画面のエラー.length === 0, 画面のエラー.join(' / '));
 

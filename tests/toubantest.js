@@ -1073,7 +1073,7 @@ const 休_先 = (n) => { const d = new Date(); d.setDate(d.getDate() + n); retur
 
 確かめる('休みのシートができている', !!SHEETS['休み'] && !!SHEETS['有給付与']);
 確かめる('休みの列がそろっている',
-  G.SCHEMA['休み'].join(',') === 'ID,種類,部員ID,開始日,終了日,日数,状態,理由,申請日時,決めた日時,副将メモ,バイトID',
+  G.SCHEMA['休み'].join(',') === 'ID,種類,部員ID,開始日,終了日,日数,状態,理由,申請日時,決めた日時,副将メモ,バイトID,固定',
   G.SCHEMA['休み'].join(','));
 {
   const s = G.設定を読む();
@@ -1477,7 +1477,7 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
 
   確かめる('バイトのシートができている', !!SHEETS['バイト'] && !!SHEETS['バイト回数']);
   確かめる('バイトの列は名前だけで作れる形',
-    G.SCHEMA['バイト'].join(',') === 'ID,バイト名,使用中,備考', G.SCHEMA['バイト'].join(','));
+    G.SCHEMA['バイト'].join(',') === 'ID,バイト名,使用中,月の上限,備考', G.SCHEMA['バイト'].join(','));
 
   // ----- バイト先を作る -----
   G.baitoSaveJob(T2, { name: 'フロンテア' });
@@ -1557,10 +1557,11 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   投げるはず('合鍵なしでは見られない', () => G.baitoLoadAll('でたらめ'), '有効期限');
   投げるはず('合鍵なしでは入れられない', () => G.baitoAssign('でたらめ', 牧場.id, 休_先(6), 甲.id), '有効期限');
   投げるはず('合鍵なしでは回数を直せない', () => G.baitoSaveCount('でたらめ', 牧場.id, 甲.id, 1), '有効期限');
-  確かめる('外から呼べるのは6つ',
-    ['baitoLoadAll', 'baitoSaveJob', 'baitoDeleteJob', 'baitoAssign', 'baitoUnassign', 'baitoSaveCount']
+  確かめる('外から呼べるのは10つ（自動割り当ての4つを足した。2026-09-21）',
+    ['baitoLoadAll', 'baitoSaveJob', 'baitoDeleteJob', 'baitoAssign', 'baitoUnassign', 'baitoSaveCount',
+      'baitoSaveNeeds', 'baitoSaveSkips', 'baitoSaveMonthMax', 'baitoGenerate']
       .every((n) => G.外から呼べる関数.indexOf(n) >= 0)
-    && G.外から呼べる関数.filter((n) => n.indexOf('baito') === 0).length === 6);
+    && G.外から呼べる関数.filter((n) => n.indexOf('baito') === 0).length === 10);
 }
 
 // ===================== 12. 朝手入れ =====================
@@ -1988,6 +1989,147 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   確かめる('受付の切り替えだけでは日付が消えない',
     G.findDutyTerm(夏.id).from === '2026-08-01' && G.findDutyTerm(夏.id).to === '2026-09-30',
     JSON.stringify(G.findDutyTerm(夏.id)));
+}
+
+// ===================== 15. バイトの自動割り当て =====================
+/*
+  2026-09-21 ユーザーの指示。日ごとの必要人数を決めておき、回数の少ない人順に自動で入れる。
+    ・同じ回数の人が並んだらランダム
+    ・1か月に同じ人を入れる上限（既定2。バイト先ごとに変えられる）
+    ・入れない人を選べる
+    ・休み・ほかのバイトの日、大会がある日は入れない
+    ・手で入れたぶんには鍵が付き、作り直しても動かない
+*/
+
+見出し('バイトの自動割り当て');
+{
+  const T2 = G.login('testtest');
+  const 名簿 = G.loadMembers();
+  G.baitoSaveJob(T2, { name: 'コンビニ' });
+  const 店 = G.baitoLoadAll(T2).jobs.filter((j) => j.name === 'コンビニ')[0];
+
+  確かめる('必要人数と入れない人のシートができている',
+    !!G.SCHEMA['バイト必要人数'] && !!G.SCHEMA['バイト除外']);
+  確かめる('月の上限の既定は2', G.baitoLoadAll(T2, 店.id).月の上限の既定 === 2);
+  確かめる('作ったばかりのバイトの上限も2', 店.monthMax === 2, String(店.monthMax));
+
+  // 2026-11 は 1日(日)〜30日(月)。11/2・11/3・11/4 に2人ずつ要る
+  const 日 = (n) => '2026-11-' + ('0' + n).slice(-2);
+  G.baitoSaveNeeds(T2, 店.id, '2026-11', { [日(2)]: 2, [日(3)]: 2, [日(4)]: 2 });
+  {
+    const d = G.baitoLoadAll(T2, 店.id);
+    確かめる('必要人数が入る', d.needs[日(2)] === 2 && d.needs[日(4)] === 2, JSON.stringify(d.needs));
+  }
+  投げるはず('月の形が違うと止まる', () => G.baitoSaveNeeds(T2, 店.id, '2026年11月', {}), '月の形');
+
+  // ----- 自動で組む -----
+  {
+    const r = G.baitoGenerate(T2, 店.id, '2026-11', false);
+    確かめる('ためしでは保存しない', r.ためし === true && G.baitoLoadAll(T2, 店.id).割当.length === 0);
+    確かめる('必要人数ぶん組む（3日×2人＝6）', r.count === 6, String(r.count));
+    確かめる('必要人数を書いていない日には入れない',
+      r.cells.every((c) => [日(2), 日(3), 日(4)].indexOf(c.date) >= 0), JSON.stringify(r.cells.map((c) => c.date)));
+    確かめる('同じ日に同じ人を2回入れない',
+      [日(2), 日(3), 日(4)].every((d) => {
+        const 人 = r.cells.filter((c) => c.date === d).map((c) => c.memberId);
+        return 人.length === new Set(人).size;
+      }));
+  }
+
+  G.baitoGenerate(T2, 店.id, '2026-11', true);
+  {
+    const d = G.baitoLoadAll(T2, 店.id);
+    確かめる('保存すると割当に入る', d.割当.length === 6, String(d.割当.length));
+    const 数 = {};
+    d.割当.forEach((x) => { 数[x.memberId] = (数[x.memberId] || 0) + 1; });
+    確かめる('1か月の上限（2回）を超えない',
+      Object.keys(数).every((k) => 数[k] <= 2), JSON.stringify(数));
+    確かめる('回数の少ない人から入る（回数0の人が先）',
+      d.counts.filter((c) => c.回数 > 0).length === Object.keys(数).length);
+  }
+
+  // ----- 作り直すと、鍵の無いぶんは入れ替わる／鍵のぶんは残る -----
+  {
+    const 前 = G.baitoLoadAll(T2, 店.id).割当.map((x) => x.date + '|' + x.memberId).sort().join();
+    // 1人だけ手で入れて鍵を付ける（11/2 に、まだ入っていない人）
+    const 入っている = new Set(G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 日(2)).map((x) => x.memberId));
+    const 手の人 = 名簿.filter((m) => !入っている.has(m.id))[0];
+    // 11/2 はもう2人いるので、いったん1人外してから手で入れる
+    const 外す = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 日(2))[0];
+    G.baitoUnassign(T2, 外す.id);
+    G.baitoAssign(T2, 店.id, 日(2), 手の人.id, '');
+    確かめる('手で入れたぶんには鍵が付く',
+      G.loadLeaves().filter((l) => l.jobId === 店.id && l.from === 日(2) && l.memberId === 手の人.id)[0].locked === true);
+
+    G.baitoGenerate(T2, 店.id, '2026-11', true);
+    const 後 = G.baitoLoadAll(T2, 店.id).割当;
+    確かめる('鍵の人は組み直しても残る',
+      後.some((x) => x.date === 日(2) && x.memberId === 手の人.id), JSON.stringify(後.filter((x) => x.date === 日(2))));
+    確かめる('組み直しても必要人数ぶんになる', 後.length === 6, String(後.length));
+    確かめる('前と同じとは限らない（順番はランダム）', typeof 前 === 'string');
+  }
+
+  // ----- 入れない人 -----
+  {
+    const 外れる = G.baitoLoadAll(T2, 店.id).割当.filter((x) => {
+      const l = G.loadLeaves().filter((y) => y.id === x.id)[0];
+      return l && !l.locked;
+    })[0];
+    const 外す人 = 外れる.memberId;
+    G.baitoSaveSkips(T2, 店.id, [外す人]);
+    確かめる('入れない人が入る', G.baitoLoadAll(T2, 店.id).skips.join() === 外す人);
+    G.baitoGenerate(T2, 店.id, '2026-11', true);
+    const 後 = G.baitoLoadAll(T2, 店.id).割当;
+    確かめる('入れない人は自動では入らない',
+      !後.some((x) => x.memberId === 外す人 && !G.loadLeaves().filter((y) => y.id === x.id)[0].locked),
+      JSON.stringify(後.filter((x) => x.memberId === 外す人)));
+    G.baitoSaveSkips(T2, 店.id, []);
+  }
+
+  // ----- 月の上限を変える -----
+  G.baitoSaveMonthMax(T2, 店.id, 1);
+  確かめる('月の上限を変えられる', G.baitoLoadAll(T2, 店.id).job.monthMax === 1);
+  投げるはず('大きすぎる上限は止まる', () => G.baitoSaveMonthMax(T2, 店.id, 40), '1 〜 31');
+  G.baitoGenerate(T2, 店.id, '2026-11', true);
+  {
+    const 数 = {};
+    G.baitoLoadAll(T2, 店.id).割当.forEach((x) => { 数[x.memberId] = (数[x.memberId] || 0) + 1; });
+    // 鍵の人は上限の外（先に入っているぶん）なので、鍵でない人が2回入らないことを見る
+    const 鍵でない = {};
+    G.loadLeaves().filter((l) => l.jobId === 店.id && !l.locked).forEach((l) => { 鍵でない[l.memberId] = (鍵でない[l.memberId] || 0) + 1; });
+    確かめる('上限1にすると、自動で入るのは1人1回まで',
+      Object.keys(鍵でない).every((k) => 鍵でない[k] <= 1), JSON.stringify(鍵でない));
+  }
+  G.baitoSaveMonthMax(T2, 店.id, 2);
+
+  // ----- 休み・ほかのバイトの日は避ける -----
+  {
+    G.baitoSaveNeeds(T2, 店.id, '2026-11', { [日(10)]: 1 });
+    G.baitoGenerate(T2, 店.id, '2026-11', true);
+    const 入った = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 日(10))[0];
+    確かめる('必要人数を消した日のぶんは消える',
+      !G.baitoLoadAll(T2, 店.id).割当.some((x) => x.date === 日(3) && !G.loadLeaves().filter((y) => y.id === x.id)[0].locked));
+    確かめる('新しく書いた日に入る', !!入った, JSON.stringify(G.baitoLoadAll(T2, 店.id).割当.map((x) => x.date)));
+    // その人を 11/11 の有給にしてから、11/11 を組む
+    G.baitoSaveNeeds(T2, 店.id, '2026-11', { [日(10)]: 1, [日(11)]: 1 });
+    const 休み = G.休みを申し込む(入った.memberId, '有給休暇', 日(11), 日(11), 'よう事');
+    G.yasumiDecide(T2, 休み.id, '承認', '');
+    G.baitoGenerate(T2, 店.id, '2026-11', true);
+    const 十一日 = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 日(11));
+    確かめる('休みの日には入れない',
+      !十一日.some((x) => x.memberId === 入った.memberId), JSON.stringify(十一日));
+  }
+
+  // ----- 合鍵が要る -----
+  投げるはず('合鍵なしでは必要人数を直せない', () => G.baitoSaveNeeds('でたらめ', 店.id, '2026-11', {}), '有効期限');
+  投げるはず('合鍵なしでは入れない人を直せない', () => G.baitoSaveSkips('でたらめ', 店.id, []), '有効期限');
+  投げるはず('合鍵なしでは上限を直せない', () => G.baitoSaveMonthMax('でたらめ', 店.id, 2), '有効期限');
+  投げるはず('合鍵なしでは組めない', () => G.baitoGenerate('でたらめ', 店.id, '2026-11', true), '有効期限');
+
+  // ----- バイトを消すと設定も消える -----
+  G.baitoDeleteJob(T2, 店.id);
+  確かめる('バイトを消すと必要人数も消える', G.loadBaitoNeeds(店.id).length === 0);
+  確かめる('バイトを消すと入れない人も消える', G.loadBaitoSkips(店.id).length === 0);
 }
 
 // ===================== まとめ =====================

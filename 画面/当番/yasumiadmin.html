@@ -71,6 +71,15 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 .who .m { font-weight: 700; font-family: var(--font-num); margin-right: var(--space-3xs); }
 .who.k-yuukyuu { border-left-color: var(--accent); }
 .who.k-baito { border-left-color: var(--warning); }
+/* 自動割り当て（2026-09-21）。マスの右上に必要人数、足りない日は色を変える */
+.cal-grid .cell .need { position: absolute; top: 2px; right: 3px; font-size: var(--text-xs); font-weight: 700; color: var(--accent-dark); }
+.cal-grid .cell.baito-cell { position: relative; }
+.cal-grid .cell.need-short { background: var(--danger-soft); }
+.cal-grid .cell.meet-day { background: var(--care-soft); }
+.cal-grid .cell .meet { display: block; font-size: var(--text-xs); color: var(--care-dark); }
+.need-row { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-xs); flex-wrap: wrap; }
+.need-row input[type="number"] { width: 4.5rem; min-width: 0; }
+.skip-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-top: var(--space-xs); }
 .who.k-kisetsu { border-left-color: var(--care); }
 .who.matteiru { border-left-style: dashed; color: var(--muted); }
 </style>
@@ -210,7 +219,63 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
           <button type="button" class="icon-btn outline" id="baitoNext" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
         <div class="cal-grid" id="baitoGrid"></div>
-        <p class="hint">日を押すと、その日に人を入れられます。</p>
+        <p class="hint">日を押すと、その日に人を入れられます。右上の数字は<b>その日に要る人数</b>です。</p>
+
+        <!--
+          自動で入れる（2026-09-21 ユーザーの指示）。
+          日ごとに要る人数を決めておき、回数の少ない人順に入れる。
+          同じ回数ならランダム。1か月に同じ人を入れるのは「月の上限」まで。
+          手で入れたぶんには鍵が付き、組み直しても動かない。
+        -->
+        <details class="fold" id="baitoAutoFold">
+          <summary>自動で入れる（要る人数を決めて、回数の少ない人から）</summary>
+          <div class="fold-body">
+            <h3 style="margin-top:0;">この月に要る人数</h3>
+            <p class="hint">
+              日を選んでから人数を入れます。<b>0にすると、その日は自動では入れません。</b>
+              大会がある日は、人数を入れていても飛ばします。
+            </p>
+            <div class="need-row">
+              <span id="needDayName" class="muted">日を選んでください</span>
+              <label for="needCount" class="visually-hidden">要る人数</label>
+              <input type="number" id="needCount" min="0" max="20" step="1" value="0">
+              <button type="button" class="small" id="needSet">この日に入れる</button>
+              <span class="sep">|</span>
+              <label for="needAll" class="inline">まとめて</label>
+              <input type="number" id="needAll" min="0" max="20" step="1" value="1" aria-label="まとめて入れる人数">
+              <button type="button" class="small secondary" id="needAllBtn">この月ぜんぶに入れる</button>
+              <button type="button" class="small secondary" id="needClearBtn">この月ぜんぶ空にする</button>
+            </div>
+            <div style="margin-top:12px;"><button type="button" id="needSave">要る人数を保存</button></div>
+            <div id="needMsg" role="status" aria-live="polite"></div>
+
+            <h3 style="margin-top:24px;">1か月に入る上限</h3>
+            <div class="need-row">
+              <input type="number" id="monthMax" min="1" max="31" step="1">
+              <span class="muted">回まで（同じ人をこの月に入れる上限。既定は2回）</span>
+              <button type="button" class="small secondary" id="monthMaxSave">上限を保存</button>
+            </div>
+            <div id="monthMaxMsg" role="status" aria-live="polite"></div>
+
+            <h3 style="margin-top:24px;">自動で入れない人</h3>
+            <p class="hint">チェックを入れた人は、自動では入りません（手では入れられます）。</p>
+            <div class="grade-picker" id="skipPicker"></div>
+            <div style="margin-top:12px;"><button type="button" class="secondary" id="skipSave">入れない人を保存</button></div>
+            <div id="skipMsg" role="status" aria-live="polite"></div>
+
+            <h3 style="margin-top:24px;">組む</h3>
+            <p class="hint">
+              <b>鍵の無いこの月のぶんを消してから組み直します。</b>手で入れたぶん（鍵つき）はそのまま残ります。<br>
+              休み・ほかのバイトと重なる日、大会がある日には入れません。
+            </p>
+            <div class="row tight">
+              <button type="button" id="autoRun">この月を自動で入れる</button>
+              <button type="button" class="secondary" id="autoPreview">組んで中身だけ見る（保存しない）</button>
+            </div>
+            <div id="autoMsg" role="status" aria-live="polite"></div>
+            <div id="autoPreviewBox"></div>
+          </div>
+        </details>
 
         <div id="baitoDay" style="display:none;margin-top:16px;">
           <h3 id="baitoDayTitle"></h3>
@@ -521,14 +586,26 @@ $('addBtn').addEventListener('click', async () => {
   回数は副将だけが見る。部員の画面にはバイト先の名前しか出さない。
 */
 let BAITO = null;       // baitoLoadAll の返り
+let 必要人数 = {};       // 日付 → 要る人数（保存するまでは画面のぶん。2026-09-21）
+let 入れない人 = {};     // 部員ID → true
 let バイト月 = '';
 let 選んだ日 = '';
 
 const バイトの人 = () => (BAITO && BAITO.members) || [];
 const 人を名前で引く = (名) => バイトの人().filter((m) => m.name === String(名 || '').trim())[0] || null;
 
+// サーバから来た中身を、画面で直す用の形に写す
+function 自動の中身を入れる() {
+  必要人数 = Object.assign({}, (BAITO && BAITO.needs) || {});
+  入れない人 = {};
+  ((BAITO && BAITO.skips) || []).forEach((id) => { 入れない人[id] = true; });
+  const 上限 = (BAITO && BAITO.job && BAITO.job.monthMax) || (BAITO && BAITO.月の上限の既定) || 2;
+  if ($('monthMax')) $('monthMax').value = 上限;
+}
+
 async function バイトを読む(jobId) {
   BAITO = await call('baitoLoadAll', TOKEN, jobId || '');
+  自動の中身を入れる();
   回数を編集中 = false;   // バイトを切り替えたら、編集はやめる
   バイトを描く();
   return BAITO;
@@ -579,14 +656,149 @@ function バイトのカレンダーを出す() {
   for (let d = 1; d <= 末日; d++) {
     const key = y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
     const 面々 = 日ごと[key] || [];
+    // 要る人数（2026-09-21）。足りない日は色を変えて、ひと目で分かるようにする
+    const 要る = Number(必要人数[key] || 0);
+    const 足りない = 要る > 面々.length;
     html += '<div class="cell baito-cell' + (key === (BAITO.today || '') ? ' today' : '') +
-      (key === 選んだ日 ? ' picked' : '') + '" data-day="' + key + '" role="button" tabindex="0">' +
+      (key === 選んだ日 ? ' picked' : '') + (足りない ? ' need-short' : '') + '" data-day="' + key + '" role="button" tabindex="0"' +
+      (要る ? ' aria-label="' + d + '日　' + 面々.length + '人／' + 要る + '人ほしい"' : '') + '>' +
       '<span class="d">' + d + '</span>' +
+      (要る ? '<span class="need">' + 面々.length + '/' + 要る + '</span>' : '') +
       面々.map((x) => '<span class="who k-baito">' + esc(x.name) + '</span>').join('') +
       '</div>';
   }
   $('baitoGrid').innerHTML = html;
+  自動の欄を描く();
 }
+
+/* ---------- 自動で入れる（2026-09-21 ユーザーの指示） ---------- */
+
+function 自動の欄を描く() {
+  if (!$('skipPicker')) return;
+  // 選んでいる日の「要る人数」
+  const 日名 = 選んだ日
+    ? (Number(選んだ日.slice(5, 7)) + '月' + Number(選んだ日.slice(8)) + '日')
+    : '';
+  $('needDayName').textContent = 選んだ日 ? 日名 + ' に要る人数' : '日を選んでください';
+  if (選んだ日) $('needCount').value = Number(必要人数[選んだ日] || 0);
+
+  // 入れない人（名前を押すと切り替わる）
+  $('skipPicker').innerHTML = 学年ごと(バイトの人()).map((g) =>
+    '<div class="grade-group"><div class="grade-head">' + esc(g.見出し) + '</div><div class="grade-grid">' +
+    g.人.map((m) =>
+      '<button type="button" class="pick-name" data-skip="' + esc(m.id) + '" aria-pressed="' + !!入れない人[m.id] + '"' +
+      ' title="' + esc(m.name) + (入れない人[m.id] ? '（自動では入れない。押すと戻す）' : '（押すと自動で入れないようにする）') + '">' +
+      esc(m.name) + '</button>').join('') +
+    '</div></div>').join('');
+
+  const 合計 = Object.keys(必要人数).filter((d) => d.slice(0, 7) === バイト月).reduce((a, d) => a + Number(必要人数[d] || 0), 0);
+  $('needMsg').innerHTML = '<p class="hint" style="margin:8px 0 0;">この月に要る人数の合計：' + 合計 + '人ぶん</p>';
+}
+
+const この月の日 = () => {
+  const y = Number(バイト月.slice(0, 4));
+  const m = Number(バイト月.slice(5, 7));
+  const out = [];
+  for (let d = 1; d <= new Date(y, m, 0).getDate(); d++) out.push(バイト月 + '-' + ('0' + d).slice(-2));
+  return out;
+};
+
+$('skipPicker').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-skip]');
+  if (!b) return;
+  const id = b.dataset.skip;
+  if (入れない人[id]) delete 入れない人[id]; else 入れない人[id] = true;
+  自動の欄を描く();
+});
+
+$('needSet').addEventListener('click', () => {
+  if (!選んだ日) return void 知らせ('needMsg', 'warning', '先にカレンダーの日を押してください。');
+  const n = Math.max(0, Number($('needCount').value) || 0);
+  if (n) 必要人数[選んだ日] = n; else delete 必要人数[選んだ日];
+  バイトのカレンダーを出す();
+  部品.光らせる([$('baitoGrid').querySelector('[data-day="' + 選んだ日 + '"]')]);
+});
+
+$('needAllBtn').addEventListener('click', () => {
+  const n = Math.max(0, Number($('needAll').value) || 0);
+  この月の日().forEach((d) => { if (n) 必要人数[d] = n; else delete 必要人数[d]; });
+  バイトのカレンダーを出す();
+});
+
+$('needClearBtn').addEventListener('click', () => {
+  この月の日().forEach((d) => { delete 必要人数[d]; });
+  バイトのカレンダーを出す();
+});
+
+$('needSave').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  const 送る = {};
+  この月の日().forEach((d) => { if (必要人数[d]) 送る[d] = 必要人数[d]; });
+  try {
+    BAITO = await call('baitoSaveNeeds', TOKEN, BAITO.job.id, バイト月, 送る);
+    自動の中身を入れる();
+    バイトのカレンダーを出す();
+    知らせ('needMsg', 'success', '要る人数を保存しました。');
+  } catch (e) { 知らせ('needMsg', 'error', (e && e.message) || e); }
+});
+
+$('monthMaxSave').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  try {
+    BAITO = await call('baitoSaveMonthMax', TOKEN, BAITO.job.id, Number($('monthMax').value) || 2);
+    自動の中身を入れる();
+    知らせ('monthMaxMsg', 'success', '1か月に入る上限を ' + BAITO.job.monthMax + ' 回にしました。');
+  } catch (e) { 知らせ('monthMaxMsg', 'error', (e && e.message) || e); }
+});
+
+$('skipSave').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  try {
+    BAITO = await call('baitoSaveSkips', TOKEN, BAITO.job.id, Object.keys(入れない人));
+    自動の中身を入れる();
+    自動の欄を描く();
+    知らせ('skipMsg', 'success', '自動で入れない人を ' + (BAITO.skips || []).length + ' 人にしました。');
+  } catch (e) { 知らせ('skipMsg', 'error', (e && e.message) || e); }
+});
+
+async function 自動で入れる(保存する) {
+  if (!BAITO || !BAITO.job) return;
+  $('autoPreviewBox').innerHTML = '';
+  try {
+    const r = await call('baitoGenerate', TOKEN, BAITO.job.id, バイト月, !!保存する);
+    if (保存する) {
+      BAITO = r;
+      自動の中身を入れる();
+      // 選んでいる日の欄は開いたままにする（そこから続けて直せるように）
+      if (選んだ日) その日を出す(選んだ日); else バイトのカレンダーを出す();
+      バイトの回数を出す();
+      知らせ('autoMsg', 'success', '入れました（新しく ' + r.入れた + '人ぶん。鍵のぶん ' + r.残した + '人はそのまま）。');
+      部品.光らせる([$('baitoGrid')]);
+    } else {
+      知らせ('autoMsg', 'success', '組んでみました（' + r.count + '人ぶん）。保存はしていません。');
+      const 日ごと = {};
+      (r.cells || []).forEach((c) => { (日ごと[c.date] = 日ごと[c.date] || []).push(c.name); });
+      $('autoPreviewBox').innerHTML = '<div class="baito-day-list" style="display:block;margin-top:10px;">' +
+        Object.keys(日ごと).sort().map((d) =>
+          '<div><b>' + Number(d.slice(5, 7)) + '/' + Number(d.slice(8)) + '</b>　' + esc(日ごと[d].join('・')) + '</div>').join('') +
+        '</div>';
+    }
+    自動の知らせを出す(r.warnings);
+  } catch (e) { 知らせ('autoMsg', 'error', (e && e.message) || e); }
+}
+
+function 自動の知らせを出す(list) {
+  const w = list || [];
+  if (!w.length) return;
+  $('autoPreviewBox').innerHTML = '<div class="msg warning" style="margin-top:10px;">' +
+    w.map((x) => esc(x.text)).join('<br>') + '</div>' + $('autoPreviewBox').innerHTML;
+}
+
+$('autoRun').addEventListener('click', () => {
+  if (!confirm('この月の、鍵の無いぶんを消してから組み直します。よろしいですか？')) return;
+  自動で入れる(true);
+});
+$('autoPreview').addEventListener('click', () => 自動で入れる(false));
 
 $('baitoGrid').addEventListener('click', (e) => {
   const c = e.target.closest('[data-day]');
