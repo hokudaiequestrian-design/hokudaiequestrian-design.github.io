@@ -792,7 +792,36 @@ function 模擬で答える(req) {
   確かめる('「自動で入れる」の欄がある', await page.$eval('#baitoAutoFold', (d) => d.open));
   確かめる('1か月の上限のはじめの値は2', (await page.$eval('#monthMax', (i) => i.value)) === '2');
 
-  // 日を選んで、要る人数を入れる
+  // マスの ＋ − で、その日の人数を直せる（2026-09-21 ユーザーの指示）
+  await page.click('[data-need-up="2030-09-22"]');
+  確かめる('マスの ＋ でその日の人数が増える',
+    /0\/1/.test(await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent)),
+    await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent));
+  確かめる('＋ を押してもその日の欄は開かない',
+    (await page.$eval('#baitoDay', (el) => el.style.display)) === 'none');
+  await page.click('[data-need-down="2030-09-22"]');
+  確かめる('マスの − で戻る（0なら「−」）',
+    /−/.test(await page.$eval('[data-day="2030-09-22"] .need-pm .n', (el) => el.textContent)),
+    await page.$eval('[data-day="2030-09-22"] .need-pm .n', (el) => el.textContent));
+
+  // 曜日ごとにまとめて入れる（2026-09-21 ユーザーの指示）。2030-09-22 は日曜
+  await page.$eval('#dow6', (i) => { i.value = '2'; });
+  await page.click('#dowSet');
+  await page.waitForFunction(() => /曜日ごとに/.test(document.getElementById('needMsg').textContent), { timeout: 10000 });
+  確かめる('曜日ごとに入れると、その曜日の日だけ入る',
+    /0\/2/.test(await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent)) &&
+    /0\/2/.test(await page.$eval('[data-day="2030-09-29"]', (el) => el.textContent)),
+    await page.$eval('[data-day="2030-09-22"]', (el) => el.textContent));
+  確かめる('ほかの曜日は変わらない',
+    /−/.test(await page.$eval('[data-day="2030-09-23"] .need-pm .n', (el) => el.textContent)),
+    await page.$eval('[data-day="2030-09-23"] .need-pm .n', (el) => el.textContent));
+  await page.click('#dowClear');
+  確かめる('曜日の欄を空にできる', (await page.$eval('#dow6', (i) => i.value)) === '');
+
+  // 日を選んで、要る人数を入れる（9/29 のぶんは消して、9/22 だけ2人にする）
+  await page.click('[data-day="2030-09-29"]');
+  await page.$eval('#needCount', (i) => { i.value = '0'; });
+  await page.click('#needSet');
   await page.click('[data-day="2030-09-22"]');
   await page.waitForFunction(() => /9月22日/.test(document.getElementById('needDayName').textContent), { timeout: 10000 });
   await page.$eval('#needCount', (i) => { i.value = '2'; });

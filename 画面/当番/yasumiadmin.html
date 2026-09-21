@@ -73,6 +73,19 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 .who.k-baito { border-left-color: var(--warning); }
 /* 自動割り当て（2026-09-21）。マスの右上に必要人数、足りない日は色を変える */
 .cal-grid .cell .need { position: absolute; top: 2px; right: 3px; font-size: var(--text-xs); font-weight: 700; color: var(--accent-dark); }
+/* マスの中で要る人数を増やす・減らす（2026-09-21 ユーザーの指示。当番の人数調整と同じ触り心地に） */
+.need-pm { position: absolute; top: 0; right: 0; display: flex; align-items: center; gap: 1px; }
+.need-pm button {
+  min-width: 18px; width: 18px; min-height: 18px; height: 18px; padding: 0; border-radius: 4px;
+  border: 1px solid var(--rule-strong); background: var(--paper-2); color: var(--accent-dark);
+  font-size: 12px; line-height: 1; font-weight: 700; cursor: pointer;
+}
+.need-pm button:hover { background: var(--accent-soft); border-color: var(--accent); }
+.need-pm .n { font-size: var(--text-xs); font-weight: 700; color: var(--accent-dark); min-width: 1.6em; text-align: center; }
+.dow-row { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: flex-end; }
+.dow-row .one { display: flex; flex-direction: column; align-items: center; }
+.dow-row .one label { font-size: var(--text-xs); margin: 0; }
+.dow-row .one input { width: 3.2rem; min-width: 0; text-align: center; }
 .cal-grid .cell.baito-cell { position: relative; }
 .cal-grid .cell.need-short { background: var(--danger-soft); }
 .cal-grid .cell.meet-day { background: var(--care-soft); }
@@ -235,6 +248,9 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
               日を選んでから人数を入れます。<b>0にすると、その日は自動では入れません。</b>
               大会がある日は、人数を入れていても飛ばします。
             </p>
+            <p class="hint">
+              <b>カレンダーのマスの ＋ と − で、その日の人数を直せます。</b>下の欄でまとめて入れることもできます。
+            </p>
             <div class="need-row">
               <span id="needDayName" class="muted">日を選んでください</span>
               <label for="needCount" class="visually-hidden">要る人数</label>
@@ -245,6 +261,13 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
               <input type="number" id="needAll" min="0" max="20" step="1" value="1" aria-label="まとめて入れる人数">
               <button type="button" class="small secondary" id="needAllBtn">この月ぜんぶに入れる</button>
               <button type="button" class="small secondary" id="needClearBtn">この月ぜんぶ空にする</button>
+            </div>
+            <!-- 曜日ごとにまとめて（2026-09-21 ユーザーの指示）。毎週おなじ形のときはこちらが速い -->
+            <p class="hint" style="margin-top:12px;">曜日ごとにまとめて入れる（空欄の曜日はそのまま）</p>
+            <div class="dow-row" id="dowRow"></div>
+            <div class="row tight" style="margin-top:8px;">
+              <button type="button" class="small secondary" id="dowSet">この曜日の人数にする</button>
+              <button type="button" class="small secondary" id="dowClear">曜日の欄を空にする</button>
             </div>
             <div style="margin-top:12px;"><button type="button" id="needSave">要る人数を保存</button></div>
             <div id="needMsg" role="status" aria-live="polite"></div>
@@ -678,11 +701,16 @@ function バイトのカレンダーを出す() {
     // 要る人数（2026-09-21）。足りない日は色を変えて、ひと目で分かるようにする
     const 要る = Number(必要人数[key] || 0);
     const 足りない = 要る > 面々.length;
+    // マスの中で増減できる（2026-09-21 ユーザーの指示）。押してもその日は開かない（下で止める）
+    const 増減 = '<span class="need-pm">' +
+      '<button type="button" data-need-down="' + key + '" aria-label="' + d + '日の要る人数を1人減らす" title="1人減らす">−</button>' +
+      '<span class="n">' + (要る ? 面々.length + '/' + 要る : '−') + '</span>' +
+      '<button type="button" data-need-up="' + key + '" aria-label="' + d + '日の要る人数を1人増やす" title="1人増やす">＋</button>' +
+      '</span>';
     html += '<div class="cell baito-cell' + (key === (BAITO.today || '') ? ' today' : '') +
       (key === 選んだ日 ? ' picked' : '') + (足りない ? ' need-short' : '') + '" data-day="' + key + '" role="button" tabindex="0"' +
       (要る ? ' aria-label="' + d + '日　' + 面々.length + '人／' + 要る + '人ほしい"' : '') + '>' +
-      '<span class="d">' + d + '</span>' +
-      (要る ? '<span class="need">' + 面々.length + '/' + 要る + '</span>' : '') +
+      '<span class="d">' + d + '</span>' + 増減 +
       面々.map((x) => '<span class="who k-baito">' + esc(x.name) + '</span>').join('') +
       '</div>';
   }
@@ -721,6 +749,13 @@ function 自動の欄を描く() {
       ' title="' + esc(m.name) + (入れない人[m.id] ? '（自動では入れない。押すと戻す）' : '（押すと自動で入れないようにする）') + '">' +
       esc(m.name) + '</button>').join('') +
     '</div></div>').join('');
+
+  // 曜日ごとにまとめて入れる欄（2026-09-21）。はじめは空で、入れた曜日だけに効く
+  if (!$('dowRow').children.length) {
+    $('dowRow').innerHTML = ['月', '火', '水', '木', '金', '土', '日'].map((w, i) =>
+      '<span class="one"><label for="dow' + i + '">' + w + '</label>' +
+      '<input type="number" id="dow' + i + '" data-dow="' + i + '" min="0" max="20" step="1" placeholder="—" aria-label="' + w + '曜に要る人数"></span>').join('');
+  }
 
   const 合計 = Object.keys(必要人数).filter((d) => d.slice(0, 7) === バイト月).reduce((a, d) => a + Number(必要人数[d] || 0), 0);
   $('needMsg').innerHTML = '<p class="hint" style="margin:8px 0 0;">この月に要る人数の合計：' + 合計 + '人ぶん</p>';
@@ -772,6 +807,25 @@ $('needSet').addEventListener('click', () => {
   if (n) 必要人数[選んだ日] = n; else delete 必要人数[選んだ日];
   バイトのカレンダーを出す();
   部品.光らせる([$('baitoGrid').querySelector('[data-day="' + 選んだ日 + '"]')]);
+});
+
+$('dowSet').addEventListener('click', () => {
+  let 入れた = 0;
+  この月の日().forEach((d) => {
+    const 曜 = (new Date(d + 'T00:00:00').getDay() + 6) % 7;   // 月曜=0
+    const 欄 = $('dow' + 曜);
+    if (!欄 || 欄.value === '') return;                        // 空欄の曜日はそのまま
+    const n = Math.max(0, Math.min(20, Number(欄.value) || 0));
+    if (n) 必要人数[d] = n; else delete 必要人数[d];
+    入れた++;
+  });
+  バイトのカレンダーを出す();
+  知らせ('needMsg', 入れた ? 'success' : 'warning',
+    入れた ? '曜日ごとに ' + 入れた + '日ぶん入れました。保存を押すと決まります。' : '曜日の欄に人数を入れてから押してください。');
+});
+
+$('dowClear').addEventListener('click', () => {
+  Array.prototype.forEach.call(document.querySelectorAll('#dowRow [data-dow]'), (el) => { el.value = ''; });
 });
 
 $('needAllBtn').addEventListener('click', () => {
@@ -856,6 +910,20 @@ $('autoRun').addEventListener('click', () => {
 $('autoPreview').addEventListener('click', () => 自動で入れる(false));
 
 $('baitoGrid').addEventListener('click', (e) => {
+  // マスの中の ＋ − は、その日を開かずに人数だけ変える（2026-09-21）
+  const 増 = e.target.closest('[data-need-up]');
+  const 減 = e.target.closest('[data-need-down]');
+  if (増 || 減) {
+    e.stopPropagation();
+    const key = 増 ? 増.dataset.needUp : 減.dataset.needDown;
+    const 今 = Number(必要人数[key] || 0);
+    const 次 = Math.max(0, Math.min(20, 今 + (増 ? 1 : -1)));
+    if (次) 必要人数[key] = 次; else delete 必要人数[key];
+    バイトのカレンダーを出す();
+    知らせ('needMsg', '', '');
+    自動の欄を描く();
+    return;
+  }
   const c = e.target.closest('[data-day]');
   if (c) その日を出す(c.dataset.day);
 });

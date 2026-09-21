@@ -2179,6 +2179,85 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
     G.baitoSaveCount(T2, 店.id, 三年.id, 0);
   }
 
+  /*
+    先に出る人を決めて、日付はランダムに配る（2026-09-21 ユーザーの指示で作り直した）。
+      1段目：その月に要る人数の合計ぶんを、順位の上の人から取る（1人は月の上限まで）
+      2段目：取った人を、人が要る日の中へランダムに配る
+  */
+  {
+    const 師走 = (n) => '2026-12-' + ('0' + n).slice(-2);
+    // 人を3人にして、12/1〜12/3 に1人ずつ（合計3人ぶん）
+    const 三人 = 名簿.slice(0, 3);
+    G.baitoSaveSkips(T2, 店.id, 名簿.filter((m) => 三人.every((x) => x.id !== m.id)).map((m) => m.id));
+    G.baitoSaveGradeGaps(T2, 店.id, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+    G.baitoSaveMonthMax(T2, 店.id, 2);
+    三人.forEach((m) => G.baitoSaveCount(T2, 店.id, m.id, 0));
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', { [師走(1)]: 1, [師走(2)]: 1, [師走(3)]: 1 });
+
+    G.baitoGenerate(T2, 店.id, '2026-12', true);
+    {
+      const 割 = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date.slice(0, 7) === '2026-12');
+      確かめる('要る人数の合計ぶんだけ入る', 割.length === 3, String(割.length));
+      確かめる('要る日にだけ入る',
+        割.every((x) => [師走(1), 師走(2), 師走(3)].indexOf(x.date) >= 0), JSON.stringify(割.map((x) => x.date)));
+      確かめる('1日に1人ずつ（同じ日に同じ人を2回入れない）',
+        [師走(1), 師走(2), 師走(3)].every((d) => 割.filter((x) => x.date === d).length === 1));
+      確かめる('3人しかいないので、3人とも1回ずつ出る',
+        new Set(割.map((x) => x.memberId)).size === 3, JSON.stringify(割.map((x) => x.name)));
+    }
+
+    // 合計が人数を超えると、1人が月の上限（2回）まで重なる
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', { [師走(1)]: 1, [師走(2)]: 1, [師走(3)]: 1, [師走(4)]: 1, [師走(5)]: 1 });
+    G.baitoGenerate(T2, 店.id, '2026-12', true);
+    {
+      const 割 = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date.slice(0, 7) === '2026-12');
+      const 数 = {};
+      割.forEach((x) => { 数[x.memberId] = (数[x.memberId] || 0) + 1; });
+      確かめる('5人ぶん要るなら5つ入る', 割.length === 5, String(割.length));
+      確かめる('1人は月の上限（2回）まで重なる',
+        Object.keys(数).every((k) => 数[k] <= 2) && Object.values(数).filter((n) => n === 2).length === 2,
+        JSON.stringify(数));
+    }
+
+    // 上限を超えると足りないと知らせる（3人×2回＝6が上限なのに7人ぶん要る）
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', [1, 2, 3, 4, 5, 6, 7].reduce((o, n) => { o[師走(n)] = 1; return o; }, {}));
+    {
+      const r = G.baitoGenerate(T2, 店.id, '2026-12', false);
+      確かめる('取れるぶんまでしか入れない（3人×2回＝6）', r.count === 6, String(r.count));
+      確かめる('足りないと知らせる',
+        (r.warnings || []).some((w) => /出る人が足りません/.test(w.text)), JSON.stringify(r.warnings));
+    }
+
+    // 日付はランダムに配る（同じ組み合わせでも並びが毎回同じとは限らない）
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', { [師走(1)]: 1, [師走(2)]: 1, [師走(3)]: 1 });
+    {
+      const 並び = [];
+      for (let i = 0; i < 12; i++) {
+        const r = G.baitoGenerate(T2, 店.id, '2026-12', false);
+        並び.push(r.cells.slice().sort((a, b) => (a.date < b.date ? -1 : 1)).map((c) => c.memberId).join('|'));
+      }
+      確かめる('日付への配り方はランダム（12回で2通り以上出る）',
+        new Set(並び).size > 1, JSON.stringify([...new Set(並び)].length));
+    }
+
+    // 休みの日は避けて配る
+    {
+      const 休む人 = 三人[0];
+      const 休み = G.休みを申し込む(休む人.id, '有給休暇', 師走(1), 師走(1), 'よう事');
+      G.yasumiDecide(T2, 休み.id, '承認', '');
+      G.baitoGenerate(T2, 店.id, '2026-12', true);
+      const 割 = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 師走(1));
+      確かめる('休みの日には配らない',
+        !割.some((x) => x.memberId === 休む人.id), JSON.stringify(割.map((x) => x.name)));
+      G.yasumiDeleteLeave(T2, 休み.id);
+    }
+
+    // 片付け
+    G.baitoSaveSkips(T2, 店.id, []);
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', {});
+    G.baitoGenerate(T2, 店.id, '2026-12', true);
+  }
+
   // ----- バイトを消すと設定も消える -----
   G.baitoDeleteJob(T2, 店.id);
   確かめる('バイトを消すと必要人数も消える', G.loadBaitoNeeds(店.id).length === 0);
