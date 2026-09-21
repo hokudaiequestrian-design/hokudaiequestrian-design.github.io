@@ -149,9 +149,21 @@
             <div class="menu-list" role="menu">
               <button type="button" class="menu-item" role="menuitem" id="editEventBtn" title="この大会の競技や仕事を直します"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>大会を編集</button>
               <button type="button" class="menu-item" role="menuitem" id="exportBtn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>Excelに書き出す</button>
+              <div class="menu-sep"></div>
+              <!-- 公開の切り替え（2026-09-21 ユーザーの指示）。ようすは下の帯に出す -->
+              <button type="button" class="menu-item" role="menuitem" id="boardPublishBtn"></button>
             </div>
           </details>
         </div>
+      </div>
+      <!--
+        公開の切り替え（2026-09-21 ユーザーの指示）。
+        人員表はこのタブで仕上げるので、大会一覧まで戻らずにここから公開できるようにする。
+        中身は大会一覧のボタンと同じ togglePublish。
+      -->
+      <div class="row tight" id="boardPublishRow" style="display:none;align-items:center;">
+        <span id="boardPublishState"></span>
+        <span class="muted" id="boardPublishHint"></span>
       </div>
       <div id="boardMsg"></div>
       <p class="hint">「自動生成」は結果を保存します。固定したマス（左に茶色の線）は残したまま組み直します。まだ出欠を出していない人を下の欄で仮に「来る」にしておくと、その前提で組めます（出欠シートには書き込まれません）。</p>
@@ -792,7 +804,7 @@ function renderEvents() {
     return '<div class="list-item is-row" data-row="' + ev.id + '"><div><strong>' + esc(ev.name) + '</strong> ' + 印 + '<br><span class="muted">' +
       esc(期間) + '／全' + comps.length + '競技／仕事' + jobs.length + '件</span></div>' +
       '<div class="row-actions">' +
-      '<button type="button" class="secondary small" data-publish="' + ev.id + '" onclick="togglePublish(\'' + ev.id + '\')">' +
+      '<button type="button" class="secondary small" data-publish="' + ev.id + '" onclick="togglePublish(\'' + ev.id + '\', \'eventMsg\')">' +
       (ev.open ? '公開をやめる' : '部員に公開する') + '</button>' +
       アイコンボタン('edit', ev.name + 'を編集', 'editEvent(\'' + ev.id + '\')') +
       アイコンボタン('trash', ev.name + 'を削除', 'deleteEvent(\'' + ev.id + '\')', 'danger') +
@@ -805,7 +817,30 @@ function renderEvents() {
   公開すると、部員の「人員表を見る」に表が出て、みんなのカレンダーの大会のマスも
   「大」から仕事の1文字（出・下・運…）に変わる。公開するまでは作りかけとして隠す。
 */
-window.togglePublish = async (id) => {
+/*
+  公開のようすを、人員表タブの帯に出す（2026-09-21 ユーザーの指示）。
+  人員表はこのタブで仕上げるので、大会一覧まで戻らずにここから公開できるようにする。
+  大会を選んでいないときは帯ごと出さない。
+*/
+function renderBoardPublish() {
+  const 行 = $('boardPublishRow');
+  if (!行) return;
+  const ev = ALL.events.filter((x) => x.id === $('boardEventSelect').value)[0];
+  if (!ev) { 行.style.display = 'none'; return; }
+  行.style.display = 'flex';
+  $('boardPublishState').innerHTML = ev.open
+    ? '<span class="pill yes">部員に公開中</span>'
+    : '<span class="pill no">まだ公開していません</span>';
+  const b = $('boardPublishBtn');
+  b.textContent = ev.open ? '公開をやめる' : '部員に公開する';
+  b.setAttribute('data-publish-board', ev.id);
+  $('boardPublishHint').textContent = ev.open
+    ? '部員の「人員表を見る」と、みんなのカレンダーに出ています。'
+    : '公開するまで、部員には出ません（カレンダーは「大」のまま）。';
+}
+
+// 場所＝知らせを出す先。大会一覧からは eventMsg、人員表タブからは boardMsg
+window.togglePublish = async (id, 場所) => {
   const ev = ALL.events.filter((x) => x.id === id)[0];
   if (!ev) return;
   const 次 = !ev.open;
@@ -816,11 +851,16 @@ window.togglePublish = async (id) => {
     await call('adminSetEventOpen', TOKEN, ev.id, 次);
     ev.open = 次;
     renderEvents();
-    show($('eventMsg'), 'success', 次
+    renderBoardPublish();
+    show($(場所 || 'eventMsg'), 'success', 次
       ? '「' + ev.name + '」の人員表を公開しました。部員の「人員表を見る」と、みんなのカレンダーに出ます。'
       : '「' + ev.name + '」の公開をやめました。部員には出なくなります。');
-  } catch (e) { handleError($('eventMsg'), e); }
+  } catch (e) { handleError($(場所 || 'eventMsg'), e); }
 };
+
+$('boardPublishBtn').addEventListener('click', () => {
+  togglePublish($('boardEventSelect').value, 'boardMsg');
+});
 
 function fillEventSelects() {
   [$('entryEventSelect'), $('boardEventSelect')].forEach((sel) => {
@@ -829,6 +869,7 @@ function fillEventSelects() {
       ALL.events.map((e) => '<option value="' + e.id + '">' + esc(e.name) + '</option>').join('');
     if (cur && ALL.events.some((e) => e.id === cur)) sel.value = cur;
   });
+  renderBoardPublish();   // 公開のようすも出し直す（2026-09-21）
 }
 
 // ===== Excel に書き出す（2026-09-13。前はスプレッドシートに新しいシートを作っていた） =====
@@ -1113,6 +1154,7 @@ $('boardEventSelect').addEventListener('change', () => {
   }
   DIRTY = {};
   ASSUME = {};
+  renderBoardPublish();   // 公開のようすも出し直す（2026-09-21）
   loadEventData($('boardEventSelect').value, (後から) => {
     // 前回のぶんを出したあとに触り始めていたら、マスは差し替えない（触ったぶんが消えてしまう）
     if (後から && Object.keys(DIRTY).length) {
