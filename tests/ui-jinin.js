@@ -332,27 +332,25 @@ function 模擬で答える(req) {
     await page.waitForSelector('td.cell[data-key="m_001|c1"]', { timeout: 5000 });
 
     // 人員表のタブからも公開を切り替えられる（2026-09-21 ユーザーの指示）
-    確かめる('人員表のタブにも公開の帯が出る',
-      (await page.$eval('#boardPublishRow', (el) => el.style.display)) === 'flex');
+    確かめる('人員表のタブにも公開の欄が出る',
+      (await page.$eval('#boardPublishCard', (el) => el.style.display)) === 'block');
+    確かめる('切り替えは見える場所にある（⋯ の中ではない）',
+      await page.$eval('#boardPublishBtn', (b) => !b.closest('details.menu') && b.checkVisibility()));
     確かめる('いまのようすが出る（公開中）',
       /部員に公開中/.test(await page.$eval('#boardPublishState', (el) => el.textContent)),
       await page.$eval('#boardPublishState', (el) => el.textContent));
-    確かめる('切り替えは ⋯ の中にある（上のボタンは自動生成だけ）',
-      await page.$eval('#boardPublishBtn', (b) => !!b.closest('details.menu')));
-    await page.click('#boardMenu > summary');
-    確かめる('⋯ の中のボタンは「公開をやめる」',
+    確かめる('ボタンは「公開をやめる」',
       (await page.$eval('#boardPublishBtn', (b) => b.textContent.trim())) === '公開をやめる');
     await page.click('#boardPublishBtn');
-    await page.waitForFunction(() => /公開をやめました/.test(document.getElementById('boardMsg').textContent), { timeout: 10000 });
+    await page.waitForFunction(() => /公開をやめました/.test(document.getElementById('boardPublishMsg').textContent), { timeout: 10000 });
     確かめる('人員表のタブから公開をやめられる',
       JSON.stringify(模擬.公開) === JSON.stringify(['e1', false]), JSON.stringify(模擬.公開));
     確かめる('帯のようすも変わる',
       /まだ公開していません/.test(await page.$eval('#boardPublishState', (el) => el.textContent)) &&
       (await page.$eval('#boardPublishBtn', (b) => b.textContent.trim())) === '部員に公開する');
     // 部員の画面を見るので、公開に戻しておく
-    await page.click('#boardMenu > summary');
     await page.click('#boardPublishBtn');
-    await page.waitForFunction(() => /公開しました/.test(document.getElementById('boardMsg').textContent), { timeout: 10000 });
+    await page.waitForFunction(() => /公開しました/.test(document.getElementById('boardPublishMsg').textContent), { timeout: 10000 });
     確かめる('もう一度押すと公開に戻る', JSON.stringify(模擬.公開) === JSON.stringify(['e1', true]), JSON.stringify(模擬.公開));
 
 

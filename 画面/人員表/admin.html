@@ -149,24 +149,27 @@
             <div class="menu-list" role="menu">
               <button type="button" class="menu-item" role="menuitem" id="editEventBtn" title="この大会の競技や仕事を直します"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg>大会を編集</button>
               <button type="button" class="menu-item" role="menuitem" id="exportBtn"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-download"/></svg>Excelに書き出す</button>
-              <div class="menu-sep"></div>
-              <!-- 公開の切り替え（2026-09-21 ユーザーの指示）。ようすは下の帯に出す -->
-              <button type="button" class="menu-item" role="menuitem" id="boardPublishBtn"></button>
             </div>
           </details>
         </div>
       </div>
-      <!--
-        公開の切り替え（2026-09-21 ユーザーの指示）。
-        人員表はこのタブで仕上げるので、大会一覧まで戻らずにここから公開できるようにする。
-        中身は大会一覧のボタンと同じ togglePublish。
-      -->
-      <div class="row tight" id="boardPublishRow" style="display:none;align-items:center;">
-        <span id="boardPublishState"></span>
-        <span class="muted" id="boardPublishHint"></span>
-      </div>
       <div id="boardMsg"></div>
       <p class="hint">「自動生成」は結果を保存します。固定したマス（左に茶色の線）は残したまま組み直します。まだ出欠を出していない人を下の欄で仮に「来る」にしておくと、その前提で組めます（出欠シートには書き込まれません）。</p>
+    </div>
+
+    <!--
+      部員への公開（2026-09-21 ユーザーの指示）。
+      人員表はこのタブで仕上げるので、大会一覧まで戻らずにここから公開できるようにする。
+      上のカードとは分ける：あちらは「上に並ぶ文字のボタンは自動生成だけ」という決まりがあるため（2026-09-15 ヒント3）。
+      中身は大会一覧のボタンと同じ togglePublish。
+    -->
+    <div class="card" id="boardPublishCard" style="display:none;">
+      <div class="row tight" id="boardPublishRow" style="align-items:center;">
+        <span id="boardPublishState"></span>
+        <button type="button" class="secondary" id="boardPublishBtn"></button>
+        <span class="muted" id="boardPublishHint"></span>
+      </div>
+      <div id="boardPublishMsg" role="status" aria-live="polite"></div>
     </div>
 
     <div class="card" id="assumeCard" style="display:none;">
@@ -823,11 +826,11 @@ function renderEvents() {
   大会を選んでいないときは帯ごと出さない。
 */
 function renderBoardPublish() {
-  const 行 = $('boardPublishRow');
-  if (!行) return;
+  const 箱 = $('boardPublishCard');
+  if (!箱) return;
   const ev = ALL.events.filter((x) => x.id === $('boardEventSelect').value)[0];
-  if (!ev) { 行.style.display = 'none'; return; }
-  行.style.display = 'flex';
+  if (!ev) { 箱.style.display = 'none'; return; }
+  箱.style.display = 'block';
   $('boardPublishState').innerHTML = ev.open
     ? '<span class="pill yes">部員に公開中</span>'
     : '<span class="pill no">まだ公開していません</span>';
@@ -859,7 +862,7 @@ window.togglePublish = async (id, 場所) => {
 };
 
 $('boardPublishBtn').addEventListener('click', () => {
-  togglePublish($('boardEventSelect').value, 'boardMsg');
+  togglePublish($('boardEventSelect').value, 'boardPublishMsg');
 });
 
 function fillEventSelects() {
