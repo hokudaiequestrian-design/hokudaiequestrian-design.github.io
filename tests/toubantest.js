@@ -1557,11 +1557,11 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   投げるはず('合鍵なしでは見られない', () => G.baitoLoadAll('でたらめ'), '有効期限');
   投げるはず('合鍵なしでは入れられない', () => G.baitoAssign('でたらめ', 牧場.id, 休_先(6), 甲.id), '有効期限');
   投げるはず('合鍵なしでは回数を直せない', () => G.baitoSaveCount('でたらめ', 牧場.id, 甲.id, 1), '有効期限');
-  確かめる('外から呼べるのは10つ（自動割り当ての4つを足した。2026-09-21）',
+  確かめる('外から呼べるのは11（自動割り当ての5つを足した。2026-09-21）',
     ['baitoLoadAll', 'baitoSaveJob', 'baitoDeleteJob', 'baitoAssign', 'baitoUnassign', 'baitoSaveCount',
-      'baitoSaveNeeds', 'baitoSaveSkips', 'baitoSaveMonthMax', 'baitoGenerate']
+      'baitoSaveNeeds', 'baitoSaveSkips', 'baitoSaveMonthMax', 'baitoSaveGradeGaps', 'baitoGenerate']
       .every((n) => G.外から呼べる関数.indexOf(n) >= 0)
-    && G.外から呼べる関数.filter((n) => n.indexOf('baito') === 0).length === 10);
+    && G.外から呼べる関数.filter((n) => n.indexOf('baito') === 0).length === 11);
 }
 
 // ===================== 12. 朝手入れ =====================
@@ -2126,10 +2126,65 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   投げるはず('合鍵なしでは上限を直せない', () => G.baitoSaveMonthMax('でたらめ', 店.id, 2), '有効期限');
   投げるはず('合鍵なしでは組めない', () => G.baitoGenerate('でたらめ', 店.id, '2026-11', true), '有効期限');
 
+  /*
+    学年ごとの回数の差（2026-09-21 ユーザーの指示）。
+    上級生ほど多く行くので、1年を基準にした「下駄」を引いた回数で並べる。
+    同じ学年の中では、下駄が同じなので結局「回数の少ない人から」になる。
+  */
+  {
+    const d = G.baitoLoadAll(T2, 店.id);
+    確かめる('学年ごとの差の既定は1学年ごとに6',
+      d.学年差[1] === 0 && d.学年差[2] === 6 && d.学年差[3] === 12, JSON.stringify(d.学年差));
+    確かめる('刻みと学年の上限も返る', d.学年差の既定の刻み === 6 && d.学年の上限 === 6);
+
+    // 1年と3年を1人ずつ用意して、回数に差を付ける
+    const 一年 = 名簿.filter((m) => Number(m.grade) === 1)[0];
+    const 三年 = 名簿.filter((m) => Number(m.grade) === 3)[0];
+    確かめる('1年と3年が名簿にいる', !!一年 && !!三年, JSON.stringify([一年 && 一年.grade, 三年 && 三年.grade]));
+
+    // この2人だけにして、1年8回・3年12回にする
+    G.baitoSaveSkips(T2, 店.id, 名簿.filter((m) => m.id !== 一年.id && m.id !== 三年.id).map((m) => m.id));
+    G.baitoSaveCount(T2, 店.id, 一年.id, 8);
+    G.baitoSaveCount(T2, 店.id, 三年.id, 12);
+    // 鍵のぶんが残っていると邪魔なので、12月で組む（まっさらな月）
+    const 師走 = (n) => '2026-12-' + ('0' + n).slice(-2);
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', { [師走(1)]: 1 });
+    G.baitoSaveMonthMax(T2, 店.id, 2);
+
+    // 差12なら 1年8 → 実質8、3年12 → 実質0。3年が先に入る
+    G.baitoGenerate(T2, 店.id, '2026-12', true);
+    {
+      const 入った = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 師走(1));
+      確かめる('差のぶんを引いて、回数の多い3年のほうが先に入る',
+        入った.length === 1 && 入った[0].memberId === 三年.id,
+        JSON.stringify(入った.map((x) => x.name)));
+    }
+
+    // 差を0にすると、素の回数どおり1年（8回）が先になる
+    G.baitoSaveGradeGaps(T2, 店.id, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 });
+    確かめる('学年ごとの差を0にできる', G.baitoLoadAll(T2, 店.id).学年差[3] === 0);
+    G.baitoGenerate(T2, 店.id, '2026-12', true);
+    {
+      const 入った = G.baitoLoadAll(T2, 店.id).割当.filter((x) => x.date === 師走(1));
+      確かめる('差が0なら、素の回数の少ない1年が先に入る',
+        入った.length === 1 && 入った[0].memberId === 一年.id,
+        JSON.stringify(入った.map((x) => x.name)));
+    }
+
+    投げるはず('大きすぎる差は止まる', () => G.baitoSaveGradeGaps(T2, 店.id, { 2: 1000 }), '-999');
+    // 片付け
+    G.baitoSaveSkips(T2, 店.id, []);
+    G.baitoSaveNeeds(T2, 店.id, '2026-12', {});
+    G.baitoSaveCount(T2, 店.id, 一年.id, 0);
+    G.baitoSaveCount(T2, 店.id, 三年.id, 0);
+  }
+
   // ----- バイトを消すと設定も消える -----
   G.baitoDeleteJob(T2, 店.id);
   確かめる('バイトを消すと必要人数も消える', G.loadBaitoNeeds(店.id).length === 0);
   確かめる('バイトを消すと入れない人も消える', G.loadBaitoSkips(店.id).length === 0);
+  確かめる('バイトを消すと学年ごとの差も消える（既定に戻る）',
+    G.loadBaitoGradeGaps(店.id)[3] === 12, JSON.stringify(G.loadBaitoGradeGaps(店.id)));
 }
 
 // ===================== まとめ =====================

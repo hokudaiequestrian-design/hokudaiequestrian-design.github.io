@@ -70,7 +70,8 @@ const 模擬 = {
   削除の遅れ: 1500,
   // 休み（副将）とバイト
   // 自動割り当て（2026-09-21）。needs＝日ごとに要る人数、skips＝自動で入れない人
-  baito: { jobs: [], 割当: [], 調整: {}, needs: {}, skips: [], today: '2030-09-18' },
+  // 自動割り当て（2026-09-21）。needs＝日ごとに要る人数、skips＝自動で入れない人、学年差＝1年を基準にした下駄
+  baito: { jobs: [], 割当: [], 調整: {}, needs: {}, skips: [], 学年差: { 1: 0, 2: 6, 3: 12, 4: 18, 5: 24, 6: 30 }, today: '2030-09-18' },
   yasumiの全部: () => ({
     members: DATA.members, year: 2030, years: [2030], from: '2030-04-01', to: '2031-03-31',
     today: 模擬.baito.today, kinds: ['有給休暇', 'バイト', '季節休み'], states: ['申請中', '承認', '却下', '取消'],
@@ -87,6 +88,7 @@ function バイトの全部(jobId) {
   return {
     jobs: 模擬.baito.jobs, job: job, members: DATA.members, today: 模擬.baito.today,
     needs: 模擬.baito.needs, skips: 模擬.baito.skips, 月の上限の既定: 2,
+    学年差: 模擬.baito.学年差, 学年差の既定の刻み: 6, 学年の上限: 6,
     割当: 割当.map((x) => Object.assign({}, x, { name: (DATA.members.filter((m) => m.id === x.memberId)[0] || {}).name })),
     counts: DATA.members.map((m) => ({
       memberId: m.id, name: m.name, 自動: 自動[m.id] || 0,
@@ -141,6 +143,7 @@ function 模擬で答える(req) {
     return 返す({
       jobs: 模擬.baito.jobs, job: job, members: DATA.members, today: 模擬.baito.today,
       needs: 模擬.baito.needs, skips: 模擬.baito.skips, 月の上限の既定: 2,
+      学年差: 模擬.baito.学年差, 学年差の既定の刻み: 6, 学年の上限: 6,
       割当: 割当.map((x) => ({ id: x.id, date: x.date, memberId: x.memberId, name: (DATA.members.filter((m) => m.id === x.memberId)[0] || {}).name })),
       counts: DATA.members.map((m) => ({
         memberId: m.id, name: m.name,
@@ -166,6 +169,10 @@ function 模擬で答える(req) {
   }
   if (本文.fn === 'baitoSaveSkips') {
     模擬.baito.skips = (本文.args[2] || []).slice();
+    return 返す(バイトの全部(本文.args[1]));
+  }
+  if (本文.fn === 'baitoSaveGradeGaps') {
+    模擬.baito.学年差 = Object.assign({}, 本文.args[2] || {});
     return 返す(バイトの全部(本文.args[1]));
   }
   if (本文.fn === 'baitoSaveMonthMax') {
@@ -798,6 +805,24 @@ function 模擬で答える(req) {
   await page.click('#needSave');
   await page.waitForFunction(() => /保存しました/.test(document.getElementById('needMsg').textContent), { timeout: 10000 });
   確かめる('要る人数がサーバに届く', 模擬.baito.needs['2030-09-22'] === 2, JSON.stringify(模擬.baito.needs));
+
+  // 学年ごとの回数の差（2026-09-21）
+  確かめる('学年ごとの差の欄が学年のぶん出る',
+    (await page.$$('#gapRow [data-gap]')).length === 6);
+  確かめる('既定は1学年ごとに6（1年0・2年6・3年12）',
+    (await page.$eval('#gap1', (i) => i.value)) === '0' &&
+    (await page.$eval('#gap2', (i) => i.value)) === '6' &&
+    (await page.$eval('#gap3', (i) => i.value)) === '12',
+    await page.$$eval('#gapRow [data-gap]', (xs) => xs.map((x) => x.value).join(',')));
+  await page.$eval('#gapStep', (i) => { i.value = '4'; });
+  await page.click('#gapStepBtn');
+  確かめる('刻みを変えると全部入れ直る（1年0・2年4・3年8）',
+    (await page.$eval('#gap3', (i) => i.value)) === '8',
+    await page.$$eval('#gapRow [data-gap]', (xs) => xs.map((x) => x.value).join(',')));
+  await page.click('#gapSave');
+  await page.waitForFunction(() => /保存しました/.test(document.getElementById('gapMsg').textContent), { timeout: 10000 });
+  確かめる('学年ごとの差がサーバに届く',
+    Number(模擬.baito.学年差[3]) === 8, JSON.stringify(模擬.baito.学年差));
 
   // 入れない人
   await page.click('#skipPicker [data-skip="m_002"]');

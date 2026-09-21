@@ -1170,6 +1170,22 @@ a.donehome:hover { background: var(--accent-dark); }
             </div>
             <div id="monthMaxMsg" role="status" aria-live="polite"></div>
 
+            <h3 style="margin-top:24px;">学年ごとの回数の差</h3>
+            <p class="hint">
+              上級生ほど多く行くので、回数をそのまま比べると下級生ばかりが入ります。
+              <b>1年を基準にした「下駄」</b>を引いた回数で並べます（例：2年6・3年12なら、
+              2年で9回の人は実質3回、3年で14回の人は実質2回として比べます）。<br>
+              <b>同じ学年の中では、回数の少ない人から</b>入ります。
+            </p>
+            <div class="need-row" id="gapRow"></div>
+            <div class="need-row">
+              <label for="gapStep" class="inline">1学年ごとに</label>
+              <input type="number" id="gapStep" min="0" max="99" step="1" value="6">
+              <button type="button" class="small secondary" id="gapStepBtn">この刻みで入れ直す</button>
+            </div>
+            <div style="margin-top:12px;"><button type="button" class="secondary" id="gapSave">学年ごとの差を保存</button></div>
+            <div id="gapMsg" role="status" aria-live="polite"></div>
+
             <h3 style="margin-top:24px;">自動で入れない人</h3>
             <p class="hint">チェックを入れた人は、自動では入りません（手では入れられます）。</p>
             <div class="grade-picker" id="skipPicker"></div>
@@ -1538,6 +1554,7 @@ $('addBtn').addEventListener('click', async () => {
 let BAITO = null;       // baitoLoadAll の返り
 let 必要人数 = {};       // 日付 → 要る人数（保存するまでは画面のぶん。2026-09-21）
 let 入れない人 = {};     // 部員ID → true
+let 学年差 = {};         // 学年 → 下駄（1年を基準にした回数の差。2026-09-21）
 let バイト月 = '';
 let 選んだ日 = '';
 
@@ -1551,6 +1568,8 @@ function 自動の中身を入れる() {
   ((BAITO && BAITO.skips) || []).forEach((id) => { 入れない人[id] = true; });
   const 上限 = (BAITO && BAITO.job && BAITO.job.monthMax) || (BAITO && BAITO.月の上限の既定) || 2;
   if ($('monthMax')) $('monthMax').value = 上限;
+  学年差 = Object.assign({}, (BAITO && BAITO.学年差) || {});
+  if ($('gapStep')) $('gapStep').value = (BAITO && BAITO.学年差の既定の刻み) || 6;
 }
 
 async function バイトを読む(jobId) {
@@ -1632,6 +1651,18 @@ function 自動の欄を描く() {
   $('needDayName').textContent = 選んだ日 ? 日名 + ' に要る人数' : '日を選んでください';
   if (選んだ日) $('needCount').value = Number(必要人数[選んだ日] || 0);
 
+  // 学年ごとの回数の差（1年を基準にした下駄）
+  const 学年の上限 = (BAITO && BAITO.学年の上限) || 6;
+  $('gapRow').innerHTML = '';
+  for (let g = 1; g <= 学年の上限; g++) {
+    const 箱 = document.createElement('span');
+    箱.className = 'inline';
+    箱.innerHTML = '<label for="gap' + g + '">' + g + '年</label>' +
+      '<input type="number" id="gap' + g + '" data-gap="' + g + '" min="-999" max="999" step="1" style="width:4.5rem;">';
+    $('gapRow').appendChild(箱);
+    $('gap' + g).value = Number(学年差[g] || 0);
+  }
+
   // 入れない人（名前を押すと切り替わる）
   $('skipPicker').innerHTML = 学年ごと(バイトの人()).map((g) =>
     '<div class="grade-group"><div class="grade-head">' + esc(g.見出し) + '</div><div class="grade-grid">' +
@@ -1659,6 +1690,30 @@ $('skipPicker').addEventListener('click', (e) => {
   const id = b.dataset.skip;
   if (入れない人[id]) delete 入れない人[id]; else 入れない人[id] = true;
   自動の欄を描く();
+});
+
+$('gapRow').addEventListener('change', (e) => {
+  const el = e.target.closest('[data-gap]');
+  if (!el) return;
+  学年差[el.dataset.gap] = Math.round(Number(el.value) || 0);
+});
+
+$('gapStepBtn').addEventListener('click', () => {
+  const 刻み = Math.max(0, Math.round(Number($('gapStep').value) || 0));
+  const 学年の上限 = (BAITO && BAITO.学年の上限) || 6;
+  for (let g = 1; g <= 学年の上限; g++) 学年差[g] = 刻み * (g - 1);
+  自動の欄を描く();
+  知らせ('gapMsg', 'success', '1学年ごとに ' + 刻み + ' 回の差にしました。保存を押すと決まります。');
+});
+
+$('gapSave').addEventListener('click', async () => {
+  if (!BAITO || !BAITO.job) return;
+  try {
+    BAITO = await call('baitoSaveGradeGaps', TOKEN, BAITO.job.id, 学年差);
+    自動の中身を入れる();
+    自動の欄を描く();
+    知らせ('gapMsg', 'success', '学年ごとの差を保存しました。');
+  } catch (e) { 知らせ('gapMsg', 'error', (e && e.message) || e); }
 });
 
 $('needSet').addEventListener('click', () => {
