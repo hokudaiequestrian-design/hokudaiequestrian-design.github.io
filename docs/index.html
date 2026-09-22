@@ -1080,6 +1080,44 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-cal a:hover { background: var(--accent-soft); }
 .me-cal .d { font-weight: 400; font-size: var(--text-sm); color: var(--muted); margin-top: 2px; }
 
+/*
+  了承待ちの休みの知らせ（2026-09-21）。副将がログインしているあいだだけ、いちばん上に出る。
+  ここだけは**塗りつぶした赤の帯**にして、ほかの節（白地に罫線）から浮かせる。
+  色は実測ずみ：白 × --danger は 6.62:1、--danger × --danger-soft は 5.86:1（どちらも本文の4.5:1以上）。
+  色だけに頼らないよう、帯には必ず「休みの申し込みが○件 届いています」と書く。
+*/
+.me-alert {
+  margin: 0 0 var(--space-md);
+  border: 2px solid var(--danger); border-radius: var(--radius-card);
+  background: var(--danger-soft); overflow: hidden;
+}
+.me-alert .a-head {
+  margin: 0; padding: var(--space-sm) var(--space-md);
+  background: var(--danger); color: #fff;
+  font-size: var(--text-base); font-weight: 700;
+}
+.me-alert .a-head b { font-family: var(--font-num); font-size: 1.25rem; }
+.me-alert .a-list { padding: var(--space-2xs) var(--space-md); }
+.me-alert .a-row {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-sm);
+  padding: var(--space-xs) 0; border-bottom: 1px solid var(--rule);
+  font-size: var(--text-base); color: var(--ink);
+}
+.me-alert .a-row:last-child { border-bottom: 0; }
+.me-alert .who { font-weight: 700; min-width: 5em; }
+.me-alert .what { color: var(--danger); font-weight: 700; font-size: var(--text-sm); }
+.me-alert .when { font-family: var(--font-num); }
+.me-alert .days { margin-left: auto; font-family: var(--font-num); color: var(--muted); }
+.me-alert .a-more { padding: var(--space-xs) 0; font-size: var(--text-sm); color: var(--muted); }
+.me-alert .a-go {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-xs);
+  min-height: var(--tap); margin: 0 var(--space-md) var(--space-md);
+  border: 2px solid var(--danger); border-radius: var(--radius-input);
+  background: #fff; color: var(--danger); font-weight: 700; text-decoration: none;
+}
+.me-alert .a-go:hover { background: var(--danger); color: #fff; }
+.me-alert .a-go svg { width: 10px; height: 16px; }
+
 /* 副将のログイン（2026-09-15）。副将の入口でだけ出る。1回入れれば、このタブを閉じるまで副将の画面では聞かない */
 .fk-login { margin: 0 0 var(--space-sm); padding: var(--space-sm) var(--space-md); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); background: var(--paper-2); }
 .fk-login label { margin-top: 0; }
@@ -1149,6 +1187,12 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
     <path d="M2.5 19.5c.6-3.3 2.8-5 5.5-5s4.9 1.7 5.5 5"/>
     <path d="M15 7h6.5M15 11h6.5M17 15h4.5"/>
   </g>
+  <!-- 出番表（運営ツール、2026-09-22）＝番号つきの並び。表・カレンダー・名簿と見分けがつく -->
+  <g id="i-debanhyo" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5.5" cy="6" r="2"/><path d="M10.5 6h11"/>
+    <circle cx="5.5" cy="12" r="2"/><path d="M10.5 12h11"/>
+    <circle cx="5.5" cy="18" r="2"/><path d="M10.5 18h11"/>
+  </g>
   <!-- 使い方＝開いた本。ほかの印（表・カレンダー・馬・旗・月・名簿）と似ていない形にしてある -->
   <g id="i-tsukaikata" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 6.5C10.4 5.2 8.4 4.5 5.5 4.5h-3v13h3c2.9 0 4.9.7 6.5 2"/>
@@ -1185,6 +1229,23 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
         <span class="body">
           <span class="t">使い方</span>
           <span class="d">部員用・チーフ用・副将用。自分の立場のところが開きます。</span>
+        </span>
+        <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+      </a>
+    </div>
+  </section>
+
+  <!-- 運営ツール（2026-09-22 ユーザーの指示：下のほうに欄を新設）。大会の運営で使う道具。
+       部員のデータは使わないので、どの立場の入口にも出す。 -->
+  <section class="hub-group">
+    <h2>運営ツール</h2>
+    <p class="note hint">大会の運営で使う道具。名簿や出欠とはつながっていません。</p>
+    <div class="hub-list">
+      <a class="hub-link" href="debanhyo.html">
+        <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-debanhyo"/></svg></span>
+        <span class="body">
+          <span class="t">出番表を作る</span>
+          <span class="d">エントリーのzipを入れると、出番表のExcel（ふれ・障害・馬場）ができます。同じ人・同じ馬の間に何頭はさむかを決められます。パソコン向き。</span>
         </span>
         <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
       </a>
@@ -1994,6 +2055,68 @@ const API = {
     副将の各画面は、この鍵で開く（入口の鍵が無いときは、パスワードの欄ではなく入口への案内を出す）。
     ログインするまでは、まとめるほうのリンクを隠す。
   */
+  /*
+    了承待ちの休みの知らせ（2026-09-21 ユーザーの指示：副将のマイページの上のほうに、
+    わかりやすく出す）。**副将がログインしているあいだだけ**出す。だれが・いつ休むかは
+    副将の鍵が要る中身なので、パスワードを入れる前には出せない。
+    ページのいちばん上（名前を選ぶ欄より前）に置く。#meBody の外なので、
+    名前を選び直して中が描き直されても消えない。
+  */
+  const 知らせに出す数 = 5;
+
+  // 10/2（金）／10/2（金）〜10/3（土）
+  function 休みの日どり(l) {
+    const 頭 = 和風(l.from);
+    return l.to && l.to !== l.from ? 頭 + '〜' + 和風(l.to) : 頭;
+  }
+
+  function 休みの知らせの見た目(r) {
+    const 待ち = (r && r.待ち) || [];
+    if (!待ち.length) return '';
+    const 行 = 待ち.slice(0, 知らせに出す数).map((l) =>
+      '<div class="a-row">' +
+        '<span class="who">' + esc(l.name) + '</span>' +
+        '<span class="what">' + esc(l.kind) + '</span>' +
+        '<span class="when">' + esc(休みの日どり(l)) + '</span>' +
+        '<span class="days">' + esc(l.days) + '日</span>' +
+      '</div>').join('');
+    const 残り = 待ち.length - 知らせに出す数;
+    return '<div class="me-alert" role="status">' +
+      '<p class="a-head">休みの申し込みが <b>' + esc(待ち.length) + '件</b> 届いています</p>' +
+      '<div class="a-list">' + 行 +
+        (残り > 0 ? '<div class="a-more">ほか ' + esc(残り) + '件</div>' : '') +
+      '</div>' +
+      '<a class="a-go" href="yasumi-admin.html">休みをまとめる を開く' +
+        '<svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></a>' +
+    '</div>';
+  }
+
+  function 知らせの箱() {
+    let 箱 = $('meAlert');
+    if (箱) return 箱;
+    const 先頭 = document.querySelector('main .me-pick');
+    if (!先頭 || !先頭.parentNode) return null;
+    箱 = document.createElement('div');
+    箱.id = 'meAlert';
+    先頭.parentNode.insertBefore(箱, 先頭);
+    return 箱;
+  }
+
+  async function 休みの知らせを出す(当番の鍵) {
+    const 箱 = 知らせの箱();
+    if (!箱) return;
+    try {
+      箱.innerHTML = 休みの知らせの見た目(await 呼ぶ(API.当番, 'yasumiPending', [当番の鍵]));
+    } catch (e) {
+      箱.innerHTML = '';   // 読めなくても入口のほかは今までどおり使える
+    }
+  }
+
+  function 知らせを消す() {
+    const 箱 = $('meAlert');
+    if (箱) 箱.innerHTML = '';
+  }
+
   const 副将の鍵の名 = { 当番: 'fukusho:touban', 人員表: 'fukusho:jinin' };
   const 鍵を読む = (k) => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
   const 鍵を置く = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) { /* 置けなければ画面ごとに入口へ戻される */ } };
@@ -2019,9 +2142,11 @@ const API = {
       箱.innerHTML = '<p class="fk-on"><span>副将でログインしています。このタブを閉じるまで、下の画面ではパスワードを聞きません。</span>' +
         '<button type="button" class="fk-out">ログアウト</button></p>';
       箱.querySelector('.fk-out').addEventListener('click', () => { 鍵を消す(); 入っていない('ログアウトしました。'); });
+      休みの知らせを出す(鍵を読む(副将の鍵の名.当番));   // 了承待ちの休み（2026-09-21）
     }
     function 入っていない(文) {
       一覧.hidden = true;
+      知らせを消す();   // ログアウト・期限切れのあとに、前の中身を残さない
       箱.innerHTML = '<label for="fkPw">副将パスワード</label>' +
         '<div class="fk-row"><input type="password" id="fkPw" autocomplete="current-password"><button type="button" id="fkBtn">ログイン</button></div>' +
         '<p class="hint">ここで1回入れると、このタブを閉じるまで、当番・バイトと休み・部員・馬匹管理・人員表・手入れの画面ではパスワードを聞きません。</p>' +

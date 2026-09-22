@@ -360,6 +360,23 @@ function 入口を作る() {
     </div>
   </section>
 
+  <!-- 運営ツール（2026-09-22 ユーザーの指示：下のほうに欄を新設）。大会の運営で使う道具。
+       部員のデータは使わないので、どの立場の入口にも出す。 -->
+  <section class="hub-group">
+    <h2>運営ツール</h2>
+    <p class="note hint">大会の運営で使う道具。名簿や出欠とはつながっていません。</p>
+    <div class="hub-list">
+      <a class="hub-link" href="debanhyo.html">
+        <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-debanhyo"/></svg></span>
+        <span class="body">
+          <span class="t">出番表を作る</span>
+          <span class="d">エントリーのzipを入れると、出番表のExcel（ふれ・障害・馬場）ができます。同じ人・同じ馬の間に何頭はさむかを決められます。パソコン向き。</span>
+        </span>
+        <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+      </a>
+    </div>
+  </section>
+
   `;
   html = html.slice(0, 頭) + 入れ替え + html.slice(尻);
 
@@ -436,6 +453,40 @@ let 件 = 0;
   console.log('  ' + p.出す + '  ← ' + path.basename(プロジェクト) + '/' + path.basename(p.元));
   件++;
 });
+
+// ===== 運営ツール：出番表作成（2026-09-22） =====
+/*
+  原本は別プロジェクト 出番表システム の配布用1ファイル（ライブラリ埋め込み・オフラインで動く）。
+  ここでは noindex と「← マイページ」を足して写すだけ。直すときは向こうを直して
+  node build.js（向こう）→ node build.js（こちら）。サーバは呼ばない（api なし）。
+*/
+const 出番表の原本 = 'C:/Users/minuu/Documents/出番表システム/dist/出番表作成.html';
+function 出番表を写す() {
+  let html = 読む(出番表の原本);
+  const 印 = '<meta charset="UTF-8">';
+  if (html.indexOf(印) < 0) throw new Error('出番表作成.html の <meta charset> が見つからない');
+  html = html.replace(印, 印 + NL + '<meta name="robots" content="noindex, nofollow">');
+  // 見出しは、ほかのページと同じ青い帯（<header class="appbar">）にする。戻るを足す() が「← マイページ」を左上に入れる
+  const 頭 = '<header>' + NL + '  <h1>出番表作成</h1>' + NL + '  <p>';
+  const i = html.indexOf(頭), j = html.indexOf('</p>' + NL + '</header>', i);
+  if (i < 0 || j < 0) throw new Error('出番表作成.html の見出しが見つからない');
+  const 説明 = html.slice(i + 頭.length, j);
+  html = html.slice(0, i) + '<header class="appbar"><span>出番表作成</span></header>' + NL + '<p class="lead">' + 説明 + '</p>' + html.slice(j + ('</p>' + NL + '</header>').length);
+  const 帯のCSS = `<style>
+/* 馬術部サイトに置くときだけ足す帯（build.js が入れる）。戻るのCSS が使う変数もここで決める */
+:root { --z-sticky: 10; --radius-pill: 999px; --radius-input: 6px; --tap: 44px; --space-xs: 4px; --space-sm: 8px; --space-lg: 24px; --text-base: 16px; --accent: #0f5fa8; --accent-dark: #0b4a85; }
+header.appbar { display: flex; align-items: center; gap: 12px; background: var(--accent); color: #fff; padding: 10px 24px; font-size: 18px; font-weight: 700; }
+header.appbar a.backhome { color: #fff; }
+p.lead { max-width: 1100px; margin: 12px auto 0; padding: 0 16px; color: #555; font-size: 14px; }
+</style>`;
+  if (html.indexOf('</head>') < 0) throw new Error('出番表作成.html の </head> が見つからない');
+  html = html.replace('</head>', 帯のCSS + NL + '</head>');
+  html = 戻るを足す(html);
+  fs.writeFileSync(path.join(出す先, 'debanhyo.html'), html, 'utf8');
+  console.log('  debanhyo.html  ← 出番表システム/dist/出番表作成.html');
+  件++;
+}
+出番表を写す();
 
 fs.writeFileSync(path.join(出す先, 'index.html'), 入口を作る(), 'utf8');
 console.log('  index.html  ← 当番/hub.html（?role=chieflinks / admlinks で切り替え）');
