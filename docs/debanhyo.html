@@ -54,6 +54,8 @@
   table.deban tr.dragging td { border-top:2px solid var(--accent); border-bottom:2px solid var(--accent); }
   .res-head { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:baseline; }
   .edited { color:var(--warn); font-size:14px; }
+  table.ribbon { max-width:760px; margin-top:6px; }
+  table.ribbon tr.total td { font-weight:700; background:#eef1f5; }
   .hint { color:var(--sub); font-size:14px; }
   .actions { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   ul { margin:6px 0; padding-left:22px; }
@@ -113,6 +115,10 @@ a.donehome:hover { background: var(--accent-dark); }
     <label>年 <input type="number" id="year" min="2000" max="2100" style="width:6em"></label>
     <label>馬場と障害で同じ人馬が <input type="number" id="crossMin" min="0" max="240" value="30"> 分以内なら注意</label>
   </div>
+  <div>
+    <label>表彰リボンは頭数の <input type="number" id="ribbonPct" min="1" max="100" value="25"> % を切り上げ</label>
+  </div>
+  <p class="hint">25% なら 12頭→3個、13頭→4個。競技ごとの参加費は申込書の右側の一覧から読む（下の表で直せる）。リボンの表は出番表の下に画面で出すだけで、Excelには入れない。</p>
   <p class="hint">「間に何頭」＝同じ馬場（列）の中で、前の出番からその出番までに何頭はさむか。競技をまたいでも数える。足りないときは黄色で印をつけて「確認」に書く。</p>
   <div class="grid" id="arenaSettings"></div>
 </section>
@@ -269,6 +275,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // 突き合わせ用のキー
   function keyOf(s) { return clean(s).normalize('NFKC').replace(/[\s　]+/g, '').replace(/[()（）]/g, '').toLowerCase(); }
+  // 「6,000 」「８，５００円」→ 6000
+  function parseFee(v) { const d = clean(v).normalize('NFKC').replace(/[^\d]/g, ''); return d ? +d : null; }
   function toZenDigits(n) { return String(n).replace(/[0-9]/g, d => String.fromCharCode(d.charCodeAt(0) + 0xFEE0)); }
 
   // ---------- zip ----------
@@ -299,7 +307,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   async function parseEntry(name, data) {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(data);
-    const out = { file: name, team: '', event: '', dates: {}, catalogs: {}, entries: [], warnings: [] };
+    const out = { file: name, team: '', event: '', dates: {}, catalogs: {}, fees: {}, entries: [], warnings: [] };
     const ws = n => wb.getWorksheet(n);
     const nyu = ws('入厩届');
     if (nyu) { out.event = tidy(nyu.getCell('A1').value); out.team = tidy(nyu.getCell('I3').value); }
@@ -312,21 +320,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const m = title.match(/(\d{1,2})月\s*(\d{1,2})日/);
         if (m) out.dates[sq.day] = { m: +m[1], d: +m[2] };
         const cat = [];
-        let cls = '';
+        let cls = '', fee = null;
         for (let r = 3; r <= 60; r++) {
           const a = clean(sh.getCell(r, 1).value), b = clean(sh.getCell(r, 2).value), c = clean(sh.getCell(r, 3).value);
-          if (/円|合計/.test(a)) break;
+          if (/円/.test(a)) { fee = parseFee(a.split('円')[0]); break; }
+          if (/合計/.test(a)) break;
           if (a && /クラス/.test(a)) { if (a !== cls) cat.push(a); cls = a; }
           if (cls && (b || c)) out.entries.push(mkEntry(name, sq.key, sq.sheet, r, cls, b, '', c, ''));
         }
         out.catalogs[sq.key] = cat;
+        out.fees[sq.key] = {}; for (const nm of cat) out.fees[sq.key][nm] = fee;
       } else {
         const d = clean(sh.getCell('F1').value).normalize('NFKC');
         const m = d.match(/(\d{1,2})月\s*(\d{1,2})/);
         if (m) out.dates[sq.day] = { m: +m[1], d: +m[2] };
-        const cat = [];
-        for (let r = 4; r <= 27; r++) { const v = clean(sh.getCell(r, 9).value); if (v) cat.push(v); }
+        const cat = [], fees = {};
+        for (let r = 4; r <= 27; r++) { const v = clean(sh.getCell(r, 9).value); if (v) { cat.push(v); fees[v] = parseFee(sh.getCell(r, 10).value); } }
         out.catalogs[sq.key] = cat;
+        out.fees[sq.key] = fees;
         for (let r = 4; r <= 28; r++) {
           const no = clean(sh.getCell(r, 1).value);
           if (!/^\d+$/.test(no)) continue;
@@ -368,7 +379,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (const sq of SEQS) {
       const catJson = majority(teams.map(t => JSON.stringify(t.catalogs[sq.key] || [])));
       const names = catJson ? JSON.parse(catJson) : [];
-      model.seqs[sq.key] = { ...sq, comps: names.map(nm => ({ name: nm, key: keyOf(nm), entries: [] })), unmatched: [] };
+      model.seqs[sq.key] = { ...sq, comps: names.map(nm => {
+        // 参加費は申込書の右側の一覧（多数決）。リボンの大小に使う
+        const fee = majority(teams.map(t => (t.fees[sq.key] && t.fees[sq.key][nm] != null) ? String(t.fees[sq.key][nm]) : ''));
+        return { name: nm, key: keyOf(nm), fee: fee ? +fee : null, entries: [] };
+      }), unmatched: [] };
     }
     let id = 0;
     for (const t of teams) {
@@ -439,6 +454,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       gapHorse: 3,        // 同じ馬の間に何頭はさむか
       trials: 300,        // 並べ直しの試行回数
       crossArenaMinutes: 30, // 馬場と障害で同じ人馬の時刻が近いとき注意する幅（分）
+      ribbonPercent: 25,     // 表彰リボンは頭数のこの割合を切り上げ（25% なら 12頭→3、13頭→4）。参加費は競技ごとに表示するだけ
       arenas: {
         'フレンドシップ': { minutes: 2, breakEvery: 0, breakMinutes: 10, compGap: 15, courseChange: 0, preview: 15, roundTo: 5, hideTimes: true,  timeHeader: '時間', zenNo: false, numbered: false, start: { fri: '12:00' } },
         'ジャンピング':   { minutes: 2, breakEvery: 0, breakMinutes: 10, compGap: 0,  courseChange: 20, preview: 15, roundTo: 5, hideTimes: true,  timeHeader: '時刻', zenNo: false, numbered: true,  start: { sat: '7:30', sun: '8:00' } },
@@ -452,7 +468,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const code = courseCode(sq.arena, c.name);
         const newCourse = sq.arena === 'ジャンピング' ? code !== prevCode : i === 0;
         prevCode = code;
-        return { index: i, name: c.name, display: displayName(sq.arena, c.name), enabled: true, minutes: null, newCourse };
+        return { index: i, name: c.name, display: displayName(sq.arena, c.name), enabled: true, minutes: null, newCourse, fee: c.fee };
       });
     }
     return s;
@@ -510,7 +526,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const order = s.comps[seqKey] || mseq.comps.map((c, i) => ({ index: i, enabled: true }));
     return order.filter(o => o.enabled !== false).map(o => {
       const c = mseq.comps[o.index];
-      return { index: o.index, name: c.name, display: o.display || displayName(mseq.arena, c.name), entries: c.entries.filter(e => !e.skipped), minutes: o.minutes || as.minutes, newCourse: !!o.newCourse };
+      return { index: o.index, name: c.name, display: o.display || displayName(mseq.arena, c.name), entries: c.entries.filter(e => !e.skipped), minutes: o.minutes || as.minutes, newCourse: !!o.newCourse, fee: o.fee != null && o.fee !== '' ? +o.fee : c.fee };
     });
   }
 
@@ -585,6 +601,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function fmtHM(t) { const h = Math.floor(t / 60), m = t % 60; return `${h}:${String(m).padStart(2, '0')}`; }
   function roundUp(t, unit) { return unit > 0 ? Math.ceil(t / unit) * unit : t; }
 
+  // 表彰リボンの数：頭数 × 割合 を切り上げ（25% なら 12頭→3、13頭→4）
+  function ribbonCount(n, percent) { return n > 0 ? Math.ceil(n * percent / 100 - 1e-9) : 0; }
+
   // 並び（orders）から、出番番号・間隔の違反・時刻を出す。orders が無い競技はモデルの順のまま。
   // 画面で並びを変えたら orders を書き換えてもう一度呼ぶ。orders は out.orders に入れて返す（足りないぶんは補って）
   function layout(model, settings, orders) {
@@ -629,7 +648,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const blocks = [];
         for (const rc of res) {
           const c = rc.comp;
-          const block = { seqKey: sq.key, compIndex: c.index, no: c.no, name: c.name, display: c.display, rows: [], empty: rc.rows.length === 0 };
+          const n = rc.rows.length;
+          const block = { seqKey: sq.key, compIndex: c.index, no: c.no, name: c.name, display: c.display, rows: [], empty: n === 0,
+            count: n, fee: c.fee, ribbons: ribbonCount(n, s.ribbonPercent == null ? 25 : s.ribbonPercent) };
           if (block.empty) { carryNewCourse = carryNewCourse || c.newCourse; blocks.push(block); continue; }
           const newCourse = c.newCourse || carryNewCourse;
           carryNewCourse = false;
@@ -666,6 +687,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
     return out;
+  }
+
+  // リボンのまとめ（画面に出す。Excel には入れない：2026-09-22 ユーザーの指示）。参加費ごとの内訳も付ける
+  function ribbonSummary(out) {
+    const rows = [], total = { ribbons: 0, comps: 0, byFee: {} };
+    for (const arena of ARENAS) for (const d of out.arenas[arena].days) for (const b of d.blocks) {
+      rows.push({ arena, day: d.day, seqKey: d.key, no: b.no, display: b.display, count: b.count, fee: b.fee, ribbons: b.ribbons, empty: b.empty });
+      if (!b.empty) {
+        total.comps++; total.ribbons += b.ribbons;
+        const k = b.fee == null ? '不明' : String(b.fee);
+        total.byFee[k] = (total.byFee[k] || 0) + b.ribbons;
+      }
+    }
+    return { rows, total };
   }
 
   // 自動で並べて、時刻まで出す
@@ -803,6 +838,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   return {
     SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI,
     keyOf, clean, tidy, fmtHM, parseHM, dateText, displayName, courseCode, checkLines,
+    parseFee, ribbonCount, ribbonSummary,
     readZip, parseEntry, loadFiles, buildModel, assignUnmatched, defaultSettings, schedule, autoOrder, layout, moveEntry, writeWorkbook,
   };
 });
@@ -826,7 +862,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // ---------- 設定の保存 ----------
   function saveSettings() {
     try {
-      const keep = { gapRider: settings.gapRider, gapHorse: settings.gapHorse, crossArenaMinutes: settings.crossArenaMinutes, arenas: settings.arenas, names: {} };
+      const keep = { gapRider: settings.gapRider, gapHorse: settings.gapHorse, crossArenaMinutes: settings.crossArenaMinutes, ribbonPercent: settings.ribbonPercent, arenas: settings.arenas, names: {} };
       for (const [k, list] of Object.entries(settings.comps)) for (const c of list) if (c.display !== D.displayName(model.seqs[k].arena, c.name)) keep.names[c.name] = c.display;
       localStorage.setItem(LS, JSON.stringify(keep));
     } catch (e) { /* 保存できなくても動く */ }
@@ -836,6 +872,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const keep = JSON.parse(localStorage.getItem(LS) || 'null');
       if (!keep) return s;
       s.gapRider = keep.gapRider ?? s.gapRider; s.gapHorse = keep.gapHorse ?? s.gapHorse; s.crossArenaMinutes = keep.crossArenaMinutes ?? s.crossArenaMinutes;
+      s.ribbonPercent = keep.ribbonPercent ?? s.ribbonPercent;
       for (const a of Object.keys(s.arenas)) if (keep.arenas && keep.arenas[a]) s.arenas[a] = { ...s.arenas[a], ...keep.arenas[a], start: { ...s.arenas[a].start, ...(keep.arenas[a].start || {}) } };
       for (const list of Object.values(s.comps)) for (const c of list) if (keep.names && keep.names[c.name]) c.display = keep.names[c.name];
     } catch (e) { /* 壊れていたら既定のまま */ }
@@ -911,6 +948,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   function renderSettings() {
     $('#gapRider').value = settings.gapRider; $('#gapHorse').value = settings.gapHorse; $('#year').value = settings.year; $('#crossMin').value = settings.crossArenaMinutes;
+    $('#ribbonPct').value = settings.ribbonPercent;
     const g = $('#arenaSettings'); g.innerHTML = '';
     for (const arena of D.ARENAS) {
       const a = settings.arenas[arena];
@@ -938,7 +976,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const list = settings.comps[sq.key];
       const det = el('details', { open: '' }, el('summary', { text: `${sq.arena}（${D.DAY_LABEL[sq.day]}）　競技 ${list.length}・未分類 ${m.unmatched.filter(e => !e.skipped).length}` }));
       const tbl = el('table');
-      const head = el('tr', {}, el('th', { text: '順' }), el('th', { text: '出す' }), el('th', { text: '申込書の名前' }), el('th', { text: '出番表に載せる名前' }), el('th', { class: 'num', text: '申込' }), el('th', { text: '1頭の分' }));
+      const head = el('tr', {}, el('th', { text: '順' }), el('th', { text: '出す' }), el('th', { text: '申込書の名前' }), el('th', { text: '出番表に載せる名前' }), el('th', { class: 'num', text: '申込' }), el('th', { text: '1頭の分' }), el('th', { text: '参加費' }));
       if (sq.arena !== 'ドレッサージュ') head.append(el('th', { text: '新コース' }));
       tbl.append(head);
       list.forEach((c, i) => {
@@ -954,6 +992,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         tr.append(el('td', {}, nm));
         tr.append(el('td', { class: 'num', text: comp.entries.filter(e => !e.skipped).length }));
         tr.append(el('td', {}, numInput(c, 'minutes', { min: 0, nullable: true })));
+        tr.append(el('td', {}, numInput(c, 'fee', { min: 0, max: 99999, nullable: true })));
         if (sq.arena !== 'ドレッサージュ') { const nc = el('input', { type: 'checkbox' }); nc.checked = !!c.newCourse; nc.addEventListener('change', () => { c.newCourse = nc.checked; }); tr.append(el('td', {}, nc)); }
         tbl.append(tr);
       });
@@ -982,6 +1021,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let activeTab = null, edited = 0;
   function readSettingsFromForm() {
     settings.gapRider = +$('#gapRider').value; settings.gapHorse = +$('#gapHorse').value; settings.year = +$('#year').value; settings.crossArenaMinutes = +$('#crossMin').value;
+    settings.ribbonPercent = +$('#ribbonPct').value || 25;
     saveSettings();
   }
   function run() {
@@ -1052,6 +1092,31 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       t.append(tb);
       box.append(t);
     }
+    renderRibbons(box, x.sq.key);
+  }
+  // リボンの表（画面だけ。Excel には入れない）。競技ごとの参加費をそのまま出す
+  const yen = v => (v == null ? '（不明）' : v.toLocaleString() + '円');
+  function renderRibbons(box, seqKey) {
+    const sum = D.ribbonSummary(out);
+    const rows = sum.rows.filter(r => r.seqKey === seqKey);
+    box.append(el('h3', { text: 'リボン（この列）' }));
+    box.append(el('p', { class: 'hint', text: `頭数の ${settings.ribbonPercent}% を切り上げた数。参加費は申込書の一覧から。` }));
+    const t = el('table', { class: 'ribbon' });
+    t.append(el('thead', {}, el('tr', {}, el('th', { text: '競技番号' }), el('th', { text: '競技名' }), el('th', { class: 'num', text: '頭数' }), el('th', { class: 'num', text: '参加費' }), el('th', { class: 'num', text: 'リボン' }))));
+    const tb = el('tbody');
+    let n = 0;
+    const byFee = {};
+    for (const r of rows) {
+      if (!r.empty) { n += r.ribbons; const k = yen(r.fee); byFee[k] = (byFee[k] || 0) + r.ribbons; }
+      tb.append(el('tr', { class: r.empty ? 'ghost' : '' },
+        el('td', { text: r.no === null ? '' : r.no }), el('td', { text: r.display }),
+        el('td', { class: 'num', text: r.empty ? '不実施' : r.count }), el('td', { class: 'num', text: yen(r.fee) }),
+        el('td', { class: 'num', text: r.empty ? '' : r.ribbons })));
+    }
+    tb.append(el('tr', { class: 'total' }, el('td', { colspan: 4, text: 'この列の合計　' + Object.entries(byFee).map(([k, v]) => `${k}: ${v}個`).join('　') }), el('td', { class: 'num', text: n })));
+    t.append(tb); box.append(t);
+    const all = Object.entries(sum.total.byFee).sort((a, b) => (+b[0] || 0) - (+a[0] || 0)).map(([k, v]) => `${k === '不明' ? '参加費不明' : (+k).toLocaleString() + '円'}: ${v}個`).join('　');
+    box.append(el('p', {}, el('b', { text: `大会全体：リボン ${sum.total.ribbons} 個（${sum.total.comps} 競技）　${all}` })));
   }
   // ≡ を押したまま上下に動かすと、行がついてくる。指（タッチ）もマウスも同じ道（Pointer Events）
   function makeDraggable(tbody, seqKey, compIndex) {
