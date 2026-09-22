@@ -40,9 +40,20 @@
   .card h3 { margin-top:0; }
   details { margin:8px 0; }
   summary { cursor:pointer; font-weight:600; padding:6px 0; }
-  .comp-title { font-weight:600; margin:10px 0 2px; }
-  .viol td:first-child { background:#ffe08a; }
+  .comp-title { font-weight:600; margin:14px 0 2px; font-size:16px; }
+  .viol td.no { background:#ffe08a; }
   .break td { background:#f0f0f0; text-align:center; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  .tab { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  .tab.on { background:var(--accent); color:#fff; }
+  table.deban { table-layout:auto; }
+  table.deban td.handle { width:44px; text-align:center; cursor:grab; touch-action:none; -webkit-user-select:none; user-select:none; font-size:22px; color:#666; padding:0; }
+  table.deban td.mv { white-space:nowrap; width:1%; padding:2px 4px; }
+  table.deban td.mv button { min-width:36px; }
+  table.deban tr.dragging { background:#e0eefb; opacity:.85; }
+  table.deban tr.dragging td { border-top:2px solid var(--accent); border-bottom:2px solid var(--accent); }
+  .res-head { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:baseline; }
+  .edited { color:var(--warn); font-size:14px; }
   .hint { color:var(--sub); font-size:14px; }
   .actions { display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:10px; }
   ul { margin:6px 0; padding-left:22px; }
@@ -115,10 +126,12 @@ a.donehome:hover { background: var(--accent-dark); }
 <section id="s4">
   <h2>4. 作る</h2>
   <div class="actions">
-    <button id="run">出番表を作る</button>
+    <button id="run">出番表を作る（自動で並べる）</button>
+    <button id="relayout" class="secondary">並びはそのままで時刻を計算し直す</button>
     <button id="download" class="secondary">Excelをダウンロード</button>
     <button id="reset" class="secondary small">決まりを既定に戻す</button>
   </div>
+  <p class="hint">できた出番表は下に出ます。≡ を上下にドラッグ（スマホは指で上下にスワイプ）するか、↑↓ で出番を入れ替えられます。入れ替えるたびに時刻と間隔を計算し直し、そのままExcelに出ます。「出番表を作る」を押し直すと自動の並びに戻ります。</p>
   <div id="runMsg"></div>
   <div id="result"></div>
 </section>
@@ -463,10 +476,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // 列（1つの馬場の1日）に競技を順に並べる。
   // 各競技の中で「今の位置に置いても間隔が足りる」人馬を優先して選ぶ。足りないときは最も余裕のあるものを置き、違反として記録する。
   // 次の競技にも出る人馬は末尾に来ないよう軽く避ける。何回か並べ直して一番良いものを採る。
+  // comps: [{ entries }] を順に。返り：競技ごとの並べ終えたエントリー配列
   function scheduleSeq(comps, gapRider, gapHorse, trials, seed) {
     const rnd = mulberry32(seed);
     const lastRider = new Map(), lastHorse = new Map();
-    const violations = [];
     const result = [];
     let base = 0;
     for (let ci = 0; ci < comps.length; ci++) {
@@ -482,22 +495,36 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (!best || sc.score < best.sc.score) best = { order, sc };
         if (best.sc.hard === 0 && best.sc.soft === 0) break;
       }
-      const rows = [];
-      (best ? best.order : []).forEach((e, i) => {
-        const pos = base + i;
-        const v = [];
-        const lr = lastRider.get(e.riderKey), lh = lastHorse.get(e.horseKey);
-        if (lr && pos - lr.pos - 1 < gapRider) v.push({ kind: '人', name: e.rider, prev: lr, between: pos - lr.pos - 1, need: gapRider });
-        if (lh && pos - lh.pos - 1 < gapHorse) v.push({ kind: '馬', name: e.horse, prev: lh, between: pos - lh.pos - 1, need: gapHorse });
-        for (const x of v) violations.push({ ...x, comp: comp.display, no: i + 1, entry: e });
-        lastRider.set(e.riderKey, { pos, comp: comp.display, no: i + 1 });
-        lastHorse.set(e.horseKey, { pos, comp: comp.display, no: i + 1 });
-        rows.push({ entry: e, pos, no: i + 1, violations: v });
-      });
-      base += rows.length;
-      result.push({ comp, rows });
+      const order = best ? best.order : [];
+      order.forEach((e, i) => { lastRider.set(e.riderKey, { pos: base + i }); lastHorse.set(e.horseKey, { pos: base + i }); });
+      base += order.length;
+      result.push(order);
     }
-    return { comps: result, violations };
+    return result;
+  }
+
+  // 出す競技（設定の順、出すものだけ）を、モデルのエントリーと合わせて返す
+  function activeComps(model, s, seqKey) {
+    const mseq = model.seqs[seqKey];
+    const as = s.arenas[mseq.arena];
+    const order = s.comps[seqKey] || mseq.comps.map((c, i) => ({ index: i, enabled: true }));
+    return order.filter(o => o.enabled !== false).map(o => {
+      const c = mseq.comps[o.index];
+      return { index: o.index, name: c.name, display: o.display || displayName(mseq.arena, c.name), entries: c.entries.filter(e => !e.skipped), minutes: o.minutes || as.minutes, newCourse: !!o.newCourse };
+    });
+  }
+
+  // 自動で並べる。返り：orders[seqKey][競技index] = エントリーの並び（画面で入れ替えて layout に渡せる）
+  function autoOrder(model, s) {
+    const orders = {};
+    let seed = 12345;
+    for (const sq of SEQS) {
+      const comps = activeComps(model, s, sq.key);
+      const res = scheduleSeq(comps, s.gapRider, s.gapHorse, s.trials, seed++);
+      orders[sq.key] = {};
+      comps.forEach((c, i) => { orders[sq.key][c.index] = res[i]; });
+    }
+    return orders;
   }
 
   function greedyOrder(entries, base, lastRider, lastHorse, gapRider, gapHorse, nextRiders, nextHorses, rnd) {
@@ -558,31 +585,51 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function fmtHM(t) { const h = Math.floor(t / 60), m = t % 60; return `${h}:${String(m).padStart(2, '0')}`; }
   function roundUp(t, unit) { return unit > 0 ? Math.ceil(t / unit) * unit : t; }
 
-  function schedule(model, settings) {
+  // 並び（orders）から、出番番号・間隔の違反・時刻を出す。orders が無い競技はモデルの順のまま。
+  // 画面で並びを変えたら orders を書き換えてもう一度呼ぶ。orders は out.orders に入れて返す（足りないぶんは補って）
+  function layout(model, settings, orders) {
     const s = settings;
-    const out = { event: model.event, year: s.year, dates: model.dates, arenas: {}, violations: [], warnings: model.warnings.slice(), cross: [], flat: [], settings: s };
-    let seed = 12345;
+    orders = orders || {};
+    const out = { event: model.event, year: s.year, dates: model.dates, arenas: {}, violations: [], warnings: model.warnings.slice(), cross: [], flat: [], settings: s, orders };
     for (const arena of ARENAS) {
       const as = s.arenas[arena];
       let compNo = 0;
       out.arenas[arena] = { arena, days: [] };
       for (const sq of SEQS.filter(q => q.arena === arena)) {
         const mseq = model.seqs[sq.key];
-        const order = s.comps[sq.key] || mseq.comps.map((c, i) => ({ index: i, enabled: true }));
-        const comps = order.filter(o => o.enabled !== false).map(o => {
-          const c = mseq.comps[o.index];
-          return { name: c.name, display: o.display || displayName(arena, c.name), entries: c.entries.filter(e => !e.skipped), minutes: o.minutes || as.minutes, newCourse: !!o.newCourse, no: as.numbered ? ++compNo : null };
+        orders[sq.key] = orders[sq.key] || {};
+        const comps = activeComps(model, s, sq.key).map(c => {
+          // 並びに無いエントリー（あとから振り分けたもの）は末尾に足し、もう無いものは落とす
+          const prev = orders[sq.key][c.index] || [];
+          const entries = prev.filter(e => c.entries.includes(e)).concat(c.entries.filter(e => !prev.includes(e)));
+          orders[sq.key][c.index] = entries;
+          return { ...c, entries, no: as.numbered ? ++compNo : null };
         });
-        const res = scheduleSeq(comps, s.gapRider, s.gapHorse, s.trials, seed++);
+        // 出番番号と間隔
+        const lastRider = new Map(), lastHorse = new Map();
+        let pos = 0;
+        const res = comps.map(c => {
+          const rows = c.entries.map((e, i) => {
+            const v = [];
+            const lr = lastRider.get(e.riderKey), lh = lastHorse.get(e.horseKey);
+            if (lr && pos - lr.pos - 1 < s.gapRider) v.push({ kind: '人', name: e.rider, prev: lr, between: pos - lr.pos - 1, need: s.gapRider });
+            if (lh && pos - lh.pos - 1 < s.gapHorse) v.push({ kind: '馬', name: e.horse, prev: lh, between: pos - lh.pos - 1, need: s.gapHorse });
+            for (const x of v) out.violations.push({ arena, day: sq.day, ...x, comp: c.display, no: i + 1, entry: e });
+            lastRider.set(e.riderKey, { pos, comp: c.display, no: i + 1 });
+            lastHorse.set(e.horseKey, { pos, comp: c.display, no: i + 1 });
+            return { entry: e, pos: pos++, no: i + 1, violations: v };
+          });
+          return { comp: c, rows };
+        });
         // 時刻：新しいコースなら「コース替え＋下見」、続きなら「競技の間」だけ空ける
         let t = parseHM(as.start[sq.day]);
         let preview = as.preview > 0 ? t - as.preview : null;
         let started = false;
         let carryNewCourse = false; // 不実施の競技が新しいコースの先頭だったら、次の競技に引き継ぐ
         const blocks = [];
-        for (const rc of res.comps) {
+        for (const rc of res) {
           const c = rc.comp;
-          const block = { no: c.no, name: c.name, display: c.display, rows: [], empty: rc.rows.length === 0 };
+          const block = { seqKey: sq.key, compIndex: c.index, no: c.no, name: c.name, display: c.display, rows: [], empty: rc.rows.length === 0 };
           if (block.empty) { carryNewCourse = carryNewCourse || c.newCourse; blocks.push(block); continue; }
           const newCourse = c.newCourse || carryNewCourse;
           carryNewCourse = false;
@@ -607,7 +654,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           block.end = t;
           blocks.push(block);
         }
-        for (const v of res.violations) out.violations.push({ arena, day: sq.day, ...v });
         out.arenas[arena].days.push({ day: sq.day, key: sq.key, blocks, end: t, unmatched: mseq.unmatched.filter(e => !e.skipped) });
       }
     }
@@ -620,6 +666,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
     }
     return out;
+  }
+
+  // 自動で並べて、時刻まで出す
+  function schedule(model, settings) { return layout(model, settings, autoOrder(model, settings)); }
+
+  // 画面から：競技の中で from 番目を to 番目へ動かす（0始まり）。動かしたあと layout を呼び直すこと
+  function moveEntry(out, seqKey, compIndex, from, to) {
+    const list = out.orders[seqKey] && out.orders[seqKey][compIndex];
+    if (!list || from < 0 || from >= list.length || to < 0 || to >= list.length) return false;
+    const [e] = list.splice(from, 1);
+    list.splice(to, 0, e);
+    return true;
   }
 
   // ---------- Excel ----------
@@ -745,7 +803,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   return {
     SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI,
     keyOf, clean, tidy, fmtHM, parseHM, dateText, displayName, courseCode, checkLines,
-    readZip, parseEntry, loadFiles, buildModel, assignUnmatched, defaultSettings, schedule, writeWorkbook,
+    readZip, parseEntry, loadFiles, buildModel, assignUnmatched, defaultSettings, schedule, autoOrder, layout, moveEntry, writeWorkbook,
   };
 });
 
@@ -921,45 +979,119 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // ---------- 作る ----------
-  function run() {
-    if (!model) { msg('#runMsg', 'err', '先にエントリーを入れてください。'); return; }
+  let activeTab = null, edited = 0;
+  function readSettingsFromForm() {
     settings.gapRider = +$('#gapRider').value; settings.gapHorse = +$('#gapHorse').value; settings.year = +$('#year').value; settings.crossArenaMinutes = +$('#crossMin').value;
     saveSettings();
-    try {
-      out = D.schedule(model, settings);
-      workbook = D.writeWorkbook(out);
-    } catch (e) { console.error(e); msg('#runMsg', 'err', '作れませんでした: ' + (e && e.message || e)); return; }
+  }
+  function run() {
+    if (!model) { msg('#runMsg', 'err', '先にエントリーを入れてください。'); return; }
+    readSettingsFromForm();
+    try { out = D.schedule(model, settings); edited = 0; }
+    catch (e) { console.error(e); msg('#runMsg', 'err', '作れませんでした: ' + (e && e.message || e)); return; }
     renderResult();
+  }
+  // 並びはそのまま、時刻・間隔だけ出し直す（決まりを変えたあと、手で直した並びを残したいとき）
+  function relayout() {
+    if (!out) { run(); return; }
+    readSettingsFromForm();
+    try { out = D.layout(model, settings, out.orders); }
+    catch (e) { console.error(e); msg('#runMsg', 'err', '計算し直せませんでした: ' + (e && e.message || e)); return; }
+    renderResult();
+  }
+  // 画面で入れ替えたあと：並びを書き換えて、時刻と間隔を出し直す。スクロール位置は保つ
+  function commitMove(seqKey, compIndex, from, to) {
+    if (from === to || !D.moveEntry(out, seqKey, compIndex, from, to)) return;
+    edited++;
+    const y = window.scrollY;
+    out = D.layout(model, settings, out.orders);
+    renderResult();
+    window.scrollTo(0, y);
   }
   function renderResult() {
     const box = $('#result'); box.innerHTML = '';
     const lines = D.checkLines(out);
-    msg('#runMsg', lines.length ? 'warn' : 'ok', lines.length ? `できました。確認が ${lines.length} 件あります（Excelの「確認」シートにも同じものが入る）。` : 'できました。間隔も時刻も問題なし。');
-    if (lines.length) { const ul = el('ul'); for (const l of lines) ul.append(el('li', {}, el('b', { text: l.k + '：' }), l.v)); box.append(ul); }
-    for (const arena of D.ARENAS) {
-      const a = out.arenas[arena]; const as = settings.arenas[arena];
-      for (const d of a.days) {
-        if (!d.blocks.length) continue;
-        const n = d.blocks.reduce((x, b) => x + b.rows.filter(r => r.kind === 'entry').length, 0);
-        const det = el('details', {}, el('summary', { text: `${arena}（${D.dateText(out, d.day, true)}）　${n}頭・終了 ${D.fmtHM(d.end)}` }));
-        for (const b of d.blocks) {
-          const title = b.no === null ? b.display : `第${b.no}競技　${b.display}`;
-          det.append(el('div', { class: 'comp-title', text: title + (b.preview != null && !b.empty ? `　（下見 ${D.fmtHM(b.preview)}〜）` : '') }));
-          if (b.empty) { det.append(el('div', { class: 'ghost', text: '不実施' })); continue; }
-          const t = el('table', {}, el('tr', {}, el('th', { text: '出番' }), el('th', { text: as.timeHeader }), el('th', { text: '選手名' }), el('th', { text: '馬名' }), el('th', { text: '所属' })));
-          for (const r of b.rows) {
-            if (r.kind === 'break') { const tr = el('tr', { class: 'break' }); const td = el('td', { colspan: 5, text: '休憩' }); tr.append(td); t.append(tr); continue; }
-            const tr = el('tr', { class: r.violations.length ? 'viol' : '' }, el('td', { text: r.no, title: r.violations.map(v => `${v.kind}${v.name}: ${v.prev.comp}${v.prev.no}番から${v.between}頭`).join('\n') }), el('td', { text: r.time }), el('td', { text: r.rider }), el('td', { text: r.horse }), el('td', { text: r.team }));
-            t.append(tr);
-          }
-          det.append(t);
-        }
-        box.append(det);
+    msg('#runMsg', lines.length ? 'warn' : 'ok', (lines.length ? `できました。確認が ${lines.length} 件あります（Excelの「確認」シートにも同じものが入る）。` : 'できました。間隔も時刻も問題なし。') + (edited ? `　手で ${edited} 回入れ替えています。` : ''));
+    if (lines.length) {
+      const det = el('details', {}, el('summary', { text: `確認（${lines.length}）` }));
+      const ul = el('ul'); for (const l of lines) ul.append(el('li', {}, el('b', { text: l.k + '：' }), l.v)); det.append(ul); box.append(det);
+    }
+    const seqs = D.SEQS.map(sq => ({ sq, day: out.arenas[sq.arena].days.find(d => d.key === sq.key) })).filter(x => x.day && x.day.blocks.length);
+    if (!seqs.length) { box.append(el('p', { class: 'ghost', text: '出す競技がありません。' })); return; }
+    if (!seqs.some(x => x.sq.key === activeTab)) activeTab = seqs[0].sq.key;
+    const tabs = el('div', { class: 'tabs', role: 'tablist' });
+    for (const x of seqs) tabs.append(el('button', { type: 'button', class: 'tab' + (x.sq.key === activeTab ? ' on' : ''), role: 'tab', 'aria-selected': String(x.sq.key === activeTab), onclick: () => { activeTab = x.sq.key; renderResult(); } }, `${x.sq.arena}（${D.DAY_LABEL[x.sq.day]}）`));
+    box.append(tabs);
+    const x = seqs.find(q => q.sq.key === activeTab);
+    const d = x.day, as = settings.arenas[x.sq.arena];
+    const n = d.blocks.reduce((a, b) => a + b.rows.filter(r => r.kind === 'entry').length, 0);
+    box.append(el('div', { class: 'res-head' }, el('b', { text: `${x.sq.arena}　${D.dateText(out, d.day, true)}` }), el('span', { class: 'hint', text: `${n}頭・終了 ${D.fmtHM(d.end)}` })));
+    for (const b of d.blocks) {
+      const title = b.no === null ? b.display : `第${b.no}競技　${b.display}`;
+      box.append(el('div', { class: 'comp-title', text: title + (b.preview != null && !b.empty ? `　（下見 ${D.fmtHM(b.preview)}〜）` : '') }));
+      if (b.empty) { box.append(el('div', { class: 'ghost', text: '不実施' })); continue; }
+      const t = el('table', { class: 'deban' });
+      t.append(el('thead', {}, el('tr', {}, el('th', { text: '' }), el('th', { text: '出番' }), el('th', { text: as.timeHeader }), el('th', { text: '選手名' }), el('th', { text: '馬名' }), el('th', { text: '所属' }), el('th', { text: '' }))));
+      const tb = el('tbody');
+      let idx = 0;
+      for (const r of b.rows) {
+        if (r.kind === 'break') { tb.append(el('tr', { class: 'break' }, el('td', { colspan: 7, text: '休憩' }))); continue; }
+        const i = idx++;
+        const note = r.violations.map(v => `${v.kind}「${v.name}」: ${v.prev.comp} ${v.prev.no}番から ${v.between}頭（${v.need}頭必要）`).join('\n');
+        const tr = el('tr', { class: 'entry' + (r.violations.length ? ' viol' : ''), 'data-i': i },
+          el('td', { class: 'handle', text: '≡', title: '上下にドラッグして入れ替え', 'aria-label': '並べ替えのつまみ' }),
+          el('td', { class: 'no', text: r.no, title: note }),
+          el('td', { text: r.time }), el('td', { text: r.rider }), el('td', { text: r.horse }), el('td', { text: r.team }),
+          el('td', { class: 'mv' },
+            el('button', { type: 'button', class: 'small secondary', text: '↑', 'aria-label': `${r.rider}を上へ`, onclick: () => commitMove(b.seqKey, b.compIndex, i, i - 1) }), ' ',
+            el('button', { type: 'button', class: 'small secondary', text: '↓', 'aria-label': `${r.rider}を下へ`, onclick: () => commitMove(b.seqKey, b.compIndex, i, i + 1) })));
+        if (note) tr.title = note;
+        tb.append(tr);
       }
+      makeDraggable(tb, b.seqKey, b.compIndex);
+      t.append(tb);
+      box.append(t);
     }
   }
+  // ≡ を押したまま上下に動かすと、行がついてくる。指（タッチ）もマウスも同じ道（Pointer Events）
+  function makeDraggable(tbody, seqKey, compIndex) {
+    let drag = null;
+    const rowsOf = () => [...tbody.querySelectorAll('tr.entry')];
+    tbody.addEventListener('pointerdown', e => {
+      const h = e.target.closest('td.handle'); if (!h) return;
+      const tr = h.closest('tr');
+      e.preventDefault();
+      try { h.setPointerCapture(e.pointerId); } catch (err) { /* 古いブラウザ */ }
+      drag = { tr, from: rowsOf().indexOf(tr), handle: h };
+      tr.classList.add('dragging');
+    });
+    tbody.addEventListener('pointermove', e => {
+      if (!drag) return;
+      e.preventDefault();
+      // 画面の端に来たら少しずつスクロール
+      const margin = 60;
+      if (e.clientY < margin) window.scrollBy(0, -12); else if (e.clientY > window.innerHeight - margin) window.scrollBy(0, 12);
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      const target = under && under.closest && under.closest('tr.entry');
+      if (!target || target === drag.tr || target.parentNode !== tbody) return;
+      const rect = target.getBoundingClientRect();
+      const after = e.clientY > rect.top + rect.height / 2;
+      if (after) target.after(drag.tr); else target.before(drag.tr);
+    });
+    const finish = e => {
+      if (!drag) return;
+      const to = rowsOf().indexOf(drag.tr);
+      drag.tr.classList.remove('dragging');
+      try { drag.handle.releasePointerCapture(e.pointerId); } catch (err) { /* ok */ }
+      const from = drag.from; drag = null;
+      if (to !== from) commitMove(seqKey, compIndex, from, to);
+    };
+    tbody.addEventListener('pointerup', finish);
+    tbody.addEventListener('pointercancel', finish);
+  }
   async function download() {
-    if (!workbook) { msg('#runMsg', 'err', '先に「出番表を作る」を押してください。'); return; }
+    if (!out) { msg('#runMsg', 'err', '先に「出番表を作る」を押してください。'); return; }
+    workbook = D.writeWorkbook(out);
     const buf = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a');
@@ -976,6 +1108,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   drop.addEventListener('dragleave', () => drop.classList.remove('over'));
   drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handleFiles(e.dataTransfer.files); });
   $('#run').addEventListener('click', run);
+  $('#relayout').addEventListener('click', relayout);
   $('#download').addEventListener('click', download);
   $('#reset').addEventListener('click', () => {
     try { localStorage.removeItem(LS); } catch (e) { /* ok */ }
