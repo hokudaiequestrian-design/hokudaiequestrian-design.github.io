@@ -1144,6 +1144,19 @@ G.yasumiDecide(T, 休_有給ID, '承認');
 確かめる('決め直せる', G.getYasumiMemberData(休_甲.id).paid.使った === 3);
 確かめる('副将のメモが残る', G.yasumiLoadAll(T).leaves.filter((l) => l.id === 休_有給ID)[0].memo === 'いってらっしゃい');
 
+// ----- 了承待ちの知らせ（副将のマイページ。2026-09-21） -----
+投げるはず('知らせにも副将トークンが要る', () => G.yasumiPending('でたらめ'), '有効期限');
+{
+  const p = G.yasumiPending(T);
+  確かめる('了承待ちのぶんだけ返す', p.件数 === 1 && p.待ち.length === 1,
+    JSON.stringify(p.待ち.map((l) => l.kind)));
+  確かめる('了承ずみは知らせに出ない', p.待ち.every((l) => l.id !== 休_有給ID),
+    JSON.stringify(p.待ち.map((l) => l.id)));
+  確かめる('知らせに名前・種類・日にち・日数が付く',
+    p.待ち[0].name === 休_甲.name && p.待ち[0].kind === '季節休み' && !!p.待ち[0].from && p.待ち[0].days > 0,
+    JSON.stringify(p.待ち[0]));
+}
+
 // ----- みんなの休み -----
 {
   const d = G.getYasumiMemberData('');
@@ -1159,6 +1172,8 @@ G.cancelLeave(休_甲.id, 休_季節ID);
   JSON.stringify(G.getYasumiMemberData('').all.map((l) => l.kind + l.state)));
 確かめる('取り消しても記録は残る（状態が取消）',
   G.yasumiLoadAll(T).leaves.filter((l) => l.id === 休_季節ID)[0].state === '取消');
+確かめる('取り消したぶんは知らせに出ない', G.yasumiPending(T).件数 === 0,
+  JSON.stringify(G.yasumiPending(T).待ち.map((l) => l.kind + l.name)));
 
 // ----- バイト（副将が入れる） -----
 let 休_バイトID = '';
@@ -1459,10 +1474,11 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   確かめる('範囲で出すほう（submitLeave）は外から呼ばせない',
     G.外から呼べる関数.indexOf('submitLeave') < 0);
   確かめる('外から呼べる関数に副将用が入っている',
-    ['yasumiLoadAll', 'yasumiDecide', 'yasumiSaveLeave', 'yasumiDeleteLeave', 'yasumiSaveGrant', 'yasumiSaveConfig']
+    ['yasumiLoadAll', 'yasumiDecide', 'yasumiSaveLeave', 'yasumiDeleteLeave', 'yasumiSaveGrant', 'yasumiSaveConfig',
+      'yasumiPending']
       .every((n) => G.外から呼べる関数.indexOf(n) >= 0));
-  確かめる('休みで外から呼べるのは8つだけ',
-    G.外から呼べる関数.filter((n) => n.indexOf('yasumi') === 0 || n === 'submitLeaveDays' || n === 'cancelLeave').length === 8,
+  確かめる('休みで外から呼べるのは9つだけ',
+    G.外から呼べる関数.filter((n) => n.indexOf('yasumi') === 0 || n === 'submitLeaveDays' || n === 'cancelLeave').length === 9,
     JSON.stringify(G.外から呼べる関数.filter((n) => n.indexOf('yasumi') === 0 || n.indexOf('Leave') > 0)));
 }
 

@@ -174,6 +174,11 @@ function 模擬で答える(req) {
     // 休み
     case 'loginAndLoadYasumi': return 返す({ token: 'a_t', all: 休みの全部() });
     case 'yasumiLoadAll': return 返す(休みの全部());
+    // 副将のマイページの知らせ（2026-09-21）
+    case 'yasumiPending': return 返す({ 件数: 2, 待ち: [
+      { id: 'l1', name: '美浦', kind: '有給休暇', from: '2030-09-20', to: '2030-09-21', days: 2 },
+      { id: 'l2', name: '相棒', kind: 'バイト', from: '2030-09-24', to: '2030-09-24', days: 1 },
+    ] });
     // 部員の画面
     case 'getCareMemberData':
       return 返す(a[0] ? {
@@ -635,11 +640,38 @@ function 模擬で答える(req) {
     await page.waitForSelector('#fkPw', { visible: true, timeout: 10000 });
     確かめる('副将の入口：ログインするまで、まとめるほうのリンクは隠れていて、パスワードの欄が出る',
       await page.$eval('a.hub-link[href="touban-admin.html"]', (a) => !a.checkVisibility()));
+    確かめる('ログインする前は、了承待ちの知らせも出ない（中身は副将の鍵が要る）', !(await page.$('.me-alert')));
     await page.type('#fkPw', 'x');
     await page.click('#fkBtn');
     await page.waitForSelector('a.hub-link[href="touban-admin.html"]', { visible: true, timeout: 5000 });
     確かめる('ログインすると、当番・手入れと人員表の鍵をこのタブに覚えて、リンクが出る',
       await page.evaluate(() => !!sessionStorage.getItem('fukusho:touban') && !!sessionStorage.getItem('fukusho:jinin')));
+
+    // 了承待ちの休みの知らせ（2026-09-21）
+    await page.waitForSelector('.me-alert', { visible: true, timeout: 5000 });
+    確かめる('ログインすると、了承待ちの休みの知らせが出る',
+      /休みの申し込みが/.test(await page.$eval('.me-alert .a-head', (e) => e.textContent)));
+    確かめる('知らせに件数・名前・日にちが出る',
+      /2件/.test(await page.$eval('.me-alert .a-head', (e) => e.textContent))
+      && /美浦/.test(await page.$eval('.me-alert', (e) => e.textContent))
+      && (await page.$$('.me-alert .a-row')).length === 2);
+    確かめる('知らせは名前を選ぶ欄より上に出る（ページのいちばん上）',
+      await page.evaluate(() => {
+        const a = document.querySelector('.me-alert').getBoundingClientRect();
+        return a.top < document.querySelector('.me-pick').getBoundingClientRect().top;
+      }));
+    確かめる('知らせから休みをまとめる画面へ行ける', !!(await page.$('.me-alert a[href="yasumi-admin.html"]')));
+    await 上へ();
+    await 写す('9-副将の入口-休みの知らせ');
+    確かめる('ログアウトすると知らせも消える', await page.evaluate(async () => {
+      document.querySelector('.fk-out').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const a = document.querySelector('.me-alert');
+      return !a || !a.checkVisibility();
+    }));
+    await page.type('#fkPw', 'x');
+    await page.click('#fkBtn');
+    await page.waitForSelector('.me-alert', { visible: true, timeout: 5000 });
     await page.click('a.hub-link[href="touban-admin.html"]');
     await page.waitForFunction(() => document.getElementById('app') && document.getElementById('app').style.display === 'block', { timeout: 10000 });
     確かめる('入口から開いた副将画面では、パスワードを聞かない', !(await page.$('#pw')) && (await page.$eval('#loginCard', (c) => c.style.display)) === 'none');

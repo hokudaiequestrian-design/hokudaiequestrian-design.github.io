@@ -524,6 +524,68 @@
     副将の各画面は、この鍵で開く（入口の鍵が無いときは、パスワードの欄ではなく入口への案内を出す）。
     ログインするまでは、まとめるほうのリンクを隠す。
   */
+  /*
+    了承待ちの休みの知らせ（2026-09-21 ユーザーの指示：副将のマイページの上のほうに、
+    わかりやすく出す）。**副将がログインしているあいだだけ**出す。だれが・いつ休むかは
+    副将の鍵が要る中身なので、パスワードを入れる前には出せない。
+    ページのいちばん上（名前を選ぶ欄より前）に置く。#meBody の外なので、
+    名前を選び直して中が描き直されても消えない。
+  */
+  const 知らせに出す数 = 5;
+
+  // 10/2（金）／10/2（金）〜10/3（土）
+  function 休みの日どり(l) {
+    const 頭 = 和風(l.from);
+    return l.to && l.to !== l.from ? 頭 + '〜' + 和風(l.to) : 頭;
+  }
+
+  function 休みの知らせの見た目(r) {
+    const 待ち = (r && r.待ち) || [];
+    if (!待ち.length) return '';
+    const 行 = 待ち.slice(0, 知らせに出す数).map((l) =>
+      '<div class="a-row">' +
+        '<span class="who">' + esc(l.name) + '</span>' +
+        '<span class="what">' + esc(l.kind) + '</span>' +
+        '<span class="when">' + esc(休みの日どり(l)) + '</span>' +
+        '<span class="days">' + esc(l.days) + '日</span>' +
+      '</div>').join('');
+    const 残り = 待ち.length - 知らせに出す数;
+    return '<div class="me-alert" role="status">' +
+      '<p class="a-head">休みの申し込みが <b>' + esc(待ち.length) + '件</b> 届いています</p>' +
+      '<div class="a-list">' + 行 +
+        (残り > 0 ? '<div class="a-more">ほか ' + esc(残り) + '件</div>' : '') +
+      '</div>' +
+      '<a class="a-go" href="yasumi-admin.html">休みをまとめる を開く' +
+        '<svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></a>' +
+    '</div>';
+  }
+
+  function 知らせの箱() {
+    let 箱 = $('meAlert');
+    if (箱) return 箱;
+    const 先頭 = document.querySelector('main .me-pick');
+    if (!先頭 || !先頭.parentNode) return null;
+    箱 = document.createElement('div');
+    箱.id = 'meAlert';
+    先頭.parentNode.insertBefore(箱, 先頭);
+    return 箱;
+  }
+
+  async function 休みの知らせを出す(当番の鍵) {
+    const 箱 = 知らせの箱();
+    if (!箱) return;
+    try {
+      箱.innerHTML = 休みの知らせの見た目(await 呼ぶ(API.当番, 'yasumiPending', [当番の鍵]));
+    } catch (e) {
+      箱.innerHTML = '';   // 読めなくても入口のほかは今までどおり使える
+    }
+  }
+
+  function 知らせを消す() {
+    const 箱 = $('meAlert');
+    if (箱) 箱.innerHTML = '';
+  }
+
   const 副将の鍵の名 = { 当番: 'fukusho:touban', 人員表: 'fukusho:jinin' };
   const 鍵を読む = (k) => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
   const 鍵を置く = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) { /* 置けなければ画面ごとに入口へ戻される */ } };
@@ -549,9 +611,11 @@
       箱.innerHTML = '<p class="fk-on"><span>副将でログインしています。このタブを閉じるまで、下の画面ではパスワードを聞きません。</span>' +
         '<button type="button" class="fk-out">ログアウト</button></p>';
       箱.querySelector('.fk-out').addEventListener('click', () => { 鍵を消す(); 入っていない('ログアウトしました。'); });
+      休みの知らせを出す(鍵を読む(副将の鍵の名.当番));   // 了承待ちの休み（2026-09-21）
     }
     function 入っていない(文) {
       一覧.hidden = true;
+      知らせを消す();   // ログアウト・期限切れのあとに、前の中身を残さない
       箱.innerHTML = '<label for="fkPw">副将パスワード</label>' +
         '<div class="fk-row"><input type="password" id="fkPw" autocomplete="current-password"><button type="button" id="fkBtn">ログイン</button></div>' +
         '<p class="hint">ここで1回入れると、このタブを閉じるまで、当番・バイトと休み・部員・馬匹管理・人員表・手入れの画面ではパスワードを聞きません。</p>' +
