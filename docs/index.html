@@ -1193,6 +1193,11 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
     <circle cx="5.5" cy="12" r="2"/><path d="M10.5 12h11"/>
     <circle cx="5.5" cy="18" r="2"/><path d="M10.5 18h11"/>
   </g>
+  <!-- 会計（運営ツール、2026-09-23）＝円の中に ¥ -->
+  <g id="i-kaikei" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M8.5 7.5l3.5 5 3.5-5M12 12.5v5M9.3 13.3h5.4M9.3 15.6h5.4"/>
+  </g>
   <!-- 使い方＝開いた本。ほかの印（表・カレンダー・馬・旗・月・名簿）と似ていない形にしてある -->
   <g id="i-tsukaikata" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 6.5C10.4 5.2 8.4 4.5 5.5 4.5h-3v13h3c2.9 0 4.9.7 6.5 2"/>
@@ -1250,6 +1255,14 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
         <span class="body">
           <span class="t">出番表を作る</span>
           <span class="d">エントリーのzipを入れると、出番表のExcel（ふれ・障害・馬場）ができます。同じ人・同じ馬の間に何頭はさむかを決められます。パソコン向き。</span>
+        </span>
+        <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+      </a>
+      <a class="hub-link" href="kaikei.html">
+        <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-kaikei"/></svg></span>
+        <span class="body">
+          <span class="t">会計：エントリー料</span>
+          <span class="d">北大の申込Excelを入れると、選手ごとに出る競技とエントリー料、合計が出ます。</span>
         </span>
         <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
       </a>

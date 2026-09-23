@@ -414,6 +414,14 @@ function 入口を作る() {
         </span>
         <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
       </a>
+      <a class="hub-link" href="kaikei.html">
+        <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-kaikei"/></svg></span>
+        <span class="body">
+          <span class="t">会計：エントリー料</span>
+          <span class="d">北大の申込Excelを入れると、選手ごとに出る競技とエントリー料、合計が出ます。</span>
+        </span>
+        <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+      </a>
     </div>
   </section>
 
@@ -515,18 +523,22 @@ let 件 = 0;
   ここでは noindex と「← マイページ」を足して写すだけ。直すときは向こうを直して
   node build.js（向こう）→ node build.js（こちら）。サーバは呼ばない（api なし）。
 */
-const 出番表の原本 = 'C:/Users/minuu/Documents/出番表システム/dist/出番表作成.html';
-function 出番表を写す() {
-  let html = 読む(出番表の原本);
+const 運営ツール = [
+  { 原本: 'C:/Users/minuu/Documents/出番表システム/dist/出番表作成.html', 出す: 'debanhyo.html', 題: '出番表作成' },
+  { 原本: 'C:/Users/minuu/Documents/出番表システム/dist/会計.html', 出す: 'kaikei.html', 題: '会計：エントリー料' },
+];
+function 出番表を写す() { 運営ツール.forEach(運営ツールを写す); }
+function 運営ツールを写す(道具) {
+  let html = 読む(道具.原本);
   const 印 = '<meta charset="UTF-8">';
-  if (html.indexOf(印) < 0) throw new Error('出番表作成.html の <meta charset> が見つからない');
+  if (html.indexOf(印) < 0) throw new Error(道具.題 + ' の <meta charset> が見つからない');
   html = html.replace(印, 印 + NL + '<meta name="robots" content="noindex, nofollow">');
   // 見出しは、ほかのページと同じ青い帯（<header class="appbar">）にする。戻るを足す() が「← マイページ」を左上に入れる
-  const 頭 = '<header>' + NL + '  <h1>出番表作成</h1>' + NL + '  <p>';
+  const 頭 = '<header>' + NL + '  <h1>' + 道具.題 + '</h1>' + NL + '  <p>';
   const i = html.indexOf(頭), j = html.indexOf('</p>' + NL + '</header>', i);
-  if (i < 0 || j < 0) throw new Error('出番表作成.html の見出しが見つからない');
+  if (i < 0 || j < 0) throw new Error(道具.題 + ' の見出しが見つからない');
   const 説明 = html.slice(i + 頭.length, j);
-  html = html.slice(0, i) + '<header class="appbar"><span>出番表作成</span></header>' + NL + '<p class="lead">' + 説明 + '</p>' + html.slice(j + ('</p>' + NL + '</header>').length);
+  html = html.slice(0, i) + '<header class="appbar"><span>' + 道具.題 + '</span></header>' + NL + '<p class="lead">' + 説明 + '</p>' + html.slice(j + ('</p>' + NL + '</header>').length);
   const 帯のCSS = `<style>
 /* 馬術部サイトに置くときだけ足す帯（build.js が入れる）。戻るのCSS が使う変数もここで決める */
 :root { --z-sticky: 10; --radius-pill: 999px; --radius-input: 6px; --tap: 44px; --space-xs: 4px; --space-sm: 8px; --space-lg: 24px; --text-base: 16px; --accent: #0f5fa8; --accent-dark: #0b4a85; }
@@ -534,11 +546,11 @@ header.appbar { display: flex; align-items: center; gap: 12px; background: var(-
 header.appbar a.backhome { color: #fff; }
 p.lead { max-width: 1100px; margin: 12px auto 0; padding: 0 16px; color: #555; font-size: 14px; }
 </style>`;
-  if (html.indexOf('</head>') < 0) throw new Error('出番表作成.html の </head> が見つからない');
+  if (html.indexOf('</head>') < 0) throw new Error(道具.題 + ' の </head> が見つからない');
   html = html.replace('</head>', 帯のCSS + NL + '</head>');
   html = 戻るを足す(html);
-  fs.writeFileSync(path.join(出す先, 'debanhyo.html'), html, 'utf8');
-  console.log('  debanhyo.html  ← 出番表システム/dist/出番表作成.html');
+  fs.writeFileSync(path.join(出す先, 道具.出す), html, 'utf8');
+  console.log('  ' + 道具.出す + '  ← ' + 道具.原本.split('/').slice(-2).join('/'));
   件++;
 }
 出番表を写す();
