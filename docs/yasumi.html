@@ -749,6 +749,61 @@ summary.menu-text::after { content: "▾"; font-size: 12px; }
     ・details.menu … 外を押す／Esc／項目を押すと閉じる。上下の矢印で項目を移る。表の枠で切れない位置に出す
     ・押した札・マス（.chip .mk .pickcell .calday .daycell .kindchip .checksheet label）… 押した直後に just を付けて少し膨らませる
 */
+/*
+  日本の祝日（2026-09-23 ユーザーの指示：バイトの画面に祝日を出す）。年を渡すと { 'YYYY-MM-DD': 名前 }。
+  祝日法の決まりをその場で計算する（春分・秋分は国立天文台の式の近似、日曜なら振替休日、祝日にはさまれた平日は国民の休日）。
+  2020年以降の決まり（体育の日→スポーツの日、天皇誕生日 2/23）。
+*/
+function 祝日の表(年) {
+  const y = Number(年);
+  const 日 = (m, d) => y + '-' + ('0' + m).slice(-2) + '-' + ('0' + d).slice(-2);
+  const 第n月曜 = (m, n) => { const 先頭 = new Date(y, m - 1, 1).getDay(); return 1 + ((8 - 先頭) % 7) + (n - 1) * 7; };
+  const 春分 = Math.floor(20.8431 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+  const 秋分 = Math.floor(23.2488 + 0.242194 * (y - 1980) - Math.floor((y - 1980) / 4));
+  const 表 = {};
+  表[日(1, 1)] = '元日';
+  表[日(1, 第n月曜(1, 2))] = '成人の日';
+  表[日(2, 11)] = '建国記念の日';
+  表[日(2, 23)] = '天皇誕生日';
+  表[日(3, 春分)] = '春分の日';
+  表[日(4, 29)] = '昭和の日';
+  表[日(5, 3)] = '憲法記念日';
+  表[日(5, 4)] = 'みどりの日';
+  表[日(5, 5)] = 'こどもの日';
+  表[日(7, 第n月曜(7, 3))] = '海の日';
+  表[日(8, 11)] = '山の日';
+  表[日(9, 第n月曜(9, 3))] = '敬老の日';
+  表[日(9, 秋分)] = '秋分の日';
+  表[日(10, 第n月曜(10, 2))] = 'スポーツの日';
+  表[日(11, 3)] = '文化の日';
+  表[日(11, 23)] = '勤労感謝の日';
+  const 次の日 = (k) => { const d = new Date(k + 'T00:00:00'); d.setDate(d.getDate() + 1); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); };
+  const 曜日 = (k) => new Date(k + 'T00:00:00').getDay();
+  // 振替休日：日曜の祝日の次の、祝日でない日
+  Object.keys(表).filter((k) => 曜日(k) === 0).forEach((k) => {
+    let n = 次の日(k);
+    while (表[n]) n = 次の日(n);
+    表[n] = '振替休日';
+  });
+  // 国民の休日：前後が祝日の平日（敬老の日と秋分の日の間など）
+  Object.keys(表).forEach((k) => {
+    const n = 次の日(k);
+    const nn = 次の日(n);
+    if (!表[n] && 表[nn] && 曜日(n) !== 0) 表[n] = '国民の休日';
+  });
+  return 表;
+}
+/*
+  バイトのマスの1文字（2026-09-23 ユーザーの指示）：まとめて言うときは「バイト」でよいが、
+  バイト先が決まっているときはその名前の1文字目（フロンテア→フ）。競馬場は「競」。名前が無ければ「バ」。
+*/
+function バイトの印(label) {
+  const s = String(label || '').trim();
+  if (!s || s === 'バイト') return 'バ';
+  if (s.indexOf('競馬') >= 0) return '競';
+  return Array.from(s)[0];
+}
+
 const 部品 = (() => {
   const 線 = 'fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
   const 絵 = {
@@ -891,7 +946,7 @@ const 部品 = (() => {
   const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
     '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
 
-  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ };
+  return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ, 祝日: 祝日の表, バイトの印: バイトの印 };
 })();
 </script>
 <style>
@@ -1072,7 +1127,8 @@ a.donehome:hover { background: var(--accent-dark); }
       </div>
       <div class="cal-grid" id="calGrid"></div>
       <p class="hint">
-        マスの中の名前は<b>その日に休む人</b>です。　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み　／　点線は了承待ち
+        マスの中の名前は<b>その日に休む人</b>です。　<b>有</b> 有給休暇　<b>季</b> 季節休み　／　点線は了承待ち<br>
+        バイトはここには出しません。<b>自分のバイトと重なる日を選ぶと注意が出ます</b>（そのまま申し込めますが、副将が確かめます）。
       </p>
 
       <label style="margin-top:var(--space-lg);">選んだ日　<span id="pickedCount" class="muted"></span></label>
@@ -1272,10 +1328,16 @@ function 月を進める(delta) {
 $('prevMonth').addEventListener('click', () => 月を進める(-1));
 $('nextMonth').addEventListener('click', () => 月を進める(1));
 
-// その日に休む人を、日ごとに集める
+// 自分のバイト（2026-09-23 ユーザーの指示：ふだんは出さず、その日を選んだときだけ注意する）
+const 自分のバイト = (key) => {
+  const l = DATA.mine.filter((x) => x.kind === 'バイト' && x.state !== '却下' && x.state !== '取消' && x.from <= key && key <= x.to)[0];
+  return l ? (l.label || 'バイト') : '';
+};
+
+// その日に休む人を、日ごとに集める。バイトは出さない（2026-09-23 ユーザーの指示）
 function 日ごとの休み() {
   const 表 = {};
-  DATA.all.forEach((l) => {
+  DATA.all.filter((l) => l.kind !== 'バイト').forEach((l) => {
     const 端 = new Date(l.to + 'T00:00:00');
     for (const d = new Date(l.from + 'T00:00:00'); d <= 端; d.setDate(d.getDate() + 1)) {
       (表[日付(d)] = 表[日付(d)] || []).push(l);
@@ -1332,7 +1394,7 @@ $('calGrid').addEventListener('click', (e) => {
     return 知らせ('formMsg', 'warning', '過ぎた日は申し込めません。もう休んだぶんは副将に直接伝えてください。');
   }
   const 出してある = DATA.mine.filter((l) =>
-    (l.state === '申請中' || l.state === '承認') && l.from <= key && key <= l.to)[0];
+    (l.state === '申請中' || l.state === '承認') && l.kind !== 'バイト' && l.from <= key && key <= l.to)[0];
   if (出してある) {
     return 知らせ('formMsg', 'warning',
       和風(key) + ' は、すでに「' + (出してある.label || 出してある.kind) + '」で出してあります（' + 出してある.state + '）。'
@@ -1340,7 +1402,10 @@ $('calGrid').addEventListener('click', (e) => {
   }
 
   if (選んだ日[key]) delete 選んだ日[key]; else 選んだ日[key] = true;
-  知らせ('formMsg', '', '');
+  // バイトと重なる日は止めずに注意だけ（2026-09-23 ユーザーの指示）
+  const バ = 選んだ日[key] ? 自分のバイト(key) : '';
+  if (バ) 知らせ('formMsg', 'warning', 和風(key) + ' は「' + バ + '」（バイト）が入っています。このまま申し込めますが、重なるので副将が確かめます。');
+  else 知らせ('formMsg', '', '');
   カレンダーを出す();
   選んだ日を出す();
 });
@@ -1364,6 +1429,8 @@ function 選んだ日を出す() {
       if (あと < 0) 文 += ' 足りないので、このままでは出せません。';
     }
     if (選んだ種類 === '季節休み') 文 += '季節休みは有給を減らしません。';
+    const 重なる = 並び.filter((k) => 自分のバイト(k));
+    if (重なる.length) 文 += ' 注意：' + 重なる.map((k) => 和風(k) + '（' + 自分のバイト(k) + '）').join('・') + ' はバイトと重なります。';
   }
   $('daysHint').textContent = 文;
 }
@@ -1432,7 +1499,8 @@ $('sendBtn').addEventListener('click', async () => {
     部品.光らせる([$('mineCard')]);   // 出したものが下の「出したもの」に入ったことを見せる
     知らせ('formMsg', 'success',
       '出しました（' + r.days + '日ぶん' + (r.count > 1 ? '／続いている日ごとに' + r.count + '件' : '') + '）。'
-      + '副将が了承するまでは「申請中」です。');
+      + '副将が了承するまでは「申請中」です。'
+      + (r.注意 && r.注意.length ? ' バイトと重なる日があります（' + r.注意.map((x) => 和風(x.date) + ' ' + x.label).join('・') + '）。副将が確かめます。' : ''));
   } catch (err) {
     知らせ('formMsg', 'error', ((err && err.message) || err));
   }

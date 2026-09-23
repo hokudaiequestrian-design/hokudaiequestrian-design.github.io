@@ -48,6 +48,11 @@ function 配る() {
 
 // ===== 模擬データ =====
 const 曜日 = ['月', '火', '水', '木', '金', '土', '日'];
+const 日付 = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+const 日後 = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return 日付(d); };
+const 今日 = 日付(new Date());
+const 明日 = 日後(1);
+const あさって = 日後(2);
 const 当番の部員 = [
   { id: 'm1', name: '美浦', grade: 2, joinYear: 2029, note: '', noDuty: false },
   { id: 'm2', name: '相棒', grade: 1, joinYear: 2030, note: '', noDuty: false },
@@ -189,8 +194,23 @@ function 模擬で答える(req) {
     case 'getDutyMemberData':
       return 返す({ members: 当番の部員, days: 曜日, 希望の数: 4, terms: [{ id: 't1', name: '前期', duties: [{ id: 'd1', name: '昼当', slots: 曜日.map((w) => ({ day: w, grades: [] })) }] }] });
     case 'getMyDutyVote': return 返す(null);
-    case 'getYasumiMemberData':
-      return 返す({ members: 当番の部員, all: [], mine: [], kinds: ['有給休暇', '季節休み'], paid: { 付与: 10, 使った: 0, 待ち: 0, 残り: 10 }, year: 2030 });
+    case 'getYasumiMemberData': {
+      // 2026-09-23：自分（美浦）のバイトは明日、相棒の有給はあさって。バイトは部員のカレンダーに出ない
+      const 自分のバイト = { id: 'b1', memberId: 'm1', name: '美浦', kind: 'バイト', label: 'フロンテア', from: 明日, to: 明日, days: 1, state: '承認' };
+      const 相棒の休み = { id: 'y1', memberId: 'm2', name: '相棒', kind: '有給休暇', label: '有給休暇', from: あさって, to: あさって, days: 1, state: '承認' };
+      return 返す({ members: 当番の部員, all: [自分のバイト, 相棒の休み], mine: a[0] === 'm1' ? [自分のバイト] : [], kinds: ['有給休暇', '季節休み'], paid: { 付与: 10, 使った: 0, 待ち: 0, 残り: 10 }, year: 2030 });
+    }
+    case 'submitLeaveDays':
+      模擬.送った.休み = a;
+      return 返す({ ok: true, count: 1, days: (a[2] || []).length, 注意: (a[2] || []).filter((d) => d === 明日).map((d) => ({ date: d, label: 'フロンテア' })) });
+    // 副将のバイトの画面（2026-09-23：大会と祝日を出す）
+    case 'baitoLoadAll':
+      return 返す({
+        jobs: [{ id: 'b1', name: 'フロンテア' }], job: { id: 'b1', name: 'フロンテア', monthMax: 2 }, members: 当番の部員,
+        割当: [], counts: 当番の部員.map((m) => ({ memberId: m.id, name: m.name, 自動: 0, 調整: 0, 回数: 0 })), today: 今日,
+        needs: {}, skips: [], 月の上限の既定: 2, 学年差: {}, 学年差の既定の刻み: 6, 学年の上限: 6,
+        大会: { [明日]: '秋の大会' },
+      });
     case 'getCalendarData':
       return 返す({
         月: a[0] || '2030-09', from: (a[0] || '2030-09') + '-01', to: (a[0] || '2030-09') + '-30', 今日: '2030-09-15',
@@ -512,6 +532,29 @@ function 模擬で答える(req) {
     確かめる('⋯ に却下・記録ごと消す', /却下する/.test(await page.$eval('#applyTable .menu-list', (m) => m.textContent)) && /記録ごと消す/.test(await page.$eval('#applyTable .menu-list', (m) => m.textContent)));
     await 写す('5-バイト・休みをまとめる');
     await page.keyboard.press('Escape');
+    // バイトのタブに大会と祝日（2026-09-23 ユーザーの指示）
+    await page.click('[data-tab="baito"]');
+    await page.waitForSelector('#baitoSelect option[value="b1"]', { timeout: 10000 });
+    await page.select('#baitoSelect', 'b1');
+    await page.waitForSelector('#baitoGrid .baito-cell', { timeout: 10000 });
+    // 明日が来月なら、来月へ
+    if (明日.slice(0, 7) !== 今日.slice(0, 7)) { await page.click('#baitoNext'); await 待つ(200); }
+    確かめる('バイトのカレンダーに大会の日が出る', /秋の大会/.test(await page.$eval('#baitoGrid .baito-cell[data-day="' + 明日 + '"]', (c) => c.textContent)));
+    {
+      const 月 = await page.$eval('#baitoMonth', (el) => el.textContent);
+      const 祝日の数 = await page.evaluate((月) => {
+        const m = 月.match(/(\d+)年(\d+)月/);
+        return Object.keys(部品.祝日(Number(m[1]))).filter((k) => Number(k.slice(5, 7)) === Number(m[2])).length;
+      }, 月);
+      確かめる('バイトのカレンダーの祝日の数が計算と合う（' + 月 + '：' + 祝日の数 + '）', (await page.$$('#baitoGrid .tag-holiday')).length === 祝日の数);
+      const 二千二十六 = await page.evaluate(() => 部品.祝日(2026));
+      確かめる('祝日の計算：2026年の敬老の日・国民の休日・秋分の日',
+        二千二十六['2026-09-21'] === '敬老の日' && 二千二十六['2026-09-22'] === '国民の休日' && 二千二十六['2026-09-23'] === '秋分の日', JSON.stringify(二千二十六));
+      確かめる('祝日の計算：2026年の振替休日（5/6）と春分（3/20）', 二千二十六['2026-05-06'] === '振替休日' && 二千二十六['2026-03-20'] === '春分の日');
+      確かめる('バイトの印：フロンテア→フ、札幌競馬場→競、無ければ バ',
+        await page.evaluate(() => 部品.バイトの印('フロンテア') === 'フ' && 部品.バイトの印('札幌競馬場') === '競' && 部品.バイトの印('') === 'バ'));
+    }
+    await 写す('5b-バイトに大会と祝日');
 
     // ---------- 部員の画面 ----------
     console.log('\n== 部員の画面 ==');
@@ -538,9 +581,29 @@ function 模擬で答える(req) {
     await page.click('#grid .pickcell[data-duty="d1"][data-day="月"]');
     確かめる('当番：選んだ希望の取り消しはアイコン', await page.$eval('#picked [data-remove]', (b) => b.classList.contains('icon-btn') && !!b.querySelector('svg') && !b.textContent.trim()));
 
+    await page.evaluate(() => localStorage.setItem('me', '美浦'));
     await page.goto(元 + '/yasumi.html');
     await page.waitForSelector('#calGrid .daycell', { timeout: 10000 });
     確かめる('休み：月めくりはアイコン（説明つき）', await page.$eval('#prevMonth', (b) => b.classList.contains('icon-btn') && b.getAttribute('aria-label') === '前の月'));
+    // バイトはふだん出さず、自分のバイトの日を選んだときだけ注意（2026-09-23 ユーザーの指示）
+    await page.waitForFunction(() => document.querySelector('#memberSelect') && document.querySelector('#memberSelect').value === 'm1', { timeout: 10000 });
+    // 名前ぶんの読み直し（自分のバイトが入る）が済むまで待つ。有給の残りが出れば済んでいる
+    await page.waitForSelector('#paidBox .stat', { timeout: 10000 });
+    if (明日.slice(0, 7) !== 今日.slice(0, 7)) { await page.click('#nextMonth'); await 待つ(200); }
+    確かめる('休み：カレンダーにバイトは出ない', !(await page.$('#calGrid .who.k-baito')));
+    if (あさって.slice(0, 7) === 明日.slice(0, 7)) 確かめる('休み：ほかの人の休みは出る', !!(await page.$('#calGrid .who.k-yuukyuu')));
+    確かめる('休み：凡例に「バ」が無い', !/<b>バ<\/b>/.test(await page.$eval('#formStage', (el) => el.innerHTML)));
+    // スマホ幅では貼り付いた帯の下に隠れることがあるので、DOM の click で押す
+    await page.$eval('#calGrid .daycell[data-day="' + 明日 + '"]', (b) => b.click());
+    await 待つ(150);
+    { const 文 = await page.$eval('#formMsg', (el) => el.textContent); 確かめる('休み：自分のバイトの日を選ぶと注意が出る', /フロンテア/.test(文) && /申し込めます/.test(文), 文); }
+    確かめる('休み：注意は出るが、その日は選べている', await page.$eval('#calGrid .daycell[data-day="' + 明日 + '"]', (b) => b.classList.contains('eranda')));
+    確かめる('休み：選んだ日の説明にも重なりが出る', /バイトと重なります/.test(await page.$eval('#daysHint', (el) => el.textContent)));
+    await page.$eval('#kinds .kindchip', (b) => b.click());
+    await page.$eval('#sendBtn', (b) => b.click());
+    await page.waitForFunction(() => /出しました/.test((document.querySelector('#formMsg') || {}).textContent || ''), { timeout: 10000 });
+    確かめる('休み：出したあとの知らせにも重なりが出る', /バイトと重なる日があります/.test(await page.$eval('#formMsg', (el) => el.textContent)));
+    await 写す('6b-休み-バイトと重なる注意');
     await page.setViewport({ width: 1280, height: 900 });
     await page.goto(元 + '/calendar.html?tab=cal&month=2030-09');
     await page.waitForSelector('#view table.grid', { timeout: 10000 });

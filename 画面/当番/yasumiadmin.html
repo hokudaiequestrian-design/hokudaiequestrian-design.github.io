@@ -90,6 +90,11 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 .cal-grid .cell.need-short { background: var(--danger-soft); }
 .cal-grid .cell.meet-day { background: var(--care-soft); }
 .cal-grid .cell .meet { display: block; font-size: var(--text-xs); color: var(--care-dark); }
+/* バイトのカレンダーの祝日・大会（2026-09-23）。日付の数字も色を変えて、ひと目で分かるようにする */
+.cal-grid .cell .tag-holiday { display: block; font-size: var(--text-xs); color: var(--danger); line-height: 1.4; }
+.cal-grid .cell .tag-meet { display: block; font-size: var(--text-xs); color: var(--care-dark); font-weight: 700; line-height: 1.4; }
+.cal-grid .cell.holiday .d { color: var(--danger); font-weight: 700; }
+.cal-grid .cell.meet .d { color: var(--care-dark); font-weight: 700; }
 .need-row { display: flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-xs); flex-wrap: wrap; }
 .need-row input[type="number"] { width: 4.5rem; min-width: 0; }
 .skip-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-top: var(--space-xs); }
@@ -151,7 +156,7 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
           <button type="button" class="icon-btn outline" id="nextMonth" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
-        <p class="hint">印　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み　／　点線は了承待ち</p>
+        <p class="hint">印　<b>有</b> 有給休暇　<b>季</b> 季節休み　バイトは<b>バイト先の1文字目</b>（フロンテア→フ、競馬場→競）　／　点線は了承待ち</p>
       </div>
     </section>
 
@@ -232,7 +237,7 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
           <button type="button" class="icon-btn outline" id="baitoNext" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
         <div class="cal-grid" id="baitoGrid"></div>
-        <p class="hint">日を押すと、その日に人を入れられます。右上の数字は<b>その日に要る人数</b>です。</p>
+        <p class="hint">日を押すと、その日に人を入れられます。右上の数字は<b>その日に要る人数</b>です。<b>祝日</b>と、人員表に入っている<b>大会</b>の日も出ます。</p>
 
         <!--
           自動で入れる（2026-09-21 ユーザーの指示）。
@@ -587,7 +592,7 @@ function カレンダーを出す() {
       '<span class="d">' + d + '</span>' +
       面々.map((l) =>
         '<span class="who ' + (種類クラス[l.kind] || '') + (l.state === '申請中' ? ' matteiru' : '') + '">' +
-          '<span class="m">' + esc(印[l.kind] || '') + '</span>' + esc(l.name) +
+          '<span class="m">' + esc(l.kind === 'バイト' ? 部品.バイトの印(l.label) : (印[l.kind] || '')) + '</span>' + esc(l.name) +
           (l.state === '申請中' ? '（待ち）' : '') +
         '</span>').join('') +
       '</div>';
@@ -688,6 +693,9 @@ function バイトのカレンダーを出す() {
 
   const 日ごと = {};
   ((BAITO && BAITO.割当) || []).forEach((x) => { (日ごと[x.date] = 日ごと[x.date] || []).push(x); });
+  // 祝日と大会（2026-09-23 ユーザーの指示）。祝日は画面で計算、大会は人員表からサーバが渡す
+  const 祝日 = 部品.祝日(y);
+  const 大会 = (BAITO && BAITO.大会) || {};
 
   const 曜日 = ['月', '火', '水', '木', '金', '土', '日'];
   let html = 曜日.map((w, i) =>
@@ -708,9 +716,12 @@ function バイトのカレンダーを出す() {
       '<button type="button" data-need-up="' + key + '" aria-label="' + d + '日の要る人数を1人増やす" title="1人増やす">＋</button>' +
       '</span>';
     html += '<div class="cell baito-cell' + (key === (BAITO.today || '') ? ' today' : '') +
-      (key === 選んだ日 ? ' picked' : '') + (足りない ? ' need-short' : '') + '" data-day="' + key + '" role="button" tabindex="0"' +
+      (key === 選んだ日 ? ' picked' : '') + (足りない ? ' need-short' : '') + (祝日[key] ? ' holiday' : '') + (大会[key] ? ' meet' : '') +
+      '" data-day="' + key + '" role="button" tabindex="0"' +
       (要る ? ' aria-label="' + d + '日　' + 面々.length + '人／' + 要る + '人ほしい"' : '') + '>' +
       '<span class="d">' + d + '</span>' + 増減 +
+      (祝日[key] ? '<span class="tag-holiday">祝 ' + esc(祝日[key]) + '</span>' : '') +
+      (大会[key] ? '<span class="tag-meet">大会 ' + esc(大会[key]) + '</span>' : '') +
       面々.map((x) => '<span class="who k-baito">' + esc(x.name) + '</span>').join('') +
       '</div>';
   }

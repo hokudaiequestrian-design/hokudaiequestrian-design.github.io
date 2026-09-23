@@ -159,7 +159,8 @@ header.appbar.yasumi { background: var(--ink); }
       </div>
       <div class="cal-grid" id="calGrid"></div>
       <p class="hint">
-        マスの中の名前は<b>その日に休む人</b>です。　<b>有</b> 有給休暇　<b>バ</b> バイト　<b>季</b> 季節休み　／　点線は了承待ち
+        マスの中の名前は<b>その日に休む人</b>です。　<b>有</b> 有給休暇　<b>季</b> 季節休み　／　点線は了承待ち<br>
+        バイトはここには出しません。<b>自分のバイトと重なる日を選ぶと注意が出ます</b>（そのまま申し込めますが、副将が確かめます）。
       </p>
 
       <label style="margin-top:var(--space-lg);">選んだ日　<span id="pickedCount" class="muted"></span></label>
@@ -322,10 +323,16 @@ function 月を進める(delta) {
 $('prevMonth').addEventListener('click', () => 月を進める(-1));
 $('nextMonth').addEventListener('click', () => 月を進める(1));
 
-// その日に休む人を、日ごとに集める
+// 自分のバイト（2026-09-23 ユーザーの指示：ふだんは出さず、その日を選んだときだけ注意する）
+const 自分のバイト = (key) => {
+  const l = DATA.mine.filter((x) => x.kind === 'バイト' && x.state !== '却下' && x.state !== '取消' && x.from <= key && key <= x.to)[0];
+  return l ? (l.label || 'バイト') : '';
+};
+
+// その日に休む人を、日ごとに集める。バイトは出さない（2026-09-23 ユーザーの指示）
 function 日ごとの休み() {
   const 表 = {};
-  DATA.all.forEach((l) => {
+  DATA.all.filter((l) => l.kind !== 'バイト').forEach((l) => {
     const 端 = new Date(l.to + 'T00:00:00');
     for (const d = new Date(l.from + 'T00:00:00'); d <= 端; d.setDate(d.getDate() + 1)) {
       (表[日付(d)] = 表[日付(d)] || []).push(l);
@@ -382,7 +389,7 @@ $('calGrid').addEventListener('click', (e) => {
     return 知らせ('formMsg', 'warning', '過ぎた日は申し込めません。もう休んだぶんは副将に直接伝えてください。');
   }
   const 出してある = DATA.mine.filter((l) =>
-    (l.state === '申請中' || l.state === '承認') && l.from <= key && key <= l.to)[0];
+    (l.state === '申請中' || l.state === '承認') && l.kind !== 'バイト' && l.from <= key && key <= l.to)[0];
   if (出してある) {
     return 知らせ('formMsg', 'warning',
       和風(key) + ' は、すでに「' + (出してある.label || 出してある.kind) + '」で出してあります（' + 出してある.state + '）。'
@@ -390,7 +397,10 @@ $('calGrid').addEventListener('click', (e) => {
   }
 
   if (選んだ日[key]) delete 選んだ日[key]; else 選んだ日[key] = true;
-  知らせ('formMsg', '', '');
+  // バイトと重なる日は止めずに注意だけ（2026-09-23 ユーザーの指示）
+  const バ = 選んだ日[key] ? 自分のバイト(key) : '';
+  if (バ) 知らせ('formMsg', 'warning', 和風(key) + ' は「' + バ + '」（バイト）が入っています。このまま申し込めますが、重なるので副将が確かめます。');
+  else 知らせ('formMsg', '', '');
   カレンダーを出す();
   選んだ日を出す();
 });
@@ -414,6 +424,8 @@ function 選んだ日を出す() {
       if (あと < 0) 文 += ' 足りないので、このままでは出せません。';
     }
     if (選んだ種類 === '季節休み') 文 += '季節休みは有給を減らしません。';
+    const 重なる = 並び.filter((k) => 自分のバイト(k));
+    if (重なる.length) 文 += ' 注意：' + 重なる.map((k) => 和風(k) + '（' + 自分のバイト(k) + '）').join('・') + ' はバイトと重なります。';
   }
   $('daysHint').textContent = 文;
 }
@@ -482,7 +494,8 @@ $('sendBtn').addEventListener('click', async () => {
     部品.光らせる([$('mineCard')]);   // 出したものが下の「出したもの」に入ったことを見せる
     知らせ('formMsg', 'success',
       '出しました（' + r.days + '日ぶん' + (r.count > 1 ? '／続いている日ごとに' + r.count + '件' : '') + '）。'
-      + '副将が了承するまでは「申請中」です。');
+      + '副将が了承するまでは「申請中」です。'
+      + (r.注意 && r.注意.length ? ' バイトと重なる日があります（' + r.注意.map((x) => 和風(x.date) + ' ' + x.label).join('・') + '）。副将が確かめます。' : ''));
   } catch (err) {
     知らせ('formMsg', 'error', ((err && err.message) || err));
   }

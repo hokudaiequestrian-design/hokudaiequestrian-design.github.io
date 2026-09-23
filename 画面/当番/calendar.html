@@ -347,7 +347,7 @@ function 仕事の札(s) {
   1文字目が同じバイトが2つあると見分けにくいので、マスを押す／ポイントすると名前が出るようにしてある（title）。
 */
 function 札の字(l) {
-  if (l.kind === 'バイト') return l.label && l.label !== 'バイト' ? Array.from(l.label)[0] : 'バ';
+  if (l.kind === 'バイト') return 部品.バイトの印(l.label);   // 競馬場は「競」（2026-09-23）
   return 札[l.kind] || Array.from(l.kind || '？')[0];
 }
 
