@@ -688,22 +688,47 @@ function 模擬で答える(req) {
     確かめる('人員表をまとめるの鍵は副将パスワード', /副将パスワード/.test(await page.$eval('a.hub-link[href="taikai-admin.html"]', (a) => a.textContent)));
     await 写す('7-副将の入口');
 
-    // 使い方（2026-09-16）：マイページから開け、立場に合ったところが最初に出る
-    確かめる('マイページに「使い方」がある', !!(await page.$('a.hub-link[href="tsukaikata.html"]')));
-    await page.goto(元 + '/tsukaikata.html');
+    /*
+      使い方（2026-09-16）。2026-09-23 から**立場ごとに別のファイル**にした。
+      自分より上の立場の説明は、そのファイルに入っていない（画面で隠すだけだと元を読めば見えるため）。
+    */
+    確かめる('副将のマイページの「使い方」は副将用のファイルを指す',
+      !!(await page.$('a.hub-link[href="tsukaikata-admin.html"]')),
+      await page.$eval('#hub-tsukaikata', (a) => a.getAttribute('href')));
+    await page.goto(元 + '/tsukaikata-admin.html');
     await page.waitForSelector('[data-usepane="fukusho"]', { timeout: 10000 });
+    確かめる('副将用のファイルには3つとも入っている',
+      JSON.stringify(await page.$$eval('.tabs [data-use]', (bs) => bs.map((b) => b.textContent))) === JSON.stringify(['部員用', 'チーフ用', '副将用']));
     確かめる('副将で開くと副将用が出る（立場を覚えている）',
       await page.evaluate(() => document.querySelector('[data-usepane="fukusho"]').style.display !== 'none'
         && document.querySelector('[data-usepane="buin"]').style.display === 'none'));
-    確かめる('部員用・チーフ用・副将用の3つがある',
-      JSON.stringify(await page.$$eval('.tabs [data-use]', (bs) => bs.map((b) => b.textContent))) === JSON.stringify(['部員用', 'チーフ用', '副将用']));
     await page.click('[data-use="chief"]');
     確かめる('タブでチーフ用に切り替わる',
       await page.evaluate(() => document.querySelector('[data-usepane="chief"]').style.display !== 'none'));
-    await page.goto(元 + '/tsukaikata.html?for=buin');
+
+    // 部員用のファイルには、上の立場の説明が**入っていない**
+    await page.goto(元 + '/tsukaikata.html');
     await page.waitForSelector('[data-usepane="buin"]', { timeout: 10000 });
-    確かめる('?for=buin で部員用を開ける（人に送るとき用）',
+    確かめる('部員用のファイルに、チーフ用・副将用は入っていない',
+      (await page.$$('[data-usepane="chief"], [data-usepane="fukusho"]')).length === 0);
+    確かめる('ページの元にも上の立場の文章が残っていない',
+      !/チーフ用の使い方|副将用の使い方/.test(await page.content()));
+    確かめる('1つだけのときはタブを出さない', !(await page.$('.tabs')));
+    確かめる('副将で開いても、部員用のファイルなら部員用が出る（立場を覚えていても上は見せない）',
       await page.evaluate(() => document.querySelector('[data-usepane="buin"]').style.display !== 'none'));
+    await page.goto(元 + '/tsukaikata.html?for=fukusho');
+    await page.waitForSelector('[data-usepane="buin"]', { timeout: 10000 });
+    確かめる('?for=fukusho と指しても、入っていないので部員用のまま',
+      await page.evaluate(() => document.querySelector('[data-usepane="buin"]').style.display !== 'none') &&
+      (await page.$$('[data-usepane="fukusho"]')).length === 0);
+
+    // チーフ用のファイルは、部員用とチーフ用の2つだけ
+    await page.goto(元 + '/tsukaikata-chief.html');
+    await page.waitForSelector('[data-usepane="chief"]', { timeout: 10000 });
+    確かめる('チーフ用のファイルは2つだけ（副将用は入っていない）',
+      (await page.$$('[data-usepane]')).length === 2 && (await page.$$('[data-usepane="fukusho"]')).length === 0);
+    確かめる('チーフ用のページの元にも副将用の文章は残っていない',
+      !/副将用の使い方/.test(await page.content()));
     await 写す('8-使い方');
     await page.goto(元 + '/?role=chieflinks');
     await page.waitForSelector('#hub-groups a.hub-link', { timeout: 10000 });

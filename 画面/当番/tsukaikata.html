@@ -7,7 +7,12 @@
 /*
   使い方（2026-09-16 ユーザーの指示で作った）。部員用・チーフ用・副将用の3つ。
   サーバは呼ばない読むだけのページ。開いた人の立場（マイページが localStorage に覚えたもの）のところを最初に出す。
-  紙に印刷しても読めるように、印刷のときは3つとも出す。
+  紙に印刷しても読めるように、印刷のときはそのファイルにあるものを全部出す。
+
+  2026-09-23 ユーザーの指示：**自分より上の立場の説明は見せない**。
+  画面で隠すだけだとページの元を読めば見えてしまうので、build.js が立場ごとに3つに切り分けて組み立てる
+  （tsukaikata.html＝部員用だけ／-chief＝部員＋チーフ／-admin＝3つとも）。
+  このファイルは**原本**で3つとも持っている。下の script は「あるものの中から選ぶ」作りにしてある。
 */
 .use-sec h3 { margin: var(--space-lg) 0 var(--space-2xs); font-size: var(--text-base); }
 .use-sec h3:first-of-type { margin-top: var(--space-xs); }
@@ -36,7 +41,7 @@
     <button type="button" data-use="chief">チーフ用</button>
     <button type="button" data-use="fukusho">副将用</button>
   </div>
-  <p class="hint print-hint">自分のぶんだけ読めば足ります。印刷すると3つとも出ます。</p>
+  <p class="hint print-hint" id="printHint">自分のぶんだけ読めば足ります。印刷すると全部出ます。</p>
 
   <!-- ===================== 部員用 ===================== -->
   <section class="card use-sec" data-usepane="buin">
@@ -262,6 +267,10 @@
 const $ = (id) => document.getElementById(id);
 const 立場の表 = { links: 'buin', chieflinks: 'chief', admlinks: 'fukusho' };
 
+// このファイルに入っている立場だけ（build.js が上の立場を取り除いていることがある。2026-09-23）
+const あるもの = Array.prototype.map.call(
+  document.querySelectorAll('[data-usepane]'), (p) => p.dataset.usepane);
+
 function 出す(名) {
   Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), (b) => {
     b.className = b.dataset.use === 名 ? 'active' : '';
@@ -271,18 +280,29 @@ function 出す(名) {
   });
 }
 
-document.querySelector('.tabs').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-use]');
-  if (b) 出す(b.dataset.use);
-});
+// 1つしか無いページではタブごと消えている
+const タブ = document.querySelector('.tabs');
+if (タブ) {
+  タブ.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-use]');
+    if (b) 出す(b.dataset.use);
+  });
+}
 
 (function () {
+  if (!あるもの.length) return;
   const 指定 = new URLSearchParams(location.search).get('for');
-  let 名 = ['buin', 'chief', 'fukusho'].indexOf(指定) >= 0 ? 指定 : '';
+  let 名 = あるもの.indexOf(指定) >= 0 ? 指定 : '';
   if (!名) {
     try { 名 = 立場の表[localStorage.getItem('role')] || 'buin'; } catch (e) { 名 = 'buin'; }
   }
+  // このページに無い立場を指されたら、あるものの中でいちばん上を出す
+  if (あるもの.indexOf(名) < 0) 名 = あるもの[あるもの.length - 1];
   出す(名);
+  if (あるもの.length === 1) {
+    const 印 = document.getElementById('printHint');
+    if (印) 印.textContent = 'ここに出ているのが、あなたのぶんです。';
+  }
 })();
 </script>
 </body>
