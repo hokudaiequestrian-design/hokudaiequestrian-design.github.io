@@ -8,8 +8,8 @@
   みんなのカレンダー（2026-09-13）。月ごとに見るだけの画面で、タブが2つ。
     カレンダー … 左に部員の名前、横に日付の表。休み（有給・季節休み・バイト）と大会（出る日）を入れる
                  （2026-09-13 ユーザーの指示で「休みカレンダー」から表の形・名前を変えた）
-    当番・手入れ予定 … 当番表とチーフが組んだ手入れ表を、日ごとの行で縦に並べる（1日に馬の数だけ名前が並ぶため）
-      当番は列（昼当｜夕当｜投げ草）、手入れはその下の段。上に自分のこれから（2026-09-21 作り直し）
+    当番・手入れ予定 … 当番表とチーフが組んだ手入れ表。**当番と手入れは別の表**で、上のボタンで切り替える（2026-09-23 ユーザーの指示）
+      当番の表 … 行が日、列が当番（昼当｜夕当｜投げ草）。手入れの表 … 行が日、列が馬。上に自分のこれから
       **月ごとではなく、きのうから30日ぶん**を出す（2026-09-21 ユーザーの指示）。月をまたぐので、かかる月を全部読んで合わせる。
       カレンダーのタブは今までどおり月ごと
       当番は曜日で回すので、期間に開始日・終了日を入れてある期間だけ、その範囲の日に出る（2026-09-21）
@@ -56,47 +56,48 @@ table.grid tr.me td.meet { background-image: none; }
 /* 朝手入れ（2026-09-20）。当番・手入れ予定でだけ使う */
 .tag.asa    { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
 /*
-  ----- 当番・手入れ予定（2026-09-21 ユーザーの指示で作り直し） -----
-  前は「昼当 高林　昼当 齊藤　夕当 …」と1行に流していて、同じ見出しが名前の数だけ繰り返され、
-  日ごとに位置もずれて読めなかった。作り直しの決まり：
-    ・当番は **列**（昼当｜夕当｜投げ草）。見出しは上に1回だけで、下へ送っても残る。中は名前だけ
-    ・手入れはその下の段に「馬 名前」の組で、幅をそろえて並べる（馬は1日に何頭もあるので列にしない）
-    ・いちばん上に自分のこれからの予定（押すとその日へ）
+  ----- 当番・手入れ予定（2026-09-23 ユーザーの指示で作り直し） -----
+  前は1日の行の中に「当番の列」と「手入れの段」を同居させていて、手入れの馬と名前が当番の列の下に並んで見え、
+  どれが当番でどれが手入れか読み取りにくかった（ユーザー「見にくい」）。
+  作り直しの決まり：
+    ・**当番と手入れは別の表**。上の「当番｜手入れ」で切り替える（選んだほうを覚える）
+    ・どちらも「行＝日、列＝当番／馬」の表。見出し行と日付の列は貼り付いて、下・横へ送っても残る
+    ・自分の名前は黄色の札、今日の行は左に青い線、大会の日はうすい緑（カレンダーと同じ）
+    ・週の切れ目（月曜の上）は太い線。日曜は赤、土曜は青
 */
-.duty { max-width: 46rem; --cols: 3; border-top: 1px solid var(--rule-strong); }
-.duty-row { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: var(--space-sm); padding: var(--space-xs) var(--space-2xs); border-bottom: 1px solid var(--rule); }
-.duty-slots { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); }
-.duty-slots > * { padding: 0 var(--space-xs); border-left: 1px solid var(--rule); }
-.duty-slots > *:first-child { border-left: 0; padding-left: 0; }
-/* サイトでは上の青い帯が貼り付くので、そのぶん下げる（--bar-h は描くときに測る） */
-.duty-head { position: sticky; top: var(--bar-h, 0px); z-index: 2; background: var(--paper-2); border-bottom: 2px solid var(--rule-strong); font-weight: 700; font-size: var(--text-sm); color: var(--accent-dark); }
+.seg { display: inline-flex; border: 1px solid var(--accent); border-radius: var(--radius-pill); overflow: hidden; }
+.seg .seg-btn { min-height: var(--tap); padding: 0 var(--space-lg); border: 0; border-radius: 0; background: var(--paper-2); color: var(--accent-dark); font-weight: 700; }
+.seg .seg-btn + .seg-btn { border-left: 1px solid var(--accent); }
+.seg .seg-btn.on { background: var(--accent); color: #fff; }
+.seg .seg-btn:hover:not(.on) { background: var(--accent-soft); }
 
-/* 30日ぶんは月をまたぐので、月がかわるところに小さな見出しを入れる */
-.duty-month { padding: var(--space-xs) var(--space-2xs) var(--space-3xs); font-size: var(--text-sm); font-weight: 700; color: var(--muted); background: var(--paper-3); border-bottom: 1px solid var(--rule); }
-.duty-day { scroll-margin-top: calc(var(--bar-h, 0px) + 3.5rem); }
-.duty-day.wk { border-top: 2px solid var(--rule-strong); }   /* 週の切れ目（月曜の上） */
-.duty-day.meet { background: var(--meet-soft); }
-.duty-day .d { text-align: center; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.duty-day .d .n { display: inline-block; min-width: 1.9em; padding: 0.15em 0; border-radius: var(--radius-pill); font-weight: 700; font-size: 1.125rem; }
-.duty-day .d .w { display: block; font-size: var(--text-xs); color: var(--muted); }
-.duty-day.sat .d .n, .duty-day.sat .d .w { color: var(--accent-dark); }
-.duty-day.sun .d .n, .duty-day.sun .d .w { color: var(--danger); }
-.duty-day.today .d .n { background: var(--accent); color: #fff; }
-.duty-day.today .d .w { color: var(--accent-dark); font-weight: 700; }
-.duty-day .ev { font-size: var(--text-xs); color: var(--care-dark); font-weight: 700; margin-bottom: var(--space-3xs); }
-.duty-day .none { color: var(--muted); }
-
-.slot { display: flex; flex-wrap: wrap; gap: 0 var(--space-sm); align-content: flex-start; min-width: 0; }
+/* 広い画面：ページごと送る（見出し行は帯の下に貼り付く）。overflow を付けると貼り付く先が枠になってしまうので付けない */
+.sched-wrap { max-width: 100%; }
+table.sched { border-collapse: separate; border-spacing: 0; font-size: var(--text-sm); width: 100%; table-layout: auto; }
+table.sched th, table.sched td { border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: var(--space-2xs) var(--space-xs); text-align: left; vertical-align: top; }
+table.sched thead th { position: sticky; top: var(--bar-h, 0px); z-index: 2; background: var(--paper-sunken); font-weight: 700; color: var(--accent-dark); white-space: nowrap; }
+table.sched.care thead th { color: var(--care-dark); }
+table.sched th.d { position: sticky; left: 0; z-index: 1; background: var(--paper-2); width: 3.4em; min-width: 3.4em; text-align: center; padding: var(--space-2xs) 0; border-left: 3px solid transparent; }
+table.sched thead th.d { z-index: 3; background: var(--paper-sunken); }
+table.sched th.d .n { display: inline-block; min-width: 1.9em; padding: 0.1em 0; border-radius: var(--radius-pill); font-weight: 700; font-size: 1.125rem; font-variant-numeric: tabular-nums; line-height: 1.2; }
+table.sched th.d .w { display: block; font-size: var(--text-xs); color: var(--muted); font-weight: 400; }
+table.sched th.d .m { display: block; font-size: var(--text-xs); color: var(--muted); font-weight: 700; }
+table.sched tr.sat th.d .n, table.sched tr.sat th.d .w { color: var(--accent-dark); }
+table.sched tr.sun th.d .n, table.sched tr.sun th.d .w { color: var(--danger); }
+table.sched tr.today th.d { border-left-color: var(--accent); }
+table.sched tr.today th.d .n { background: var(--accent); color: #fff; }
+table.sched tr.today th.d .w { color: var(--accent-dark); font-weight: 700; }
+table.sched tr.today td { box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent); }
+table.sched tr.wk th, table.sched tr.wk td { border-top: 2px solid var(--rule-strong); }
+table.sched tr.meet th.d, table.sched tr.meet td { background: var(--meet-soft); }
+table.sched .ev { display: block; font-size: var(--text-xs); color: var(--care-dark); font-weight: 700; white-space: nowrap; }
+table.sched td { min-width: 4em; }
+table.sched td .nm { display: block; width: fit-content; max-width: 100%; line-height: 1.6; }
+table.sched td .none { color: var(--rule-strong); }
+table.sched td.mine-cell { background: var(--warning-soft); }
 .nm { white-space: nowrap; border-radius: 4px; }
-.nm.mine, .care-item.mine { background: var(--warning-soft); outline: 2px solid var(--warning); padding: 0 var(--space-2xs); font-weight: 700; }
-
-.duty-care { display: flex; gap: var(--space-xs); align-items: baseline; }
-.duty-slots + .duty-care { margin-top: var(--space-2xs); padding-top: var(--space-2xs); border-top: 1px dashed var(--rule); }
-.duty-care .lab { flex: 0 0 auto; font-size: var(--text-xs); font-weight: 700; color: var(--care-dark); }
-.care-list { flex: 1 1 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5em, 1fr)); gap: var(--space-3xs) var(--space-sm); min-width: 0; }
-.care-item { white-space: nowrap; border-radius: 4px; justify-self: start; }
-.care-item .h { color: var(--care-dark); font-weight: 700; margin-right: var(--space-2xs); }
-.care-item .tag { margin-right: var(--space-2xs); font-size: var(--text-xs); }
+.nm.mine { background: var(--warning-soft); outline: 2px solid var(--warning); padding: 0 var(--space-2xs); font-weight: 700; }
+.nm .tag { margin-right: var(--space-3xs); font-size: var(--text-xs); }
 
 /* 自分のこれから */
 .my-next { margin: 0 0 var(--space-sm); padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-input); background: var(--warning-soft); max-width: 46rem; }
@@ -112,11 +113,13 @@ table.grid tr.me td.meet { background-image: none; }
 @media (max-width: 30rem) {
   .cal-head h2 { min-width: 0; flex: 1 1 auto; }
   .cal-head .grow { display: none; }
-  .duty-row { gap: var(--space-xs); }
-  .duty-slots > * { padding: 0 var(--space-2xs); }
-  /* 狭い画面では名前を縦に積む（1行に入る日と入らない日で形が変わらないように）。手入れは折り返して詰める */
-  .slot { flex-direction: column; }
-  .care-list { display: flex; flex-wrap: wrap; }
+  /* 狭い画面：表を枠の中で縦横に送る（枠の中なら見出し行と日付の列の両方が貼り付く）。列は少し詰める */
+  .sched-wrap { overflow: auto; max-height: calc(100vh - var(--bar-h, 0px) - 0.5rem); }
+  table.sched { width: auto; min-width: 100%; }
+  table.sched thead th { top: 0; }
+  table.sched th, table.sched td { padding: var(--space-3xs) var(--space-2xs); }
+  table.sched td { min-width: 4.5em; }
+  .seg .seg-btn { padding: 0 var(--space-md); }
 }
 
 .week-wrap { overflow-x: auto; }
@@ -145,6 +148,11 @@ table.week th { background: var(--paper-sunken); }
     </div>
 
     <div class="cal-filter" id="teireFilter" style="display:none;">
+      <!-- 当番と手入れは別の表（2026-09-23 ユーザーの指示） -->
+      <div class="seg" role="group" aria-label="当番の表か手入れの表か">
+        <button type="button" class="seg-btn on" data-view="duty" aria-pressed="true">当番</button>
+        <button type="button" class="seg-btn" data-view="care" aria-pressed="false">手入れ</button>
+      </div>
       <span class="chip small selected" role="button" tabindex="0" data-who="all" aria-pressed="true">みんな</span>
       <span class="chip small" role="button" tabindex="0" data-who="me" aria-pressed="false">自分だけ</span>
       <label for="horseSelect" class="inline">馬
@@ -255,6 +263,9 @@ let 見ている = {
 };
 let 中身 = null;
 let 読む番 = 0;
+// 当番の表か手入れの表か（2026-09-23）。?view=care で手入れ。押したほうを覚える
+let 見る表 = URLの('view') === 'care' ? 'care' : (URLの('view') === 'duty' ? 'duty' : '');
+if (!見る表) { try { 見る表 = localStorage.getItem('calendar:view') === 'care' ? 'care' : 'duty'; } catch (e) { 見る表 = 'duty'; } }
 
 // from〜to を1日ずつ。月をまたいでもよい（当番・手入れ予定は30日ぶん）
 function 日の並び(d) {
@@ -319,7 +330,8 @@ function タブを描く() {
     : '<span><b class="tag work">運</b> 仕事（人員表ができると、仕事名の1文字目で出ます）</span>';
   $('legend').innerHTML = 手入れ
     ? '<span><b class="nm mine">名前</b> 自分のぶん</span>' +
-      '<span><b class="tag asa">朝</b> 朝手入れ（朝練が休みの日だけ）</span><span><i class="sw"></i>大会がある日</span>'
+      (見る表 === 'care' ? '<span><b class="tag asa">朝</b> 朝手入れ（朝練が休みの日だけ）</span>' : '') +
+      '<span><i class="sw"></i>大会がある日</span><span>太い線は週の切れ目（月曜）</span>'
     : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span>' + バイトの凡例 +
       '<span><b class="tag meet">大</b> 大会に出る（人員表ができる前）</span>' +
       '<span><b class="tag entry">出</b> 出場する選手</span>' + 仕事の凡例 +
@@ -451,35 +463,37 @@ function 手入れ予定を描く(d) {
     b.classList.toggle('selected', on);
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
-  const 名前の札 = (名前) => '<span class="nm' + (名前 === 私 ? ' mine' : '') + '">' + esc(名前) + '</span>';
+  const 手入れの表を見る = 見る表 === 'care';
+  document.querySelectorAll('#teireFilter [data-view]').forEach((b) => {
+    const on = b.dataset.view === 見る表;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  // 馬の絞り込みは手入れの表だけのもの
+  $('horseSelect').parentNode.style.display = 手入れの表を見る ? '' : 'none';
+  const 名前の札 = (名前, 朝) => '<span class="nm' + (名前 === 私 ? ' mine' : '') + '">' + (朝 ? '<b class="tag asa" title="朝手入れ">朝</b>' : '') + esc(名前) + '</span>';
 
-  /*
-    当番の列（2026-09-21）。その月に出てくる当番を、昼当→夕当→投げ草（並び）の順に列にする。
-    当番は馬に紐づかないので、馬を選んでいるあいだは列ごと出さない。
-  */
-  const 当番たち = 選んだ馬 ? [] : (d.当番 || []).filter((x) => !自分だけ || x.名前 === 私);
+  // 当番：日 → 当番名 → [名前]。列は昼当→夕当→投げ草（並び）の順
+  const 当番たち = (d.当番 || []).filter((x) => !自分だけ || x.名前 === 私);
   const 列 = [];
   当番たち.slice().sort((a, b) => (a.並び || 0) - (b.並び || 0)).forEach((x) => { if (列.indexOf(x.当番) < 0) 列.push(x.当番); });
-  const 当番の表 = {};   // 日 → 当番名 → [名前]
+  const 当番の表 = {};
   当番たち.forEach((x) => {
     const 日 = (当番の表[x.date] = 当番の表[x.date] || {});
     (日[x.当番] = 日[x.当番] || []).push(x.名前);
   });
 
-  /*
-    手入れの段。朝手入れ（カレンダー式の馬だけ日付を持つ）を先に、ふつうの手入れを後に。
-    朝手入れが入っていない日は朝練があった日なので、足りない知らせは出さない。
-  */
+  // 手入れ：日 → 馬 → [{名前, 朝}]。朝手入れ（カレンダー式の馬だけ日付を持つ）を先に
   const 手入れの表 = {};
   const 手入れを置く = (x, 朝) => {
     if (選んだ馬 && x.馬 !== 選んだ馬) return;
     if (自分だけ && x.名前 !== 私) return;
-    (手入れの表[x.date] = 手入れの表[x.date] || []).push(
-      '<span class="care-item' + (x.名前 === 私 ? ' mine' : '') + '"><span class="h">' + esc(x.馬) + '</span>' +
-      (朝 ? '<b class="tag asa" title="朝手入れ">朝</b>' : '') + esc(x.名前) + '</span>');
+    const 日 = (手入れの表[x.date] = 手入れの表[x.date] || {});
+    (日[x.馬] = 日[x.馬] || []).push({ 名前: x.名前, 朝: 朝 });
   };
   (d.朝手入れ || []).forEach((x) => 手入れを置く(x, true));
   (d.手入れ || []).forEach((x) => 手入れを置く(x, false));
+  const 馬の列 = (選んだ馬 ? [選んだ馬] : 馬たち).filter((h) => !自分だけ || Object.keys(手入れの表).some((k) => 手入れの表[k][h]));
 
   自分のこれからを描く(d, 私);
 
@@ -487,48 +501,54 @@ function 手入れ予定を描く(d) {
   document.documentElement.style.setProperty('--bar-h',
     (帯 && getComputedStyle(帯).position === 'sticky' ? 帯.offsetHeight : 0) + 'px');
 
-  const 日々 = 日の並び(d).filter((day) => !自分だけ || 当番の表[day.key] || 手入れの表[day.key]);
-  const 何かある = Object.keys(当番の表).length || Object.keys(手入れの表).length;
-  if (!何かある || !日々.length) {
+  const ある表 = 手入れの表を見る ? 手入れの表 : 当番の表;
+  const 日々 = 日の並び(d).filter((day) => !自分だけ || ある表[day.key]);
+  if (!Object.keys(ある表).length || !日々.length) {
     $('view').innerHTML = '<p class="muted" style="padding:var(--space-sm) 0;">' +
-      (自分だけ ? 'この30日に、' + esc(私) + 'さんの当番・手入れはありません。'
-        : 選んだ馬 ? 'この30日の' + esc(選んだ馬) + 'の手入れ表はまだありません。'
-        : 'この30日の当番表・手入れ表はまだありません。') + '</p>';
+      (自分だけ ? 'この30日に、' + esc(私) + 'さんの' + (手入れの表を見る ? '手入れ' : '当番') + 'はありません。'
+        : 選んだ馬 && 手入れの表を見る ? 'この30日の' + esc(選んだ馬) + 'の手入れ表はまだありません。'
+        : 'この30日の' + (手入れの表を見る ? '手入れ表' : '当番表') + 'はまだありません。') +
+      '</p>';
   } else {
-    const 見出し = 列.length
-      ? '<div class="duty-row duty-head" aria-hidden="true"><span></span><div class="duty-slots">' +
-        列.map((名) => '<span>' + esc(名) + '</span>').join('') + '</div></div>'
-      : '';
-    $('view').innerHTML = '<div class="duty" style="--cols:' + (列.length || 1) + ';">' + 見出し + 日々.map((day, i) => {
+    const 見出しの列 = 手入れの表を見る ? 馬の列 : 列;
+    const 日の見出し = (day, i) => {
       const 今日 = day.key === d.今日;
-      const 月の頭 = i === 0 || 日々[i - 1].月 !== day.月 ? '<div class="duty-month">' + day.月 + '月</div>' : '';
-      const 当 = 当番の表[day.key] || {};
-      const 手 = 手入れの表[day.key] || [];
-      // 見出しは見た目だけなので、読み上げには列の名前を1つずつ付ける
-      const 当番の段 = 列.length
-        ? '<div class="duty-slots">' + 列.map((名) =>
-            '<div class="slot" data-duty="' + esc(名) + '" aria-label="' + esc(名) + '">' +
-            ((当[名] || []).map(名前の札).join('') || '<span class="none">—</span>') + '</div>').join('') + '</div>'
-        : '';
-      const 手入れの段 = 手.length
-        ? '<div class="duty-care"><span class="lab">手入れ</span><div class="care-list">' + 手.join('') + '</div></div>'
-        : (列.length ? '' : '<div class="duty-care"><span class="none">—</span></div>');
-      return 月の頭 + '<div class="duty-row duty-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') +
-        (day.曜 === 1 && i > 0 ? ' wk' : '') + (大会[day.key] ? ' meet' : '') + (今日 ? ' today' : '') + '" id="d-' + day.key + '">' +
-        '<div class="d" aria-label="' + esc(day.label + (今日 ? ' 今日' : '')) + '"><span class="n">' + day.日 + '</span><span class="w">' + (今日 ? '今日' : 曜日名[day.曜]) + '</span></div>' +
-        '<div class="b">' + (大会[day.key] ? '<div class="ev">' + esc(大会[day.key].join('・')) + '</div>' : '') +
-        当番の段 + 手入れの段 + '</div></div>';
-    }).join('') + '</div>';
+      const 月を出す = i === 0 || 日々[i - 1].月 !== day.月;
+      return '<th class="d" scope="row" aria-label="' + esc(day.label + (今日 ? ' 今日' : '')) + '">' +
+        (月を出す ? '<span class="m">' + day.月 + '月</span>' : '') +
+        '<span class="n">' + day.日 + '</span><span class="w">' + (今日 ? '今日' : 曜日名[day.曜]) + '</span>' +
+        (大会[day.key] ? '<span class="ev">' + esc(大会[day.key].join('・')) + '</span>' : '') +
+        '</th>';
+    };
+    const 行のクラス = (day, i) => 'sched-day' + (day.曜 === 6 ? ' sat' : day.曜 === 0 ? ' sun' : '') +
+      (day.曜 === 1 && i > 0 ? ' wk' : '') + (大会[day.key] ? ' meet' : '') + (day.key === d.今日 ? ' today' : '');
+    const 行たち = 日々.map((day, i) => {
+      const マス = 手入れの表を見る
+        ? 馬の列.map((h) => {
+            const 人 = ((手入れの表[day.key] || {})[h] || []);
+            return '<td' + (人.some((x) => x.名前 === 私) ? ' class="mine-cell"' : '') + '>' + 人.map((x) => 名前の札(x.名前, x.朝)).join('') + '</td>';
+          }).join('')
+        : 列.map((名) => {
+            const 人 = ((当番の表[day.key] || {})[名] || []);
+            return '<td' + (人.indexOf(私) >= 0 ? ' class="mine-cell"' : '') + ' data-duty="' + esc(名) + '">' + (人.map((n) => 名前の札(n, false)).join('') || '<span class="none">—</span>') + '</td>';
+          }).join('');
+      return '<tr class="' + 行のクラス(day, i) + '" id="d-' + day.key + '">' + 日の見出し(day, i) + (見出しの列.length ? マス : '<td></td>') + '</tr>';
+    }).join('');
+    $('view').innerHTML = '<div class="sched-wrap"><table class="sched ' + (手入れの表を見る ? 'care' : 'duty') + '"><thead><tr>' +
+      '<th class="d">日</th>' + 見出しの列.map((名) => '<th>' + esc(名) + '</th>').join('') + '</tr></thead><tbody>' +
+      行たち + '</tbody></table></div>';
   }
 
   // 今月を開いたら、今日の行が見えるところまで送る（1日から探さなくて済むように）。月ごとに1回だけ
-  const 今日の行 = document.querySelector('.duty-day.today');
+  const 今日の行 = document.querySelector('table.sched tr.today');
   if (今日の行 && 今日へ送った !== d.月) {
     今日へ送った = d.月;
     if (今日の行.getBoundingClientRect().bottom > window.innerHeight) 今日の行.scrollIntoView({ block: 'center' });
   }
 
-  毎週の手入れを描く(d, 選んだ馬, 自分だけ, 私);
+  // 毎週決まっている手入れは、手入れの表のときだけ
+  if (手入れの表を見る) 毎週の手入れを描く(d, 選んだ馬, 自分だけ, 私);
+  else $('weeklyCard').style.display = 'none';
 }
 
 /*
@@ -606,7 +626,7 @@ async function 読む() {
 function URLを合わせる() {
   const 手入れ = 見ている.tab === 'teire';
   try {
-    history.replaceState(null, '', '?tab=' + 見ている.tab + (手入れ ? (見ている.始 ? '&from=' + 見ている.始 : '') : '&month=' + 見ている.月));
+    history.replaceState(null, '', '?tab=' + 見ている.tab + (手入れ ? (見ている.始 ? '&from=' + 見ている.始 : '') + '&view=' + 見る表 : '&month=' + 見ている.月));
   } catch (e) { /* GAS の枠の中では変えられない */ }
 }
 function 月を変える(月) { 見ている.月 = 月; URLを合わせる(); 読む(); }
@@ -640,6 +660,14 @@ function だれのぶんを切り替える(b) {
   描く();
 }
 $('teireFilter').addEventListener('click', (e) => {
+  const v = e.target.closest ? e.target.closest('[data-view]') : null;
+  if (v) {
+    見る表 = v.dataset.view === 'care' ? 'care' : 'duty';
+    try { localStorage.setItem('calendar:view', 見る表); } catch (err) { /* 覚えられなくても動く */ }
+    URLを合わせる();
+    描く();
+    return;
+  }
   const b = e.target.closest ? e.target.closest('[data-who]') : null;
   if (b) だれのぶんを切り替える(b);
 });

@@ -646,51 +646,64 @@ function 模擬で答える(req) {
         (await page.$eval('#thisMonth', (b) => b.textContent)) === 'きのうから');
     }
     // 模擬データは 2030年9月なので、範囲の頭を指定して開く（?from=）
+    // 当番と手入れは別の表（2026-09-23 ユーザーの指示）。覚えている表を消して、当番の表から
+    await page.evaluate(() => localStorage.removeItem('calendar:view'));
     await page.goto(元 + '/calendar.html?tab=teire&from=2030-09-10');
-    await page.waitForSelector('#view .duty', { timeout: 10000 });
+    await page.waitForSelector('#view table.sched', { timeout: 10000 });
     確かめる('30日ぶんの行が出て、月をまたぐところに月の見出しが入る',
-      (await page.$$('#view .duty-day')).length === 30 &&
-      (await page.$$eval('#view .duty-month', (xs) => xs.map((x) => x.textContent).join('|'))) === '9月|10月',
-      (await page.$$('#view .duty-day')).length + ' 行 ' + await page.$$eval('#view .duty-month', (xs) => xs.map((x) => x.textContent).join('|')));
+      (await page.$$('#view table.sched tbody tr')).length === 30 &&
+      (await page.$$eval('#view table.sched th.d .m', (xs) => xs.map((x) => x.textContent).join('|'))) === '9月|10月',
+      (await page.$$('#view table.sched tbody tr')).length + ' 行 ' + await page.$$eval('#view table.sched th.d .m', (xs) => xs.map((x) => x.textContent).join('|')));
     確かめる('範囲の頭と末の日が合っている',
-      await page.$$eval('#view .duty-day', (xs) => xs[0].id === 'd-2030-09-10' && xs[xs.length - 1].id === 'd-2030-10-09'));
+      await page.$$eval('#view table.sched tbody tr', (xs) => xs[0].id === 'd-2030-09-10' && xs[xs.length - 1].id === 'd-2030-10-09'));
     確かめる('カレンダーのタブへ移ると、今までどおり月ごと',
       await (async () => {
         await page.click('.tabs button[data-tab="cal"]');
         await page.waitForSelector('#view table.grid', { timeout: 10000 });
         const 題 = await page.$eval('#monthTitle', (el) => el.textContent);
         await page.click('.tabs button[data-tab="teire"]');
-        await page.waitForSelector('#view .duty', { timeout: 10000 });
+        await page.waitForSelector('#view table.sched', { timeout: 10000 });
         return /年[0-9]+月$/.test(題);
       })());
     確かめる('タブの名前は「当番・手入れ予定」',
       (await page.$eval('.tabs button[data-tab="teire"]', (b) => b.textContent.trim())) === '当番・手入れ予定');
-    確かめる('朝手入れは当番・手入れ予定に出る',
+    // 当番の表
+    確かめる('当番の表：見出しは 日｜昼当｜夕当（上に1回だけ）',
+      await page.$$eval('#view table.sched.duty thead th', (xs) => xs.map((x) => x.textContent).join('|')) === '日|昼当|夕当',
+      await page.$$eval('#view table.sched thead th', (xs) => xs.map((x) => x.textContent).join('|')));
+    確かめる('当番の表：マスの中は名前だけ（「昼当」を名前ごとに繰り返さない）',
+      await page.$$eval('#view table.sched.duty tbody td', (xs) => xs.length > 0 && xs.every((x) => !/昼当|夕当/.test(x.textContent))));
+    確かめる('当番の表：見出し行は下へ送っても残る（貼り付く）',
+      await page.$eval('#view table.sched thead th', (el) => getComputedStyle(el).position === 'sticky'));
+    確かめる('当番の表：日付の列は横に送っても残る（貼り付く）',
+      await page.$eval('#view table.sched tbody th.d', (el) => getComputedStyle(el).position === 'sticky'));
+    確かめる('当番の表には馬の名前も朝手入れも出ない',
+      !/北叡/.test(await page.$eval('#view', (el) => el.textContent)) && !(await page.$('#view .tag.asa')));
+    確かめる('当番の表では馬の絞り込みは隠れる',
+      await page.$eval('#horseSelect', (el) => !el.parentNode.checkVisibility()));
+    確かめる('今日の行と大会の日に印が付く',
+      !!(await page.$('#view table.sched tr.today')) && !!(await page.$('#view table.sched tr.meet')));
+    // 手入れの表へ
+    await page.click('#teireFilter .seg-btn[data-view="care"]');
+    await page.waitForSelector('#view table.sched.care', { timeout: 10000 });
+    確かめる('手入れの表：列は馬（日｜北叡）',
+      await page.$$eval('#view table.sched.care thead th', (xs) => xs.map((x) => x.textContent).join('|')) === '日|北叡',
+      await page.$$eval('#view table.sched.care thead th', (xs) => xs.map((x) => x.textContent).join('|')));
+    確かめる('朝手入れは手入れの表に出る',
       /朝/.test(await page.$eval('#view', (el) => el.textContent)) && !!(await page.$('#view .tag.asa')));
+    確かめる('手入れの表には当番の列が無い', !(await page.$('#view table.sched td[data-duty]')));
+    確かめる('どちらの表かを覚える', (await page.evaluate(() => localStorage.getItem('calendar:view'))) === 'care');
+    確かめる('URL にも表の種類が入る（?view=care）', /view=care/.test(page.url()));
     確かめる('朝手入れは大会・休み・バイトのカレンダーには出さない',
       await page.$eval('#legend', (el) => /朝手入れ/.test(el.textContent)));
-    // 当番は列、手入れはその下の段（2026-09-21 ユーザーの指示で作り直し）
-    確かめる('当番は列になっていて、見出しは上に1回だけ（昼当→夕当の順）',
-      await page.$$eval('#view .duty-head .duty-slots > span', (xs) => xs.map((x) => x.textContent).join('|')) === '昼当|夕当',
-      await page.$$eval('#view .duty-head .duty-slots > span', (xs) => xs.map((x) => x.textContent).join('|')).catch(() => '（無い）'));
-    確かめる('列の中は名前だけ（「昼当」を名前ごとに繰り返さない）',
-      await page.$$eval('#view .duty-day .slot', (xs) => xs.length > 0 && xs.every((x) => !/昼当|夕当/.test(x.textContent))));
-    確かめる('列の見出しは下へ送っても残る（貼り付く）',
-      await page.$eval('#view .duty-head', (el) => getComputedStyle(el).position === 'sticky'));
-    // 当番と朝手入れが同じ日（9/16）に入っている枠で見る
-    確かめる('当番は手入れより先に並ぶ',
-      await page.$$eval('#view .duty-day .b', (xs) => {
-        const 枠 = xs.filter((x) => x.querySelector('.slot .nm') && x.querySelector('.care-item'))[0];
-        if (!枠) return false;
-        const 子 = Array.from(枠.children);
-        return 子.findIndex((e) => e.classList.contains('duty-slots')) < 子.findIndex((e) => e.classList.contains('duty-care'));
-      }));
-    確かめる('手入れは「馬 名前」の組で出る',
-      await page.$$eval('#view .care-item', (xs) => xs.length > 0 && xs.every((x) => !!x.querySelector('.h'))));
     await page.select('#horseSelect', '北叡');
     await 待つ(150);
-    確かめる('馬を選ぶと当番は出ない（当番は馬に紐づかない）',
-      (await page.$$('#view .slot')).length === 0 && !(await page.$('#view .duty-head')));
+    確かめる('馬を選ぶと、その馬の列だけになる',
+      await page.$$eval('#view table.sched.care thead th', (xs) => xs.map((x) => x.textContent).join('|')) === '日|北叡');
+    await page.click('#teireFilter .seg-btn[data-view="duty"]');
+    await page.waitForSelector('#view table.sched.duty', { timeout: 10000 });
+    確かめる('当番の表に戻せる', !!(await page.$('#view table.sched.duty')));
+    await 写す('7-当番の表と手入れの表');
 
     // ---------- 入口 ----------
     console.log('\n== 入口 ==');
