@@ -156,7 +156,7 @@
       日々.forEach((d) => {
         if (d >= l.from && d <= (l.to || l.from)) {
           // バイトはバイト先の名前で出す（部員には「バイト」と書かない）
-          入れる(d, { 種類: '休み', 本文: (l.label || l.kind) + (l.state === '申請中' ? '（了承待ち）' : '') });
+          入れる(d, { 種類: '休み', バイト: l.kind === 'バイト', 本文: (l.label || l.kind) + (l.state === '申請中' ? '（了承待ち）' : '') });
         }
       });
     });
@@ -210,7 +210,7 @@
       const 注意 = 重なり(items);
       const 行 = items.length
         ? items.map((x) =>
-            '<div class="ev ev-' + 印[x.種類] + '">' +
+            '<div class="ev ev-' + 印[x.種類] + (x.バイト ? ' ev-baito' : '') + '">' +
               '<span class="k">' + esc(x.種類) + '</span>' +
               '<span class="b">' + esc(x.本文) + '</span>' +
               (x.添え ? '<span class="s">' + esc(x.添え) + '</span>' : '') +

@@ -544,6 +544,8 @@ function 模擬で答える(req) {
     await 待つ(150);
     確かめる('日を押すと見出しに大会の名前が出る', /大会：秋の大会/.test(await page.$eval('#baitoDayTitle', (el) => el.textContent)));
     確かめる('カレンダーの線は太い（2px）', await page.$eval('#baitoGrid .baito-cell:nth-child(9)', (c) => getComputedStyle(c).borderTopWidth === '2px'));
+    確かめる('バイトの人の帯は、人員表の外部の仕事と同じ青（#bfe1f6）',
+      await page.evaluate(() => { const el = document.querySelector('#baitoDayList .who.k-baito') || document.querySelector('#baitoGrid .who.k-baito'); return !el || getComputedStyle(el).backgroundColor === 'rgb(191, 225, 246)'; }));
     {
       const 月 = await page.$eval('#baitoMonth', (el) => el.textContent);
       const 祝日の数 = await page.evaluate((月) => {

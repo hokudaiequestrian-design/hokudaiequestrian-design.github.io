@@ -53,6 +53,7 @@
 .ev-care .k { color: var(--care-dark); }
 .ev-duty .k { color: var(--ink); }
 .ev-off .k { color: var(--muted); }
+.ev-baito .k { color: var(--baito); font-weight: 700; }   /* バイトは外部の仕事と同じ青（2026-09-23） */
 
 .me-day .warn {
   margin: var(--space-2xs) 0 var(--space-3xs); padding: var(--space-2xs) var(--space-xs);

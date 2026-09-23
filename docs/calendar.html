@@ -56,6 +56,9 @@
   --danger-soft:  oklch(96%   0.019 27);
   --warning:      oklch(48%   0.105 70);
   --warning-soft: oklch(96%   0.030 80);
+  /* バイト（2026-09-23 ユーザーの指示）：人員表の外部の仕事（札競・真駒内・フロンテア）と同じ青。値は jinin.gs の 既定の色 と合わせる */
+  --baito:        #0a53a8;
+  --baito-soft:   #bfe1f6;
   --success:      var(--care);
   --success-soft: var(--care-soft);
 
@@ -992,7 +995,7 @@ table.grid tr.me td { background-image: linear-gradient(var(--warning-soft), var
 table.grid tr.me td.meet { background-image: none; }
 .tag { display: inline-block; min-width: 1.6em; padding: 0 3px; border: 1px solid var(--rule-strong); border-radius: 4px; background: var(--paper-2); font-weight: 700; line-height: 1.5; }
 .tag.off { color: var(--warning); border-color: var(--warning); }
-.tag.job { color: var(--danger); border-color: var(--danger); }
+.tag.job { color: var(--baito); border-color: var(--baito); background: var(--baito-soft); }   /* バイト＝外部の仕事と同じ青（2026-09-23） */
 .tag.meet { color: var(--care-dark); border-color: var(--care); }
 .tag.wait { border-style: dashed; font-weight: 400; }
 /* 人員表の仕事（2026-09-20）。色は決まっている組み合わせだけを使う（.pill.no / .pill.yes と同じ） */
