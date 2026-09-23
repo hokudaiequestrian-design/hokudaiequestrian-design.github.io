@@ -539,14 +539,18 @@ function 模擬で答える(req) {
     await page.waitForSelector('#baitoGrid .baito-cell', { timeout: 10000 });
     // 明日が来月なら、来月へ
     if (明日.slice(0, 7) !== 今日.slice(0, 7)) { await page.click('#baitoNext'); await 待つ(200); }
-    確かめる('バイトのカレンダーに大会の日が出る', /秋の大会/.test(await page.$eval('#baitoGrid .baito-cell[data-day="' + 明日 + '"]', (c) => c.textContent)));
+    確かめる('バイトのカレンダーに大会の日は「大」の札（名前はポイントで）', await page.$eval('#baitoGrid .baito-cell[data-day="' + 明日 + '"]', (c) => { const b = c.querySelector('.badge.b-meet'); return !!b && b.textContent === '大' && b.title === '秋の大会'; }));
+    await page.$eval('#baitoGrid .baito-cell[data-day="' + 明日 + '"]', (c) => c.click());
+    await 待つ(150);
+    確かめる('日を押すと見出しに大会の名前が出る', /大会：秋の大会/.test(await page.$eval('#baitoDayTitle', (el) => el.textContent)));
+    確かめる('カレンダーの線は太い（2px）', await page.$eval('#baitoGrid .baito-cell:nth-child(9)', (c) => getComputedStyle(c).borderTopWidth === '2px'));
     {
       const 月 = await page.$eval('#baitoMonth', (el) => el.textContent);
       const 祝日の数 = await page.evaluate((月) => {
         const m = 月.match(/(\d+)年(\d+)月/);
         return Object.keys(部品.祝日(Number(m[1]))).filter((k) => Number(k.slice(5, 7)) === Number(m[2])).length;
       }, 月);
-      確かめる('バイトのカレンダーの祝日の数が計算と合う（' + 月 + '：' + 祝日の数 + '）', (await page.$$('#baitoGrid .tag-holiday')).length === 祝日の数);
+      確かめる('バイトのカレンダーの祝日は「祝」の札で、数が計算と合う（' + 月 + '：' + 祝日の数 + '）', (await page.$$('#baitoGrid .badge.b-holiday')).length === 祝日の数 && (await page.$$eval('#baitoGrid .badge.b-holiday', (xs) => xs.every((x) => x.textContent === '祝' && x.title))));
       const 二千二十六 = await page.evaluate(() => 部品.祝日(2026));
       確かめる('祝日の計算：2026年の敬老の日・国民の休日・秋分の日',
         二千二十六['2026-09-21'] === '敬老の日' && 二千二十六['2026-09-22'] === '国民の休日' && 二千二十六['2026-09-23'] === '秋分の日', JSON.stringify(二千二十六));
