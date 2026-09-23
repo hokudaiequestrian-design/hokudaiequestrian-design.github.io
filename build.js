@@ -403,8 +403,8 @@ function 入口を作る() {
   <!-- 運営ツール（2026-09-22 ユーザーの指示：下のほうに欄を新設）。大会の運営で使う道具。
        部員のデータは使わないので、どの立場の入口にも出す。 -->
   <section class="hub-group">
-    <h2>運営ツール</h2>
-    <p class="note hint">大会の運営で使う道具。名簿や出欠とはつながっていません。</p>
+    <h2>運営・会計ツール</h2>
+    <p class="note hint">大会の運営と会計で使う道具。名簿や出欠とはつながっていません。</p>
     <div class="hub-list">
       <a class="hub-link" href="debanhyo.html">
         <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-debanhyo"/></svg></span>

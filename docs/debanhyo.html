@@ -879,6 +879,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     r++;
     set(r, 1, '合計', { font: { bold: true } }); set(r, 7, acc.total, { font: { bold: true } }); r++;
     if (acc.unknown) { set(r, 1, `エントリー料が読めなかった申込 ${acc.unknown} 件（合計に入っていない）`); r++; }
+    if (acc.memo) { r++; set(r, 1, 'メモ'); set(r, 2, acc.memo); r++; }
+    // 選手ごとの合計（2026-09-23 ユーザーの指示：選手名と各選手の合計金額）
+    const ws2 = wb.addWorksheet('選手ごとの合計');
+    ws2.columns = [{ width: 16 }, { width: 28 }, { width: 8 }, { width: 12 }];
+    const set2 = (rr, col, v, opt = {}) => { const cell = ws2.getCell(rr, col); cell.value = v; cell.font = { ...FONT, ...(opt.font || {}) }; if (opt.border) cell.border = box; cell.alignment = { vertical: 'middle', horizontal: typeof v === 'number' ? 'right' : 'left' }; if (typeof v === 'number') cell.numFmt = '#,##0'; };
+    let r2 = 1;
+    set2(r2, 1, `${event || ''}　選手ごとのエントリー料`, { font: { size: 12, bold: true } }); r2 += 2;
+    ['選手名', '所属', '件数', '合計'].forEach((h, i) => set2(r2, i + 1, h, { border: true, font: { bold: true } })); r2++;
+    for (const rd of acc.riders) { [rd.rider, rd.team, rd.items.length, rd.total].forEach((v, i) => set2(r2, i + 1, v, { border: true })); r2++; }
+    set2(r2, 1, '合計', { border: true, font: { bold: true } }); set2(r2, 2, '', { border: true }); set2(r2, 3, acc.riders.reduce((a, x) => a + x.items.length, 0), { border: true, font: { bold: true } }); set2(r2, 4, acc.total, { border: true, font: { bold: true } });
     return wb;
   }
 

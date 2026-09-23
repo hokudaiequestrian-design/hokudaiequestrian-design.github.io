@@ -29,6 +29,7 @@
   th { background:#eef1f5; font-weight:600; }
   td.num, th.num { text-align:right; white-space:nowrap; }
   tr.sub td { background:#f7f7f7; font-weight:700; }
+  table.summary { max-width:640px; }
   .msg { padding:10px 14px; border-radius:6px; margin:8px 0; }
   .msg.warn { background:var(--warnbg); border-left:5px solid var(--warn); }
   .msg.ok { background:var(--okbg); border-left:5px solid var(--ok); }
@@ -94,6 +95,18 @@ a.donehome:hover { background: var(--accent-dark); }
   </div>
   <p class="hint">エントリー料は申込書の各行の「エントリー料」の欄から。フレンドシップは「３，０００円 ×」の単価。参加馬登録料・仮厩舎登録料（馬ごと）は入っていない。</p>
   <div id="result"><p class="ghost">エントリーを入れると出ます。</p></div>
+</section>
+
+<section id="s3">
+  <h2>3. 結果を保存する・読み込む</h2>
+  <p class="hint">結果を小さなファイル（.json）にして手元に残せます。次に開くときは申込ファイルが無くても、このファイルを入れれば同じ表が出ます。LINEやドライブで渡せるので引き継ぎにも使えます。</p>
+  <label style="display:block">メモ（振込の状況など。ファイルに一緒に入る）<br><textarea id="memo" rows="2" style="width:100%;max-width:640px;font:inherit;font-size:16px;padding:6px;border:1px solid #888;border-radius:4px"></textarea></label>
+  <div class="actions">
+    <button id="save">結果をファイルに保存</button>
+    <button id="loadBtn" class="secondary">保存したファイルを読み込む</button>
+    <input type="file" id="loadJson" accept=".json,application/json" style="display:none">
+  </div>
+  <div id="saveMsg"></div>
 </section>
 
 </main>
@@ -833,6 +846,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     r++;
     set(r, 1, '合計', { font: { bold: true } }); set(r, 7, acc.total, { font: { bold: true } }); r++;
     if (acc.unknown) { set(r, 1, `エントリー料が読めなかった申込 ${acc.unknown} 件（合計に入っていない）`); r++; }
+    if (acc.memo) { r++; set(r, 1, 'メモ'); set(r, 2, acc.memo); r++; }
+    // 選手ごとの合計（2026-09-23 ユーザーの指示：選手名と各選手の合計金額）
+    const ws2 = wb.addWorksheet('選手ごとの合計');
+    ws2.columns = [{ width: 16 }, { width: 28 }, { width: 8 }, { width: 12 }];
+    const set2 = (rr, col, v, opt = {}) => { const cell = ws2.getCell(rr, col); cell.value = v; cell.font = { ...FONT, ...(opt.font || {}) }; if (opt.border) cell.border = box; cell.alignment = { vertical: 'middle', horizontal: typeof v === 'number' ? 'right' : 'left' }; if (typeof v === 'number') cell.numFmt = '#,##0'; };
+    let r2 = 1;
+    set2(r2, 1, `${event || ''}　選手ごとのエントリー料`, { font: { size: 12, bold: true } }); r2 += 2;
+    ['選手名', '所属', '件数', '合計'].forEach((h, i) => set2(r2, i + 1, h, { border: true, font: { bold: true } })); r2++;
+    for (const rd of acc.riders) { [rd.rider, rd.team, rd.items.length, rd.total].forEach((v, i) => set2(r2, i + 1, v, { border: true })); r2++; }
+    set2(r2, 1, '合計', { border: true, font: { bold: true } }); set2(r2, 2, '', { border: true }); set2(r2, 3, acc.riders.reduce((a, x) => a + x.items.length, 0), { border: true, font: { bold: true } }); set2(r2, 4, acc.total, { border: true, font: { bold: true } });
     return wb;
   }
 
@@ -864,7 +887,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return e;
   };
   const yen = v => (v == null ? '不明' : v.toLocaleString() + '円');
-  let teams = null, acc = null, event = '';
+  let teams = null, acc = null, event = '', loadedFrom = null;
+  const FILE_KIND = 'debanhyo-kaikei';
 
   function msg(sel, kind, text) { $(sel).innerHTML = ''; $(sel).append(el('div', { class: 'msg ' + kind, text })); }
 
@@ -886,6 +910,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       sel.append(el('option', { value: '', text: '（全部）' }));
       for (const t of acc.byTeam) sel.append(el('option', { value: t.team, text: t.team }));
       if (acc.byTeam.length === 1) sel.value = acc.byTeam[0].team;
+      loadedFrom = null;
       render();
       msg('#loadMsg', 'ok', `${teams.length} 団体・${acc.entries} 件の申込を読みました。${event ? '（' + event + '）' : ''}`);
     } catch (e) {
@@ -902,6 +927,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const total = riders.reduce((a, r) => a + r.total, 0);
     const unknown = riders.reduce((a, r) => a + r.items.filter(i => i.fee == null).length, 0);
     box.append(el('p', { class: 'total', text: `合計 ${yen(total)}（${riders.length} 人・${riders.reduce((a, r) => a + r.items.length, 0)} 件）` }));
+    if (loadedFrom) box.append(el('p', { class: 'hint', text: `保存したファイルから（${loadedFrom}）` }));
+    // 選手名と各選手の合計（2026-09-23 ユーザーの指示）
+    {
+      const t = el('table', { class: 'summary' }, el('tr', {}, el('th', { text: '選手名' }), team ? null : el('th', { text: '所属' }), el('th', { class: 'num', text: '件数' }), el('th', { class: 'num', text: '合計金額' })));
+      for (const r of riders) t.append(el('tr', {}, el('td', { text: r.rider }), team ? null : el('td', { text: r.team }), el('td', { class: 'num', text: r.items.length }), el('td', { class: 'num', text: yen(r.total) })));
+      t.append(el('tr', { class: 'sub' }, el('td', { colspan: team ? 2 : 3, text: '合計' }), el('td', { class: 'num', text: yen(total) })));
+      box.append(el('h3', { text: '選手ごとの合計' }), t);
+      box.append(el('h3', { text: '明細' }));
+    }
     if (unknown) box.append(el('div', { class: 'msg warn', text: `エントリー料が読めなかった申込が ${unknown} 件あります（合計に入っていません）。申込書の種目名を確かめてください。` }));
     if (acc.byTeam.length > 1 && !team) {
       const t = el('table', {}, el('tr', {}, el('th', { text: '団体' }), el('th', { class: 'num', text: '合計' })));
@@ -924,6 +958,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const part = team ? { ...acc, riders: acc.riders.filter(r => r.team === team) } : acc;
     part.total = part.riders.reduce((a, r) => a + r.total, 0);
     part.unknown = part.riders.reduce((a, r) => a + r.items.filter(i => i.fee == null).length, 0);
+    part.memo = $('#memo').value;
     const wb = D.writeAccountingWorkbook(part, event);
     const buf = await wb.xlsx.writeBuffer();
     const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -941,6 +976,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); handleFiles(e.dataTransfer.files); });
   $('#teamSel').addEventListener('change', render);
   $('#download').addEventListener('click', download);
+
+  // ---------- 保存・読み込み（ファイル） ----------
+  function stamp() { const n = new Date(); const p = x => String(x).padStart(2, '0'); return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}`; }
+  function save() {
+    if (!acc) { msg('#saveMsg', 'err', '先にエントリーを入れてください。'); return; }
+    const data = { kind: FILE_KIND, version: 1, event, savedAt: stamp(), memo: $('#memo').value, team: $('#teamSel').value, acc: { riders: acc.riders, byTeam: acc.byTeam, total: acc.total, unknown: acc.unknown, entries: acc.entries } };
+    const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `エントリー料 ${event || ''} ${data.savedAt.replace(/[: ]/g, '-')}.json`.replace(/\s+/g, ' ');
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    msg('#saveMsg', 'ok', `保存しました（${data.savedAt}）。ファイルは「ダウンロード」に入ります。`);
+  }
+  async function loadJson(file) {
+    try {
+      const data = JSON.parse(await file.text());
+      if (!data || data.kind !== FILE_KIND || !data.acc || !Array.isArray(data.acc.riders)) throw new Error('この道具で保存したファイルではありません。');
+      acc = data.acc; event = data.event || ''; loadedFrom = `${file.name}、保存 ${data.savedAt || '？'}`;
+      $('#memo').value = data.memo || '';
+      const sel = $('#teamSel'); sel.innerHTML = '';
+      sel.append(el('option', { value: '', text: '（全部）' }));
+      for (const t of acc.byTeam || []) sel.append(el('option', { value: t.team, text: t.team }));
+      sel.value = data.team && (acc.byTeam || []).some(t => t.team === data.team) ? data.team : (acc.byTeam.length === 1 ? acc.byTeam[0].team : '');
+      render();
+      msg('#saveMsg', 'ok', `読み込みました：${loadedFrom}`);
+      msg('#loadMsg', 'ok', `保存したファイルから表を出しています（${event || '大会名なし'}）。`);
+    } catch (e) { console.error(e); msg('#saveMsg', 'err', '読み込めませんでした: ' + (e && e.message || e)); }
+  }
+  $('#save').addEventListener('click', save);
+  $('#loadBtn').addEventListener('click', () => $('#loadJson').click());
+  $('#loadJson').addEventListener('change', e => { if (e.target.files[0]) loadJson(e.target.files[0]); e.target.value = ''; });
 })();
 </script>
 <script>
