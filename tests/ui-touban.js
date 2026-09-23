@@ -202,7 +202,7 @@ function 模擬で答える(req) {
     }
     case 'submitLeaveDays':
       模擬.送った.休み = a;
-      return 返す({ ok: true, count: 1, days: (a[2] || []).length, 注意: (a[2] || []).filter((d) => d === 明日).map((d) => ({ date: d, label: 'フロンテア' })) });
+      return 返す({ ok: true, count: 1, days: (a[2] || []).length });
     // 副将のバイトの画面（2026-09-23：大会と祝日を出す）
     case 'baitoLoadAll':
       return 返す({
@@ -596,14 +596,10 @@ function 模擬で答える(req) {
     // スマホ幅では貼り付いた帯の下に隠れることがあるので、DOM の click で押す
     await page.$eval('#calGrid .daycell[data-day="' + 明日 + '"]', (b) => b.click());
     await 待つ(150);
-    { const 文 = await page.$eval('#formMsg', (el) => el.textContent); 確かめる('休み：自分のバイトの日を選ぶと注意が出る', /フロンテア/.test(文) && /申し込めます/.test(文), 文); }
-    確かめる('休み：注意は出るが、その日は選べている', await page.$eval('#calGrid .daycell[data-day="' + 明日 + '"]', (b) => b.classList.contains('eranda')));
-    確かめる('休み：選んだ日の説明にも重なりが出る', /バイトと重なります/.test(await page.$eval('#daysHint', (el) => el.textContent)));
-    await page.$eval('#kinds .kindchip', (b) => b.click());
-    await page.$eval('#sendBtn', (b) => b.click());
-    await page.waitForFunction(() => /出しました/.test((document.querySelector('#formMsg') || {}).textContent || ''), { timeout: 10000 });
-    確かめる('休み：出したあとの知らせにも重なりが出る', /バイトと重なる日があります/.test(await page.$eval('#formMsg', (el) => el.textContent)));
-    await 写す('6b-休み-バイトと重なる注意');
+    { const 文 = await page.$eval('#formMsg', (el) => el.textContent); 確かめる('休み：自分のバイトの日を押すと「申し込めないので副将に相談」と出る', /フロンテア/.test(文) && /申し込めません/.test(文) && /副将に相談/.test(文), 文); }
+    確かめる('休み：その日は選べない', !(await page.$eval('#calGrid .daycell[data-day="' + 明日 + '"]', (b) => b.classList.contains('eranda'))));
+    確かめる('休み：選んだ日は0のまま', !/日ぶん/.test(await page.$eval('#daysHint', (el) => el.textContent)));
+    await 写す('6b-休み-バイトの日は申し込めない');
     await page.setViewport({ width: 1280, height: 900 });
     await page.goto(元 + '/calendar.html?tab=cal&month=2030-09');
     await page.waitForSelector('#view table.grid', { timeout: 10000 });
