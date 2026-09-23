@@ -63,7 +63,17 @@ const ページ = [
   // 公開した人員表を部員が見る（2026-09-21 ユーザーの指示）
   { 出す: 'taikai-hyou.html', 元: 人員表 + '/hyou.html', api: API.人員表, 題: '人員表を見る' },
   // 使い方（2026-09-16 ユーザーの指示）。読むだけのページなので api は無し（call() の差し替えをしない）
-  { 出す: 'tsukaikata.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方' },
+  /*
+    使い方は立場ごとに3つ作る（2026-09-23 ユーザーの指示：自分より上の立場の説明は見せない）。
+    画面で隠すだけでは、ページの元を見れば読めてしまう。**そもそも入れずに組み立てる**。
+      tsukaikata.html        … 部員用だけ
+      tsukaikata-chief.html  … 部員用＋チーフ用
+      tsukaikata-admin.html  … 3つとも
+    入口（マイページ）が、その人の立場に合ったものへリンクする。
+  */
+  { 出す: 'tsukaikata.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方', 立場: ['buin'] },
+  { 出す: 'tsukaikata-chief.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方（チーフ）', 立場: ['buin', 'chief'] },
+  { 出す: 'tsukaikata-admin.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方（副将）', 立場: ['buin', 'chief', 'fukusho'] },
 ];
 
 // ===== 1. include('style') を差し替える =====
@@ -72,6 +82,31 @@ function スタイルを埋める(html, プロジェクト) {
   const 印 = "<?!= include('style') ?>";
   if (html.indexOf(印) < 0) throw new Error('include(style) が見つからない');
   return html.split(印).join(style.trim());
+}
+
+/*
+  使い方から、その立場に見せないところを**丸ごと取り除く**（2026-09-23 ユーザーの指示）。
+  タブのボタンと、中身の <section data-usepane="…"> の両方を消す。
+  display:none で隠すだけだと、ページの元を読めば見えてしまうため。
+*/
+function 使い方を立場でけずる(html, 立場) {
+  const 全部 = ['buin', 'chief', 'fukusho'];
+  let out = html;
+  全部.filter((k) => 立場.indexOf(k) < 0).forEach((k) => {
+    // タブのボタン
+    const ボタン = new RegExp('\\s*<button type="button" data-use="' + k + '"[^>]*>[^<]*</button>', 'g');
+    if (!ボタン.test(out)) throw new Error('使い方：' + k + ' のタブのボタンが見つからない');
+    out = out.replace(ボタン, '');
+    // 中身の節（次の <section か </main> の手前まで）
+    const 頭 = out.indexOf('<section class="card use-sec" data-usepane="' + k + '"');
+    if (頭 < 0) throw new Error('使い方：' + k + ' の節が見つからない');
+    const 尻 = out.indexOf('</section>', 頭);
+    if (尻 < 0) throw new Error('使い方：' + k + ' の節の終わりが見つからない');
+    out = out.slice(0, 頭) + '<!-- ' + k + ' はこの立場には出さない（2026-09-23） -->' + out.slice(尻 + '</section>'.length);
+  });
+  // 残りが1つだけならタブは要らない
+  if (立場.length === 1) out = out.replace(/<div class="tabs" role="tablist">[\s\S]*?<\/div>/, '');
+  return out;
 }
 
 // ===== 検索避け =====
@@ -297,7 +332,8 @@ function 入口の中身たち() {
     休み_部員: 'yasumi.html',
     休み_副将: 'yasumi-admin.html',
   });
-  const 人員表URL = (page) => (page === 'admin' ? 'taikai-admin.html' : 'taikai.html');
+  // 2026-09-23：'hyou'（公開した人員表を見る）を知らず出欠に落としていた。API 側の 人員表URL() と同じ3通りにそろえる
+  const 人員表URL = (page) => (page === 'admin' ? 'taikai-admin.html' : page === 'hyou' ? 'taikai-hyou.html' : 'taikai.html');
   const 入口の中身 = eval('(' + grab('入口の中身').replace('function 入口の中身(', 'function (') + ')');
   return {
     links: 入口の中身('links'),
@@ -346,14 +382,18 @@ function 入口を作る() {
 
   <div id="hub-groups"></div>
 
-  <!-- 使い方（2026-09-16 ユーザーの指示）。立場に合ったところが開く -->
+  <!--
+    使い方（2026-09-16 ユーザーの指示）。
+    2026-09-23 から立場ごとに別のファイルにした（自分より上の立場の説明は、そもそも入っていない）。
+    リンク先は下の script が立場に合わせて入れる。
+  -->
   <section class="hub-group">
     <div class="hub-list">
-      <a class="hub-link" href="tsukaikata.html">
+      <a class="hub-link" id="hub-tsukaikata" href="tsukaikata.html">
         <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-tsukaikata"/></svg></span>
         <span class="body">
           <span class="t">使い方</span>
-          <span class="d">部員用・チーフ用・副将用。自分の立場のところが開きます。</span>
+          <span class="d" id="hub-tsukaikata-d">出すものと、画面の使い方。</span>
         </span>
         <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
       </a>
@@ -397,6 +437,20 @@ const 中身 = HUB[立場] || HUB.links;
 
 document.documentElement.style.setProperty('--hub-color', 中身.色);
 document.getElementById('hub-role').textContent = 中身.題;
+
+/*
+  使い方は立場ごとに別のファイル（2026-09-23 ユーザーの指示）。
+  上の立場の説明は、そのファイルに入っていない（画面で隠すだけだと元を読めば見えてしまうため）。
+*/
+{
+  const 使い方 = {
+    links: { url: 'tsukaikata.html', 説明: '出すものと、画面の使い方。' },
+    chieflinks: { url: 'tsukaikata-chief.html', 説明: '部員用と、担当する馬の手入れをまとめるところ。' },
+    admlinks: { url: 'tsukaikata-admin.html', 説明: '部員用・チーフ用と、みんなのぶんをまとめるところ。' },
+  }[立場] || { url: 'tsukaikata.html', 説明: '出すものと、画面の使い方。' };
+  document.getElementById('hub-tsukaikata').href = 使い方.url;
+  document.getElementById('hub-tsukaikata-d').textContent = 使い方.説明;
+}
 document.title = '馬術部 当番・手入れ（' + 中身.題 + '）';
 
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -441,6 +495,7 @@ let 件 = 0;
 ページ.forEach((p) => {
   const プロジェクト = path.dirname(p.元);
   let html = 読む(p.元);
+  if (p.立場) html = 使い方を立場でけずる(html, p.立場);   // 上の立場の説明は入れない（2026-09-23）
   html = スタイルを埋める(html, プロジェクト);
   html = 検索避けを入れる(html);
   if (p.api) html = callを差し替える(html, p.api);   // 読むだけのページ（使い方）は call() を持たない

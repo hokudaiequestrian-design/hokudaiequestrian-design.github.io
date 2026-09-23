@@ -636,7 +636,7 @@ delete 覚え箱['mypage:出したところ'];
 見出し('組み立てたページ：マイページに戻る');
 const docs = path.join(__dirname, '..', 'docs');
 const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
-確かめる('中のページが13ある（出番表作成を足した。2026-09-22）', 中のページ.length === 13, 中のページ.join(','));
+確かめる('中のページが15ある（使い方を立場ごとに3つに分けた。2026-09-23）', 中のページ.length === 15, 中のページ.join(','));
 中のページ.forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];
@@ -658,6 +658,17 @@ const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) &&
 const 入口HTML = fs.readFileSync(path.join(docs, 'index.html'), 'utf8');
 確かめる('入口じたいには戻るリンクを付けない', 入口HTML.indexOf('class="backhome"') < 0);
 確かめる('入口は立場を覚える', 入口HTML.indexOf("localStorage.setItem('role'") > 0);
+// 2026-09-23 部員用の「人員表を見る」が出欠（taikai.html）に落ちていた
+{
+  const 頭 = 入口HTML.indexOf('const HUB = '); const 尻 = 入口HTML.indexOf('\n};\n', 頭);
+  const HUB = 頭 >= 0 && 尻 > 頭 ? JSON.parse(入口HTML.slice(頭 + 'const HUB = '.length, 尻 + 2)) : null;
+  const 全リンク = HUB ? Object.values(HUB).flatMap((c) => c.groups.flatMap((g) => g.links)) : [];
+  const 見る = 全リンク.filter((x) => x.題 === '人員表を見る');
+  確かめる('入口に「人員表を見る」がある', 見る.length > 0);
+  確かめる('「人員表を見る」は taikai-hyou.html へ（出欠ではない）', 見る.length > 0 && 見る.every((x) => x.url === 'taikai-hyou.html'), 見る.map((x) => x.url).join(','));
+  const 出欠 = 全リンク.filter((x) => /出欠/.test(x.題));
+  確かめる('出欠のリンクは taikai.html のまま', 出欠.length > 0 && 出欠.every((x) => x.url === 'taikai.html'), 出欠.map((x) => x.url).join(','));
+}
 
 // ===================== 4. 出し終わったときのボタン =====================
 
