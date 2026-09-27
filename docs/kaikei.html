@@ -425,6 +425,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       trials: 300,        // 並べ直しの試行回数
       crossArenaMinutes: 30, // 馬場と障害で同じ人馬の時刻が近いとき注意する幅（分）
       ribbonPercent: 25,     // 表彰リボンは頭数のこの割合を切り上げ（25% なら 12頭→3、13頭→4）。参加費は競技ごとに表示するだけ
+      ribbonMax: 8,          // 表彰は最大8名（要項）
+      ribbonColors: ['青', '赤', '黄', '白', '桃', '緑', '紫', '茶'],   // 1位から順の色（2026-09-25 ユーザーの指示：順位ごとに色。7・8位の色は仮）
       arenas: {
         'フレンドシップ': { minutes: 2, breakEvery: 0, breakMinutes: 10, compGap: 15, courseChange: 0, preview: 15, roundTo: 5, hideTimes: true,  timeHeader: '時間', zenNo: false, numbered: false, start: { fri: '12:00' } },
         'ジャンピング':   { minutes: 2, breakEvery: 0, breakMinutes: 10, compGap: 0,  courseChange: 20, preview: 15, roundTo: 5, hideTimes: true,  timeHeader: '時刻', zenNo: false, numbered: true,  start: { sat: '7:30', sun: '8:00' } },
@@ -571,8 +573,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function fmtHM(t) { const h = Math.floor(t / 60), m = t % 60; return `${h}:${String(m).padStart(2, '0')}`; }
   function roundUp(t, unit) { return unit > 0 ? Math.ceil(t / unit) * unit : t; }
 
-  // 表彰リボンの数：頭数 × 割合 を切り上げ（25% なら 12頭→3、13頭→4）
-  function ribbonCount(n, percent) { return n > 0 ? Math.ceil(n * percent / 100 - 1e-9) : 0; }
+  // 表彰リボンの数：頭数 × 割合 を切り上げ（25% なら 12頭→3、13頭→4）。要項「表彰は参加者の1/4、最大8名」の最大も効かせる（2026-09-25）
+  function ribbonCount(n, percent, max) { const k = n > 0 ? Math.ceil(n * percent / 100 - 1e-9) : 0; return max > 0 ? Math.min(k, max) : k; }
 
   // 並び（orders）から、出番番号・間隔の違反・時刻を出す。orders が無い競技はモデルの順のまま。
   // 画面で並びを変えたら orders を書き換えてもう一度呼ぶ。orders は out.orders に入れて返す（足りないぶんは補って）
@@ -620,7 +622,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const c = rc.comp;
           const n = rc.rows.length;
           const block = { seqKey: sq.key, compIndex: c.index, no: c.no, name: c.name, display: c.display, rows: [], empty: n === 0,
-            count: n, fee: c.fee, ribbons: ribbonCount(n, s.ribbonPercent == null ? 25 : s.ribbonPercent) };
+            count: n, fee: c.fee, ribbons: ribbonCount(n, s.ribbonPercent == null ? 25 : s.ribbonPercent, s.ribbonMax), newCourse: !!c.newCourse };
           if (block.empty) { carryNewCourse = carryNewCourse || c.newCourse; blocks.push(block); continue; }
           const newCourse = c.newCourse || carryNewCourse;
           carryNewCourse = false;
