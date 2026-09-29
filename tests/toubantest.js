@@ -431,10 +431,16 @@ const きつい = G.adminGenerateDuty(T, 期間ID(), false);
   JSON.stringify(きつい.warnings.slice(0, 3)));
 G.adminSaveSlots(T, 期間ID(), [{ dutyId: 昼当.id, day: '月', min: 1, max: 3, grades: '' }]);
 
-// 既定（1人1枠）では下限をぜんぶ満たせる
-確かめる('1人1枠でも下限をぜんぶ満たせる',
-  !G.adminGenerateDuty(T, 期間ID(), false).warnings.some((w) => w.level === 'error'),
-  JSON.stringify(G.adminGenerateDuty(T, 期間ID(), false).warnings.filter((w) => w.level === 'error').map((w) => w.text)));
+// 希望に無い枠へは自動で入れない（2026-09-29 ユーザーの指示）。足りない枠は不足の警告に残る
+const 一人一枠 = G.adminGenerateDuty(T, 期間ID(), false);
+確かめる('自動では希望に無い枠へ入れない',
+  一人一枠.cells.every((c) => c.rank >= 1 || c.locked),
+  JSON.stringify(一人一枠.cells.filter((c) => !c.rank && !c.locked)));
+確かめる('埋まらなかった枠は不足として警告に出る',
+  G.loadSlots(期間ID()).every((s) => {
+    const n = 一人一枠.cells.filter((c) => c.dutyId === s.dutyId && c.day === s.day).length;
+    return n >= s.min || 一人一枠.warnings.some((w) => w.level === 'error' && w.dutyId === s.dutyId && w.day === s.day);
+  }));
 
 // 上限を2にすると、2枠持つ人が出る（下限の合計を人数より多くする）
 G.adminSaveSettings(T, { 個人下限: 1, 個人上限: 2, 同曜日禁止: true, 連日回避: true, チーフ倍率: 2, マル絶対: false });
