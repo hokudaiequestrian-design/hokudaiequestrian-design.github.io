@@ -2048,6 +2048,31 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
   確かめる('受付の切り替えだけでは日付が消えない',
     G.findDutyTerm(夏.id).from === '2026-08-01' && G.findDutyTerm(夏.id).to === '2026-09-30',
     JSON.stringify(G.findDutyTerm(夏.id)));
+
+  // 終わった期間の当番は、マイページに返さない（2026-09-30 ユーザーの指示。夏休みの当番が秋にも出ていた）
+  {
+    const ずらす = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); };
+    G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: ずらす(-60), to: ずらす(-1) });
+    G.adminSaveTerm(T, { name: '26秋ターム', open: false, from: ずらす(0), to: ずらす(60) });
+    G.adminSaveTerm(T, { name: '26冬休み', open: false, from: ずらす(61), to: ずらす(120) });
+    const 秋 = G.loadDutyTerms().filter((x) => x.name === '26秋ターム')[0];
+    const 冬 = G.loadDutyTerms().filter((x) => x.name === '26冬休み')[0];
+    G.adminSaveTable(T, 秋.id, [{ dutyId: 夕当.id, day: '火', memberId: 甲.id }]);
+    G.adminSaveTable(T, 冬.id, [{ dutyId: 昼当.id, day: '金', memberId: 甲.id }]);
+    G.adminSaveTable(T, 夏.id, [{ dutyId: 昼当.id, day: '月', memberId: 甲.id }]);
+    const 決まった = G.マイページの中身(甲.name).当番.決まったぶん;
+    確かめる('終わった期間の当番は出ない', !決まった.some((c) => c.期間 === '26夏休み'), JSON.stringify(決まった));
+    確かめる('今の期間とこれからの期間は出る',
+      決まった.some((c) => c.期間 === '26秋ターム' && c.曜日 === '火') && 決まった.some((c) => c.期間 === '26冬休み' && c.曜日 === '金'),
+      JSON.stringify(決まった));
+    確かめる('期間の開始日・終了日が付く',
+      決まった.filter((c) => c.期間 === '26冬休み').every((c) => c.from === ずらす(61) && c.to === ずらす(120)), JSON.stringify(決まった));
+    G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '', to: '' });
+    確かめる('日付の無い期間は今までどおり出る', G.マイページの中身(甲.name).当番.決まったぶん.some((c) => c.期間 === '26夏休み'));
+    G.adminDeleteTerm(T, 秋.id);
+    G.adminDeleteTerm(T, 冬.id);
+    G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '2026-08-01', to: '2026-09-30' });
+  }
 }
 
 // ===================== 15. バイトの自動割り当て =====================
