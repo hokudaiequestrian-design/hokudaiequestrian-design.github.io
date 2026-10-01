@@ -109,6 +109,9 @@ table.sched td.mine-cell { background: var(--warning-soft); }
 .my-next a b { font-variant-numeric: tabular-nums; }
 .my-next a .k.t { color: var(--accent-dark); font-weight: 700; }
 .my-next a .k.c { color: var(--care-dark); font-weight: 700; }
+.my-next .sub { margin: var(--space-xs) 0 var(--space-3xs); font-size: var(--text-sm); color: var(--ink); font-weight: 700; }
+.my-next .sub:first-of-type { margin-top: 0; }
+.my-next a .when { font-size: var(--text-sm); color: var(--ink); }
 
 @media (max-width: 30rem) {
   .cal-head h2 { min-width: 0; flex: 1 1 auto; }
@@ -555,23 +558,60 @@ function 手入れ予定を描く(d) {
   自分のこれから（2026-09-21）。表の中から自分の名前を探さなくて済むように、いちばん上に並べる。
   今日が入っている範囲では今日から先だけ、＜＞で送った先ではその30日ぶんを全部。押すとその日の行へ。
 */
+/*
+  2026-10-01 ユーザーの指示：曜日で決まっているもの（当番・曜日で組んだ手入れ）は「毎週 月曜 昼当」のように曜日でまとめ、
+  イレギュラー（日付で組んだ手入れ・朝手入れ）だけを日付で並べる。
+  見ている範囲の途中で始まる・終わるものは「○/○から」「○/○まで」を添える。押すといちばん近いその日の行へ。
+*/
 function 自分のこれからを描く(d, 私) {
   if (!私) {
     $('mine').innerHTML = '<div class="my-next"><p>左上の「← マイページ」で名前を選ぶと、ここに自分の当番・手入れが並びます。</p></div>';
     return;
   }
-  const 件 = [];
-  (d.当番 || []).forEach((x) => { if (x.名前 === 私) 件.push({ date: x.date, 順: 0, html: '<span class="k t">' + esc(x.当番) + '</span>' }); });
-  (d.朝手入れ || []).forEach((x) => { if (x.名前 === 私) 件.push({ date: x.date, 順: 1, html: '<span class="k c">' + esc(x.馬) + 'の朝手入れ</span>' }); });
-  (d.手入れ || []).forEach((x) => { if (x.名前 === 私) 件.push({ date: x.date, 順: 2, html: '<span class="k c">' + esc(x.馬) + 'の手入れ</span>' }); });
   const 今月を見ている = d.今日 >= d.from && d.今日 <= d.to;
-  const 先 = 件.filter((x) => !今月を見ている || x.date >= d.今日)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.順 - b.順));
+  const 頭 = 今月を見ている ? d.今日 : d.from;
+  const 先の日 = (x) => x.名前 === 私 && x.date >= 頭;
+
+  // 曜日で決まっているもの：種類＋名前＋曜日でまとめる
+  const 曜 = ['日', '月', '火', '水', '木', '金', '土'];
+  const 曜日の = (k) => { const p = k.split('-'); return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2])).getDay(); };
+  const 束 = {};
+  const 束ねる = (x, 順, html) => {
+    const w = 曜日の(x.date);
+    const k = 順 + '|' + html + '|' + w;
+    (束[k] = 束[k] || { 順: 順, html: html, w: w, 日: [] }).日.push(x.date);
+  };
+  (d.当番 || []).filter(先の日).forEach((x) => 束ねる(x, 0, '<span class="k t">' + esc(x.当番) + '</span>'));
+  (d.手入れ || []).filter((x) => 先の日(x) && x.毎週).forEach((x) => 束ねる(x, 2, '<span class="k c">' + esc(x.馬) + 'の手入れ</span>'));
+  const 足す日 = (k, n) => { const p = k.split('-'); const t = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]) + n); return t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2); };
+  const 短く = (k) => Number(k.slice(5, 7)) + '/' + Number(k.slice(8, 10));
+  const 月曜から = (w) => (w + 6) % 7;
+  const 毎週 = Object.keys(束).map((k) => 束[k])
+    .sort((a, b) => 月曜から(a.w) - 月曜から(b.w) || a.順 - b.順)
+    .map((g) => {
+      g.日.sort();
+      const 初 = g.日[0];
+      const 終 = g.日[g.日.length - 1];
+      // 見ている範囲の頭から1週間たっても出てこない＝途中から始まる。最後のあと1週間の日が範囲内＝途中で終わる
+      const 添え = (足す日(初, -7) >= 頭 ? 短く(初) + 'から' : '') + (足す日(終, 7) <= d.to ? 短く(終) + 'まで' : '');
+      return '<a href="#d-' + 初 + '" data-go="d-' + 初 + '"><b>毎週 ' + 曜[g.w] + '曜</b>' + g.html +
+        (添え ? '<span class="when">' + esc(添え) + '</span>' : '') + '</a>';
+    });
+
+  // イレギュラー：日付で決まっているもの
+  const 件 = [];
+  (d.朝手入れ || []).filter(先の日).forEach((x) => 件.push({ date: x.date, 順: 1, html: '<span class="k c">' + esc(x.馬) + 'の朝手入れ</span>' }));
+  (d.手入れ || []).filter((x) => 先の日(x) && !x.毎週).forEach((x) => 件.push({ date: x.date, 順: 2, html: '<span class="k c">' + esc(x.馬) + 'の手入れ</span>' }));
+  件.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.順 - b.順));
   const 日の名 = {};
   日の並び(d).forEach((day) => { 日の名[day.key] = day.key === d.今日 ? '今日' : day.label; });
+  const 日付 = 件.map((x) => '<a href="#d-' + x.date + '" data-go="d-' + x.date + '"><b>' + esc(日の名[x.date] || x.date) + '</b>' + x.html + '</a>');
+
+  const 両方 = 毎週.length && 日付.length;
   $('mine').innerHTML = '<div class="my-next"><h3>' + esc(私) + 'さんの' + (今月を見ている ? 'これから' : 'この30日') + '</h3>' +
-    (先.length
-      ? '<div class="list">' + 先.map((x) => '<a href="#d-' + x.date + '" data-go="d-' + x.date + '"><b>' + esc(日の名[x.date] || x.date) + '</b>' + x.html + '</a>').join('') + '</div>'
+    (毎週.length || 日付.length
+      ? (毎週.length ? (両方 ? '<p class="sub">毎週</p>' : '') + '<div class="list">' + 毎週.join('') + '</div>' : '') +
+        (日付.length ? (両方 ? '<p class="sub">この日だけ</p>' : '') + '<div class="list">' + 日付.join('') + '</div>' : '')
       : '<p>' + (今月を見ている ? 'この先（' + esc(日の名[d.to] || '') + 'まで）の当番・手入れは入っていません。' : 'この30日の当番・手入れは入っていません。') + '</p>') + '</div>';
 }
 

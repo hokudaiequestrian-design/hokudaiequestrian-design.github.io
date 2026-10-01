@@ -214,7 +214,13 @@ function 模擬で答える(req) {
     case 'getCalendarData':
       return 返す({
         月: a[0] || '2030-09', from: (a[0] || '2030-09') + '-01', to: (a[0] || '2030-09') + '-30', 今日: '2030-09-15',
-        部員: [{ name: '美浦' }, { name: '甲' }, { name: '相棒' }], 休み: [], 手入れ: [], 毎週: [], 馬: ['北叡'],
+        部員: [{ name: '美浦' }, { name: '甲' }, { name: '相棒' }], 休み: [], 毎週: [], 馬: ['北叡'],
+        // 曜日で組んだ手入れは日付に展開して 毎週:true（2026-10-01）。水曜 9/18・9/25 で終わる。9/20 は日付で組んだぶん
+        手入れ: [
+          { date: '2030-09-18', 馬: '北叡', 名前: '美浦', 記号: '', 毎週: true },
+          { date: '2030-09-25', 馬: '北叡', 名前: '美浦', 記号: '', 毎週: true },
+          { date: '2030-09-20', 馬: '北叡', 名前: '美浦', 記号: '◎' },
+        ],
         大会: [{ name: '春の大会', from: '2030-09-15', to: '2030-09-15', 日: ['2030-09-15'] }],
         // 人員表ができていれば仕事の1文字で出す（2026-09-20）
         // 大会のマスは必ず1文字（2026-09-20）。選手は「出」、下付き以外に仕事があればその仕事
@@ -228,6 +234,9 @@ function 模擬で答える(req) {
         // 当番は期間に日付を入れてある期間だけ、その曜日の日に出る（2026-09-21）
         当番: [
           { date: '2030-09-16', 当番: '昼当', 並び: 1, 名前: '美浦', 期間: '26夏休み' },
+          { date: '2030-09-23', 当番: '昼当', 並び: 1, 名前: '美浦', 期間: '26夏休み' },
+          { date: '2030-09-30', 当番: '昼当', 並び: 1, 名前: '美浦', 期間: '26夏休み' },
+          { date: '2030-10-07', 当番: '昼当', 並び: 1, 名前: '美浦', 期間: '26夏休み' },
           { date: '2030-09-16', 当番: '夕当', 並び: 2, 名前: '甲', 期間: '26夏休み' },
         ],
       });
@@ -543,7 +552,7 @@ function 模擬で答える(req) {
     await page.$eval('#baitoGrid .baito-cell[data-day="' + 明日 + '"]', (c) => c.click());
     await 待つ(150);
     確かめる('日を押すと見出しに大会の名前が出る', /大会：秋の大会/.test(await page.$eval('#baitoDayTitle', (el) => el.textContent)));
-    確かめる('カレンダーの線は太い（2px）', await page.$eval('#baitoGrid .baito-cell:nth-child(9)', (c) => getComputedStyle(c).borderTopWidth === '2px'));
+    確かめる('カレンダーの線は太い（2px）', await page.$eval('#baitoGrid .baito-cell[data-day]', (c) => getComputedStyle(c).borderTopWidth === '2px'));
     確かめる('バイトの人の帯は、人員表の外部の仕事と同じ青（#bfe1f6）',
       await page.evaluate(() => { const el = document.querySelector('#baitoDayList .who.k-baito') || document.querySelector('#baitoGrid .who.k-baito'); return !el || getComputedStyle(el).backgroundColor === 'rgb(191, 225, 246)'; }));
     {
@@ -660,6 +669,21 @@ function 模擬で答える(req) {
       (await page.$$('#view table.sched tbody tr')).length === 30 &&
       (await page.$$eval('#view table.sched th.d .m', (xs) => xs.map((x) => x.textContent).join('|'))) === '9月|10月',
       (await page.$$('#view table.sched tbody tr')).length + ' 行 ' + await page.$$eval('#view table.sched th.d .m', (xs) => xs.map((x) => x.textContent).join('|')));
+    // 自分のこれから：曜日で決まっているものは曜日でまとめ、イレギュラーだけ日付で（2026-10-01 ユーザーの指示）
+    {
+      const 文字 = (sel) => page.evaluate((q) => Array.from(document.querySelectorAll(q)).map((x) => x.textContent.replace(/\s+/g, ' ').trim()), sel);
+      const 列 = await page.evaluate(() => Array.from(document.querySelectorAll('#mine .list')).map((l) => Array.from(l.querySelectorAll('a')).map((a) => a.textContent)));
+      確かめる('これから：見出しは「毎週」と「この日だけ」', (await 文字('#mine .sub')).join('|') === '毎週|この日だけ', JSON.stringify(await 文字('#mine .sub')));
+      確かめる('これから：当番は「毎週 月曜 昼当」の1つにまとまる',
+        列[0] && 列[0].filter((x) => /昼当/.test(x)).length === 1 && 列[0].some((x) => x === '毎週 月曜昼当'), JSON.stringify(列));
+      確かめる('これから：曜日の手入れもまとまり、途中で終わる日が付く',
+        列[0] && 列[0].some((x) => x === '毎週 水曜北叡の手入れ9/25まで'), JSON.stringify(列));
+      確かめる('これから：月曜が水曜より先に並ぶ', 列[0] && /月曜/.test(列[0][0]), JSON.stringify(列));
+      確かめる('これから：イレギュラー（日付で組んだ手入れ・朝手入れ）だけ日付で並ぶ',
+        列[1] && 列[1].length === 2 && /朝手入れ/.test(列[1][0]) && /北叡の手入れ/.test(列[1][1]) && !列[1].some((x) => /昼当/.test(x)), JSON.stringify(列));
+      確かめる('これから：まとめたものを押すと最初の日の行へ',
+        (await page.$eval('#mine .list a', (a) => a.dataset.go)) === 'd-2030-09-16');
+    }
     確かめる('範囲の頭と末の日が合っている',
       await page.$$eval('#view table.sched tbody tr', (xs) => xs[0].id === 'd-2030-09-10' && xs[xs.length - 1].id === 'd-2030-10-09'));
     確かめる('カレンダーのタブへ移ると、今までどおり月ごと',
