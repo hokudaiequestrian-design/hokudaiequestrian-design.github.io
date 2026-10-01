@@ -2073,6 +2073,31 @@ G.yasumiSaveConfig(T, { 有給日数: 10, 年度始まり月: 4, 休みを外す
     G.adminDeleteTerm(T, 冬.id);
     G.adminSaveTerm(T, { id: 夏.id, name: '26夏休み', from: '2026-08-01', to: '2026-09-30' });
   }
+
+  // 曜日の手入れは、開始日から同じ馬の次の期間の開始日の前の日まで、カレンダーの日付に出す（2026-10-01 ユーザーの指示）
+  {
+    const 馬 = G.loadHorses()[0];
+    const 前 = G.chiefSavePlan(C, { horseId: 馬.id, term: '検査の前半', mode: '曜日', from: '2027-01-01' }).id;
+    const 後 = G.chiefSavePlan(C, { horseId: 馬.id, term: '検査の後半', mode: '曜日', from: '2027-01-15' }).id;
+    G.chiefSaveTable(C, 前, [{ key: '月', memberId: '自由:前さん' }]);
+    G.chiefSaveTable(C, 後, [{ key: '月', memberId: '自由:後さん' }]);
+    const 一月 = G.getCalendarData('2027-01');
+    const 日々 = (名) => 一月.手入れ.filter((x) => x.名前 === 名 && x.馬 === 馬.name).map((x) => x.date).join(',');
+    // 2027-01 の月曜は 4・11・18・25
+    確かめる('前の期間は次の期間の開始日の前の日まで', 日々('前さん') === '2027-01-04,2027-01-11', 日々('前さん'));
+    確かめる('次の期間はその開始日から、次が無ければずっと', 日々('後さん') === '2027-01-18,2027-01-25', 日々('後さん'));
+    確かめる('日付に出したぶんは「毎週」の欄には出さない',
+      !一月.毎週.some((x) => x.期間 === '検査の前半' || x.期間 === '検査の後半'), JSON.stringify(一月.毎週.map((x) => x.期間)));
+    確かめる('開始日より前の月には出ない',
+      !G.getCalendarData('2026-12').手入れ.some((x) => x.名前 === '前さん' || x.名前 === '後さん'));
+    確かめる('次の期間が無ければ先の月にも出る',
+      G.getCalendarData('2027-03').手入れ.some((x) => x.名前 === '後さん') && !G.getCalendarData('2027-03').手入れ.some((x) => x.名前 === '前さん'));
+    // カレンダー方式の期間が後に来ても、そこで止まる
+    const 冬 = G.chiefSavePlan(C, { horseId: 馬.id, term: '検査の冬', mode: 'カレンダー', from: '2027-02-01', to: '2027-02-28' }).id;
+    確かめる('カレンダー方式の次の期間でも止まる',
+      !G.getCalendarData('2027-02').手入れ.some((x) => x.名前 === '後さん'), JSON.stringify(G.getCalendarData('2027-02').手入れ.filter((x) => x.名前 === '後さん').map((x) => x.date)));
+    [前, 後, 冬].forEach((id) => G.chiefDeletePlan(C, id));
+  }
 }
 
 // ===================== 15. バイトの自動割り当て =====================
