@@ -116,7 +116,64 @@ function 使い方を立場でけずる(html, 立場) {
 function 検索避けを入れる(html) {
   const 印 = '<base target="_top">';
   if (html.indexOf(印) < 0) throw new Error('<base target="_top"> が見つからない');
-  return html.split(印).join(印 + NL + '<meta name="robots" content="noindex, nofollow">');
+  return html.split(印).join(印 + NL + '<meta name="robots" content="noindex, nofollow">' + NL + ホーム画面の部品(true));
+}
+
+// ===== ホーム画面に置けるようにする（PWA、2026-10-03） =====
+/*
+  アイコンの原本は アイコン/ の PNG（写真から作るのは アイコン/作る.ps1）。ここで docs/ に写す。
+  viewport は Apps Script のときは doGet の addMetaTag が付けていたので、原本の HTML には無い。
+  静的サイトに移してから抜けていた（スマホで PC 幅に縮んで見える）ので、ここで入れる。
+  manifest は入口（index.html）にだけ置き、立場ごとに別のもの（start_url に ?role= が付く）を差す。
+  service worker は置かない：中身は全部 API から取るので、オフラインで開けても使えない。
+  覚えておくと push しても古い画面が出る心配のほうが大きい。
+*/
+const テーマ色 = '#2b58b1';   // 当番の --accent（oklch(48% 0.150 262)）
+const アイコンたち = ['icon-512.png', 'icon-192.png', 'apple-touch-icon.png', 'favicon-32.png'];
+const アプリ = {
+  links: { file: 'manifest.webmanifest', name: '北大馬術部', short: '馬術部', start: './' },
+  chieflinks: { file: 'manifest-chief.webmanifest', name: '北大馬術部（チーフ）', short: '馬術部チーフ', start: './?role=chieflinks' },
+  admlinks: { file: 'manifest-adm.webmanifest', name: '北大馬術部（副将）', short: '馬術部副将', start: './?role=admlinks' },
+};
+function ホーム画面の部品(viewportも) {
+  return (viewportも ? '<meta name="viewport" content="width=device-width, initial-scale=1">' + NL : '') +
+    '<meta name="theme-color" content="' + テーマ色 + '">' + NL +
+    '<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">' + NL +
+    '<link rel="apple-touch-icon" href="apple-touch-icon.png">' + NL +
+    '<meta name="mobile-web-app-capable" content="yes">' + NL +
+    '<meta name="apple-mobile-web-app-capable" content="yes">' + NL +
+    '<meta name="apple-mobile-web-app-title" content="' + アプリ.links.short + '">';
+}
+// 入口だけ。立場は ?role= で決まるので、manifest と iPhone の名前を開いた直後に差し替える
+function manifestを差す(html) {
+  const 表 = {};
+  Object.keys(アプリ).forEach((k) => { 表[k] = [アプリ[k].file, アプリ[k].short]; });
+  const 部品 = '<link rel="manifest" href="' + アプリ.links.file + '">' + NL +
+    '<script>(function () { var a = ' + JSON.stringify(表) + '[new URLSearchParams(location.search).get("role")]; if (!a) return;' +
+    ' document.querySelector(\'link[rel="manifest"]\').href = a[0];' +
+    ' document.querySelector(\'meta[name="apple-mobile-web-app-title"]\').content = a[1]; })();</script>';
+  const 印 = '<meta name="apple-mobile-web-app-title"';
+  const i = html.indexOf(印), j = html.indexOf('>', i);
+  if (i < 0) throw new Error('入口に apple-mobile-web-app-title が見つからない');
+  return html.slice(0, j + 1) + NL + 部品 + html.slice(j + 1);
+}
+function ホーム画面のファイルを出す() {
+  アイコンたち.forEach((f) => fs.copyFileSync(path.join(__dirname, 'アイコン', f), path.join(出す先, f)));
+  Object.keys(アプリ).forEach((k) => {
+    const a = アプリ[k];
+    const m = {
+      id: a.start, name: a.name, short_name: a.short, lang: 'ja',
+      start_url: a.start, scope: './', display: 'standalone',
+      theme_color: テーマ色, background_color: '#ffffff',
+      icons: [
+        { src: 'icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        // 写真をいっぱいに使ったアイコンなので、そのまま Android の丸や角丸に切らせてよい
+        { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    };
+    fs.writeFileSync(path.join(出す先, a.file), JSON.stringify(m, null, 2) + NL, 'utf8');
+  });
 }
 
 // ===== 2. call() を fetch に差し替える =====
@@ -351,6 +408,7 @@ function 入口を作る() {
   const src = 読む(当番 + '/hub.html');
   let html = スタイルを埋める(src, 当番);
   html = 検索避けを入れる(html);
+  html = manifestを差す(html);
 
   // マイページぶんのCSS。hub.html 自身の <style> の末尾に足す
   const 印 = '</style>' + NL + '</head>';
@@ -532,7 +590,7 @@ function 運営ツールを写す(道具) {
   let html = 読む(道具.原本);
   const 印 = '<meta charset="UTF-8">';
   if (html.indexOf(印) < 0) throw new Error(道具.題 + ' の <meta charset> が見つからない');
-  html = html.replace(印, 印 + NL + '<meta name="robots" content="noindex, nofollow">');
+  html = html.replace(印, 印 + NL + '<meta name="robots" content="noindex, nofollow">' + NL + ホーム画面の部品(false));   // viewport は原本にある
   // 見出しは、ほかのページと同じ青い帯（<header class="appbar">）にする。戻るを足す() が「← マイページ」を左上に入れる
   const 頭 = '<header>' + NL + '  <h1>' + 道具.題 + '</h1>' + NL + '  <p>';
   const i = html.indexOf(頭), j = html.indexOf('</p>' + NL + '</header>', i);
@@ -558,6 +616,8 @@ p.lead { max-width: 1100px; margin: 12px auto 0; padding: 0 16px; color: #555; f
 fs.writeFileSync(path.join(出す先, 'index.html'), 入口を作る(), 'utf8');
 console.log('  index.html  ← 当番/hub.html（?role=chieflinks / admlinks で切り替え）');
 件++;
+
+ホーム画面のファイルを出す();
 
 // 検索避け。noindex は各ページにも入れてあるが、そもそもクロールさせない。
 fs.writeFileSync(path.join(出す先, 'robots.txt'), 'User-agent: *' + NL + 'Disallow: /' + NL, 'utf8');

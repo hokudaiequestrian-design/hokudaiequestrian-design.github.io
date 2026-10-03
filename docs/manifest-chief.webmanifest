@@ -1,0 +1,31 @@
+{
+  "id": "./?role=chieflinks",
+  "name": "北大馬術部（チーフ）",
+  "short_name": "馬術部チーフ",
+  "lang": "ja",
+  "start_url": "./?role=chieflinks",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#2b58b1",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

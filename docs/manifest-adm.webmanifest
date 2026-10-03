@@ -1,0 +1,31 @@
+{
+  "id": "./?role=admlinks",
+  "name": "北大馬術部（副将）",
+  "short_name": "馬術部副将",
+  "lang": "ja",
+  "start_url": "./?role=admlinks",
+  "scope": "./",
+  "display": "standalone",
+  "theme_color": "#2b58b1",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
