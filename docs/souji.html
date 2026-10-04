@@ -961,30 +961,63 @@ const 部品 = (() => {
 </script>
 <style>
 /*
-  使い方（2026-09-16 ユーザーの指示で作った）。部員用・チーフ用・副将用の3つ。
-  サーバは呼ばない読むだけのページ。開いた人の立場（マイページが localStorage に覚えたもの）のところを最初に出す。
-  紙に印刷しても読めるように、印刷のときはそのファイルにあるものを全部出す。
-
-  2026-09-23 ユーザーの指示：**自分より上の立場の説明は見せない**。
-  画面で隠すだけだとページの元を読めば見えてしまうので、build.js が立場ごとに3つに切り分けて組み立てる
-  （tsukaikata.html＝部員用だけ／-chief＝部員＋チーフ／-admin＝3つとも）。
-  このファイルは**原本**で3つとも持っている。下の script は「あるものの中から選ぶ」作りにしてある。
+  掃除当番（2026-10-04 ユーザーの指示）。副将だけが使う画面で、部員には見せない。
+  日ごとに3人。名前を押すと「来なかった」＝次の日の同じ枠の人と入れ替える。
+  同じ日の休み（了承待ちも）・大会・祝日を並べて見せ、入れ替えるかどうかは副将が決める。
+  休みの画面と同じく帯は ink の黒（副将がまとめる画面）。
 */
-.use-sec h3 { margin: var(--space-lg) 0 var(--space-2xs); font-size: var(--text-base); }
-.use-sec h3:first-of-type { margin-top: var(--space-xs); }
-.use-sec ol, .use-sec ul { margin: 0 0 var(--space-xs); padding-left: 1.4em; }
-.use-sec li { line-height: 1.9; margin-bottom: var(--space-3xs); }
-.use-sec .step { border-left: 4px solid var(--accent); background: var(--paper-2); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin-bottom: var(--space-xs); }
-.use-sec .step b { display: block; }
-.use-sec .warn { border-left: 4px solid var(--warning); background: var(--warning-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
-.use-sec .key-note { border-left: 4px solid var(--danger); background: var(--danger-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
-.use-sec table { width: 100%; border-collapse: collapse; margin-bottom: var(--space-xs); }
-.use-sec th, .use-sec td { border: 1px solid var(--rule); padding: var(--space-2xs); text-align: left; font-size: var(--text-sm); vertical-align: top; }
-.use-sec th { background: var(--paper-3); white-space: nowrap; }
-@media print {
-  .tabs, .backhome, .print-hint { display: none !important; }
-  .use-sec { display: block !important; page-break-before: always; }
-  .use-sec:first-of-type { page-break-before: auto; }
+header.appbar.souji { background: var(--ink); }
+
+.range-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+.range-head .now { font-size: var(--text-md); font-weight: 700; font-family: var(--font-num); }
+
+/* 1日1行。左に日付、右に3人と、その日の休み・大会 */
+.sday { display: grid; grid-template-columns: 7.5rem 1fr; gap: var(--space-xs) var(--space-sm); padding: var(--space-sm) 0; border-top: 1px solid var(--rule); }
+.sday:first-child { border-top: none; }
+.sday.today { background: var(--accent-soft); border-left: 4px solid var(--accent); padding-left: var(--space-xs); }
+.sday.past .sdate { color: var(--muted); }
+.sdate { font-family: var(--font-num); font-weight: 700; font-size: var(--text-md); line-height: 1.3; }
+.sdate .w { font-size: var(--text-sm); margin-left: var(--space-3xs); }
+.sdate .w.sat { color: var(--accent); }
+.sdate .w.sun { color: var(--danger); }
+.sdate .tlabel { display: block; font-size: var(--text-xs); color: var(--accent-dark); font-family: var(--font-body); }
+.sbody { min-width: 0; }
+.slots { display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; }
+.slot-btn {
+  min-height: var(--tap); padding: 0 var(--space-sm); border-radius: var(--radius-pill);
+  border: 2px solid var(--rule-strong); background: var(--paper-2); color: var(--ink);
+  font: inherit; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2xs);
+}
+.slot-btn:hover { background: var(--paper-3); }
+.slot-btn .n { font-family: var(--font-num); font-size: var(--text-xs); color: var(--muted); font-weight: 700; }
+/* その人がこの日に休み・バイトを出している：枠を点線にして「休」の札（色だけで伝えない） */
+.slot-btn.off { border-style: dashed; border-color: var(--warning); background: var(--warning-soft); }
+.slot-btn .offtag { font-size: var(--text-xs); color: var(--warning); border: 1px solid var(--warning); border-radius: 4px; padding: 0 3px; }
+.slot-empty { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 var(--space-sm); border: 2px dashed var(--rule); border-radius: var(--radius-pill); color: var(--muted); }
+.slot-btn.moved { animation: moved var(--dur-long) var(--ease-out); }
+@keyframes moved { from { box-shadow: 0 0 0 6px var(--focus-inner); } to { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .slot-btn.moved { animation: none; outline: 3px solid var(--focus-inner); } }
+
+.sinfo { margin-top: var(--space-2xs); font-size: var(--text-sm); color: var(--muted); display: flex; flex-wrap: wrap; gap: var(--space-2xs) var(--space-sm); }
+.sinfo .lv { white-space: nowrap; }
+.sinfo .lv .m { font-weight: 700; font-family: var(--font-num); margin-right: 2px; color: var(--ink); }
+.sinfo .lv.wait { text-decoration: underline dashed; }
+.badge { display: inline-block; min-width: 1.5em; padding: 0 4px; border-radius: 4px; font-size: var(--text-xs); font-weight: 700; line-height: 1.6; text-align: center; color: #fff; }
+.badge.b-holiday { background: var(--danger); }
+.badge.b-meet { background: var(--care-dark); }
+.meet-name { color: var(--care-dark); font-weight: 700; }
+
+/* 手で直す欄（その日の行の下に開く） */
+.editor { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: flex-end; padding: var(--space-sm); background: var(--paper-3); border-radius: var(--radius-input); }
+.editor label { font-size: var(--text-sm); margin: 0; }
+.editor select { min-width: 9rem; }
+.edit-btn { margin-left: auto; }
+
+.undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+
+@media (max-width: 560px) {
+  .sday { grid-template-columns: 1fr; }
+  .sdate .tlabel { display: inline; margin-left: var(--space-xs); }
 }
 </style>
 <style>
@@ -1010,279 +1043,309 @@ a.donehome:hover { background: var(--accent-dark); }
 </style>
 </head>
 <body>
-<header class="appbar">
-  <a class="backhome" href="index.html">← マイページ</a><span>使い方</span></header>
+<div id="busy">通信中です…</div>
+<header class="appbar souji">
+  <a class="backhome" href="index.html">← マイページ</a><span>掃除当番（副将）</span></header>
 
 <main class="wide">
-  <div class="tabs" role="tablist">
-    <button type="button" data-use="buin" class="active">部員用</button>
-    <button type="button" data-use="chief">チーフ用</button>
-    <button type="button" data-use="fukusho">副将用</button>
+  <!-- 副将のログインは入口でだけ。鍵が無い・切れたときは入口への案内をここに出す -->
+  <div class="card" id="loginCard" style="display:none;"></div>
+  <div id="loading" class="card"><p class="muted" style="margin:0;">読み込んでいます…</p></div>
+
+  <div id="app" style="display:none;">
+    <div class="card">
+      <p class="hint" style="margin-top:0;">
+        1日<b>3人</b>。当番に入る部員を<b>名簿の順に3人ずつ</b>毎日に並べます。部員には見せません。<br>
+        <b>来なかった人の名前を押すと</b>、次の日の同じ枠の人と入れ替わります（その人が今日に出てきて、来なかった人は次の日へ）。
+        間違えたら<b>同じところをもう一度押す</b>か、下に出る「元に戻す」で戻ります。<br>
+        <span class="badge b-holiday">祝</span> 祝日　<span class="badge b-meet">大</span> 大会　点線の名前は、その日に休み・バイトを出している人です（自動では外しません）。
+      </p>
+
+      <details class="fold" id="genFold">
+        <summary>名簿の順に組む</summary>
+        <div class="fold-body">
+        <div class="row" style="margin-top:var(--space-sm);">
+          <div><label for="genFrom">この日から</label><input type="date" id="genFrom"></div>
+          <div><label for="genTo">この日まで</label><input type="date" id="genTo"></div>
+        </div>
+        <p class="hint">前の日までに入っている最後の人の<b>次の人から</b>続けます。この範囲にすでに入っている日は<b>組み直します</b>（範囲の外は変わりません）。</p>
+        <div class="row tight"><button type="button" id="genBtn">組む</button></div>
+        <div id="genMsg"></div>
+        </div>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="range-head">
+        <button type="button" class="icon-btn outline" id="prevRange" aria-label="前の30日" title="前の30日"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <span class="now" id="rangeNow"></span>
+        <button type="button" class="icon-btn outline" id="nextRange" aria-label="次の30日" title="次の30日"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="secondary small" id="todayBtn">今日へ</button>
+      </div>
+      <div id="msg" aria-live="polite"></div>
+      <div id="days"></div>
+    </div>
   </div>
-  <p class="hint print-hint" id="printHint">自分のぶんだけ読めば足ります。印刷すると全部出ます。</p>
-
-  <!-- ===================== 部員用 ===================== -->
-  <section class="card use-sec" data-usepane="buin">
-    <h2>部員用の使い方</h2>
-    <p class="hint">出すものは4つ（大会の出欠・手入れの希望・休みの申し込み・当番の希望）。パスワードは要りません。</p>
-
-    <h3>1. 開く</h3>
-    <div class="step">
-      <b>配られたURLを開いて、自分の名前を選ぶ</b>
-      名前は次から覚えているので、選び直すのは人が変わるときだけです。このページをブックマークしておくと、毎回ここから入れます。
-    </div>
-    <p>マイページには、<b>これからの予定</b>（大会・手入れ・当番・休み）と、<b>まだ出していないもの</b>が出ます。出すものが残っていれば、そこから開けます。</p>
-
-    <h3>2. 出すもの</h3>
-    <table>
-      <tr><th>大会の出欠を出す</th><td>大会の日ごとに「行ける・行けない」を答えます。出る競技と馬があれば入れます。出場する競技には仕事が当たりません。</td></tr>
-      <tr><th>手入れの希望を出す</th><td>自分がサブに入っている馬のうち、<b>いま募集している期間</b>の日に ◎（入りたい）・○（入れる）・×（入れない）を出します。<b>全部の日に出してください。</b>出していない日は担当に入りません。<br>募集していないときは「いまは希望を受け付けていません」と出て、出せません（出したぶんは見られます）。</td></tr>
-      <tr><th>休みを申し込む</th><td>有給休暇・季節休み・体調不良を申し込みます。みんなの休みとバイトもここで見られます。</td></tr>
-      <tr><th>当番の希望を出す</th><td>昼当・夕当・投げ草の希望を4つ選びます。<b>受付中の期間だけ</b>出てきます。出ていないときは、まだ募集していないか、もう締め切られています。</td></tr>
-    </table>
-
-    <h3>3. 休みのきまり</h3>
-    <ul>
-      <li>有給休暇は1年度に決まった日数まで。残りはマイページと申し込みの画面で見られます。</li>
-      <li><b>体調不良</b>は、休む日の<b>前の日の10:00〜その日の5:15</b>だけ申し込めます（1日ずつ）。それ以外の時間に休むことになったら副将に直接伝えてください。有給は減りません。</li>
-      <li>申し込みは<b>先着順</b>で副将が了承します。了承されるまでは「了承待ち」です。</li>
-      <li><b>過ぎた日の休みは取り消せません。</b>早めに申し込んでください。</li>
-      <li><b>バイトは副将が入れます。</b>自分では申し込めません。</li>
-      <li>了承された休み・バイトの日は、手入れの担当から外れます。</li>
-    </ul>
-
-    <h3>4. 人員表を見る</h3>
-    <p>
-      副将が<b>公開した大会</b>の人員表を、<b>全員ぶんそのまま</b>見られます（見るだけで、直せません）。
-      自分の行は黄色くしてあります（マイページで名前を選んでおいてください）。<br>
-      公開されるまでは出てきません。カレンダーの大会の日も、公開されるまでは「<b>大</b>」のままです。
-    </p>
-
-    <h3>5. 朝手入れ</h3>
-    <p>
-      朝手入れは<b>ふつうの手入れとは別枠</b>です。手入れは毎日ありますが、朝手入れは<b>朝練が休みの日だけ</b>なので、
-      入っていない日があっても間違いではありません。<b>◎○× は出しません</b>（チーフが決めます）。
-    </p>
-    <ul>
-      <li>チーフが<b>カレンダー</b>で組んでいる馬 … カレンダーの「<b>手入れ予定</b>」に「朝」の札で出ます。</li>
-      <li>チーフが<b>ローテーション</b>で組んでいる馬 … 「手入れの希望を出す」画面のいちばん下に<b>回る順番</b>が出ます（日付は決まっていません）。</li>
-    </ul>
-
-    <h3>6. カレンダー</h3>
-    <p>マイページの「カレンダーを見る」で、決まった手入れの担当とみんなの休みを月ごとに見られます。</p>
-    <ul>
-      <li><b>カレンダー</b>のタブ … 人ごと・日ごとの表。大会の日は、<b>人員表ができると仕事の1文字</b>に変わります
-        （<b>出</b>＝出場する選手（赤）、<b>下</b>＝その馬に付く人、<b>運</b>・<b>箱</b>・<b>在</b> などは仕事名の1文字目）。
-        仕事の1文字は<b>人員表と同じ色</b>で塗ってあります（何の仕事かは上の帯に出ます）。
-        人員表がまだのあいだは「<b>大</b>」です。<br>
-        <b>大会のぶんは必ず1文字です。</b>1日にいくつ入っていても、強いほうから
-        <b>出</b> →（<b>在以外の仕事</b>）→ <b>下</b> → <b>在</b> の順で1つだけ出します。
-        同じ強さのものが並んだら、その日の競技の早いほうです。<br>
-        休み・バイトと大会が同じ日になっているときだけ、気づけるように<b>2つ並べて出します</b>（どちらかが間違いです）。</li>
-      <li><b>当番・手入れ予定</b>のタブ … 月ごとではなく、<b>きのうから30日ぶん</b>が出ます（＜＞で30日ずつ送れます。「きのうから」で戻ります）。日ごとに、当番は<b>昼当｜夕当｜投げ草の列</b>、その下の段に手入れ（馬 名前）と朝手入れ。
-        いちばん上に<b>自分のこれからの予定</b>が並び、押すとその日へ飛びます（マイページで名前を選んでおくと出ます）。
-        「自分だけ」で自分の日だけに、馬を選ぶとその馬の手入れだけになります。</li>
-    </ul>
-
-    <div class="warn">
-      <b>リンクが開かないとき</b>
-      マイページの下にある「リンクが開かないときは」を開いてください。Googleに2つ以上のアカウントでログインしていると起きます。直らないときは、出ている画面をそのまま撮って副将に送ってください。
-    </div>
-  </section>
-
-  <!-- ===================== チーフ用 ===================== -->
-  <section class="card use-sec" data-usepane="chief" style="display:none;">
-    <h2>チーフ用の使い方</h2>
-    <p class="hint">部員として出すもの（4つ）に加えて、担当する馬の<b>手入れをまとめる</b>のがチーフの仕事です。</p>
-
-    <div class="key-note">
-      <b>鍵</b>
-      「手入れをまとめる」はチーフパスワードが要ります。副将のマイページからログインしている人は、そのまま開けます。
-    </div>
-
-    <h3>手入れ表ができるまで</h3>
-    <div class="step"><b>1. 馬を選ぶ</b>自分が担当する馬を選びます。馬のチーフを決めるのは副将です。</div>
-    <div class="step"><b>2. 期間を選ぶ・作る</b>期間の行を押すと開きます。新しく作るときは「期間を新しく作る」から、名前（後期・夏休みなど）と作り方を決めます。
-      <br>・<b>曜日</b>＝毎週おなじ担当　・<b>カレンダー</b>＝日付ごとに決める（最長400日）。どちらも開始日を入れてください。</div>
-    <div class="step"><b>3. サブを選ぶ</b>期間名の横の<b>鉛筆</b>を押すと「期間の編集」が開きます。ここでチーフの割合を決め、この馬を手入れする人にチェックを入れます（手入れは<b>1日1人</b>で組みます）。<b>チーフ本人もサブに入れてください。</b>選んだ人にだけ、部員の画面に◎○×の欄が出ます。</div>
-    <div class="step"><b>4. 希望を募集する・締め切る</b>期間の編集の<b>「希望の受付」</b>のチェックで切り替えます。
-      <br>・入れる＝部員の画面にこの馬が出て、◎○× を出せます　・外す＝「いまは希望を受け付けていません」と出て、出せなくなります
-      <br>出ている票と手入れ表は、締め切っても消えません。<b>締め切ったあとも代理入力はできます。</b></div>
-    <div class="step"><b>5. 投票を待つ・代理で入れる</b>「投票状況」で、誰が出していないか分かります。出せない人のぶんは代理で入れられます。</div>
-    <div class="step"><b>6. 手入れ表を作る</b>「作成する」を押すと、×の日を避けて◎の人から順に入ります。チーフは、ほかのサブより多め（既定でチーフ2：ほかのサブ1）に入ります。</div>
-
-    <h3>手で直す</h3>
-    <ul>
-      <li>カレンダーの上の「<b>編集</b>」を押すと、日を押して担当を選べます。プルダウンはサブだけで、上から ◎入りたい → ○入れる → ×入れない → まだ出していない の順です。</li>
-      <li>一覧にない人（OBなど）は「<b>✎ 名前を書く</b>」で名前を打てます。</li>
-      <li>「この日を空にする」で、その日の担当を外せます。</li>
-      <li>手で入れた担当には<b>鍵</b>が付きます。鍵の付いた担当は、作り直しても動きません。</li>
-      <li>直したら<b>保存</b>を押してください。保存していないときは画面の下に帯が出ます。</li>
-    </ul>
-
-    <h3>朝手入れ（手入れとは別枠）</h3>
-    <p>
-      朝手入れは<b>朝練が休みの日だけ</b>のものです。<b>期間は作りません。</b>
-      馬のカードのすぐ下にある「<b>朝手入れ</b>」を開いて設定を変えると、それがそのまま新しい決まりになります。
-      いまどちらで動いているかは、「朝手入れ」の横に出ています。
-    </p>
-    <ul>
-      <li><b>カレンダー</b>＝日付ごとに担当を決めます。日を押してサブから選び、「保存」を押します。
-        <b>朝練がある日は空のままで大丈夫です</b>（足りない日の知らせは出しません）。
-        決めたぶんは、みんなのカレンダーの<b>「手入れ予定」にだけ</b>出ます。</li>
-      <li><b>ローテーション</b>＝サブの並び順で1人ずつ回します。日付は決めません。
-        「上へ」「下へ」で順番を入れ替えて「保存」を押すと、<b>サブの画面にだけ</b>その順番が出ます。</li>
-      <li>どちらか<b>片方だけ</b>が動きます。切り替えても、もう片方に入れた中身は消えません。</li>
-      <li>◎○× は集めません。<b>その馬のチーフが決めます。</b></li>
-    </ul>
-
-    <div class="warn">
-      <b>気をつけること</b>
-      ・サブを外すと、その人のその馬の◎○×と、手入れ表に入っているぶんも消えます。<br>
-      ・期間を消すと、サブ・投票・手入れ表も消えます。<br>
-      ・了承された休み・バイトの日は担当から外れます。warnings（気になるところ）に出ます。
-    </div>
-  </section>
-
-  <!-- ===================== 副将用 ===================== -->
-  <section class="card use-sec" data-usepane="fukusho" style="display:none;">
-    <h2>副将用の使い方</h2>
-
-    <div class="key-note">
-      <b>ログインは1回だけ</b>
-      副将のマイページでパスワードを入れると、当番・手入れと人員表の両方にログインします。<b>タブを閉じるまで</b>、どの画面でもパスワードを聞かれません。閉じたら入れ直してください。パスワードは人に配らないでください。
-    </div>
-
-    <div class="key-note">
-      <b>了承待ちの休みは、マイページのいちばん上に出ます</b>
-      ログインすると、まだ了承していない休みの申し込みが<b>赤い帯</b>で出ます（だれが・何の休みを・いつ・何日ぶん）。
-      そのまま「休みをまとめる を開く」で決めに行けます。<b>0件のときは何も出ません。</b>
-      中身はパスワードを入れたあとに出るので、ログインする前は出ません。
-    </div>
-
-    <h3>1. 部員・馬匹管理</h3>
-    <ul>
-      <li><b>名簿は人員表と当番・手入れで1つ</b>です。ここで足す・直す・消すと、両方に入ります。</li>
-      <li>4年生以上は、足したときから「当番に入れない」が付きます。</li>
-      <li>まとめて足すときは、1行に1人（名前・入部年・役職・備考）で貼り付けます。</li>
-      <li>「馬とチーフ」で、馬と<b>その馬のチーフ</b>を決めます。チーフを決めるのは副将だけです。</li>
-      <li>「サブ整理」は、開始日ごとに決める<b>馬ごとの基本のサブ</b>です。チーフが期間を作るときに「最新のサブ整理に合わせる」で使えます。</li>
-      <li>パスワード（副将・チーフ）を変えるのも、この画面のいちばん下です。</li>
-    </ul>
-
-    <h3>2. 人員表をまとめる</h3>
-    <ol>
-      <li><b>大会・競技設定</b>で大会を作り、日ごとの競技と仕事の必要人数を入れます。競技名は「まとめて追加」に1行1競技で貼れます（開催順に並べてください）。</li>
-      <li>部員が出欠を出したら、<b>出場する競技と馬</b>を確かめます（足りなければここで直せます）。</li>
-      <li><b>人員表</b>で「自動生成」。出られない人・出場する競技には当てません。足りない競技は色で出ます。
-        表は<b>日がかわるところで太い縦線</b>が入り、1日おきに見出しの色が変わります。名前・役職・状態は1行に並びます。</li>
-      <li>手で直すときは表計算ソフトと同じ感覚で：マスを選んで（ドラッグで何マスでも）<b>表の上の仕事の札を押すと、選んだマス全部に入ります</b>（札の番号の数字キーでも）。
-        札の数字は、その競技に入っている人数／要る人数です。<b>文字を打ち始めるか Enter</b> で名前から絞り込んで入れることもできます（Enter で決めて下へ、Tab で右へ）。
-        選んだ範囲の<b>右下の小さな四角を引っぱる</b>とその先へ写せます。競技の見出し・名前を押すと列・行をまとめて選べます。
-        列が多いときは「<b>表を広げる</b>」で画面いっぱいに（Esc か同じボタンで戻ります）。</li>
-      <li>直したら保存し、⋯ から<b>Excel に書き出し</b>て配ります。</li>
-      <li><b>部員に公開する</b>：押すと、部員の「人員表を見る」に表が出て、
-        みんなのカレンダーの大会のマスも「大」から仕事の1文字（出・下・運…）に変わります。
-        <b>押すまでは出ません</b>ので、作りかけを見せずに済みます。「公開をやめる」で戻せます。<br>
-        場所は<b>2か所</b>：大会一覧の行のボタンと、<b>人員表のタブ</b>（自動生成の下の欄。そこで仕上げるので、戻らずに公開できます）。
-        どちらにも「部員に公開中／まだ公開していません」の印が出ます。</li>
-    </ol>
-
-    <h3>3. バイト・休みをまとめる</h3>
-    <ul>
-      <li><b>申し込み</b>：先着順に「了承する」。却下や記録ごと消すのは ⋯ の中です。</li>
-      <li><b>休みを入れる</b>：部員の代わりに副将が入れる欄です。</li>
-      <li><b>バイト</b>：「どのバイト」の下の <b>＋</b> でバイト先を作り、カレンダーの日を押して、学年ごとに並んだ名前を押すと入ります。もう一度押すと外れます。入れた日はその人の休み（バイト）になります。</li>
-      <li><b>自動で入れる</b>：カレンダーの下の「自動で入れる」を開きます。
-        まず<b>その日に要る人数</b>を決めます。<b>カレンダーのマスの ＋ と − で1人ずつ直せる</b>ほか、
-        <b>曜日ごとにまとめて</b>入れる欄と「この月ぜんぶに入れる」もあります。決めたら「要る人数を保存」。<br>
-        そのうえで「<b>この月を自動で入れる</b>」を押すと、<b>2段で</b>組みます。
-        <b>①だれが出るか</b>＝その月に要る人数の合計ぶんを、順位の上の人から取ります
-        （1人が同じ月に取れるのは<b>2回まで</b>。「1か月に入る上限」で変えられます）。
-        <b>②いつ行くか</b>＝取った人を、<b>人が要る日の中へランダムに</b>配ります。
-        <ul>
-          <li><b>学年ごとの回数の差</b>を決めておきます（1年を基準にした「下駄」。既定は1学年ごとに6回）。
-            上級生ほど多く行くので、そのままだと下級生ばかりが入ってしまうためです。
-            <b>同じ学年の中では、回数の少ない人から</b>入ります。</li>
-          <li>下駄を引いた回数まで同じ人が並んだら<b>ランダム</b>です。押すたびに結果が変わります。</li>
-          <li><b>1か月に同じ人が入るのは2回まで</b>（「1か月に入る上限」で変えられます）。</li>
-          <li>休み・ほかのバイトと重なる日、<b>大会がある日</b>には入れません。</li>
-          <li>「自動で入れない人」にチェックした人は入りません（手では入れられます）。</li>
-          <li><b>手で入れたぶんには鍵が付き、組み直しても動きません。</b>鍵の無いぶんだけ入れ替わります。</li>
-          <li>「組んで中身だけ見る」で、保存せずに結果だけ見られます。</li>
-        </ul>
-      </li>
-      <li><b>行った回数</b>：カレンダーに入れた日を数えます（入れた瞬間に増え、外すと減ります）。システムに入れる前のぶんは「回数を編集」で足せます。<b>この数は部員には見えません。</b></li>
-      <li><b>決まり</b>：有給の日数、年度の始まり月、了承ずみの休みを手入れの担当から外すか。</li>
-    </ul>
-
-    <h3>4. 当番をまとめる</h3>
-    <ol>
-      <li><b>当番の設定</b>：期間（前期・後期など）と当番（昼当・夕当・投げ草）、曜日ごとの必要な学年を決めます。期間の<b>「受付中」</b>のチェックで、当番の希望を集めるかどうかを切り替えます（受付中でない期間は部員の画面に出ません）。<br>
-        期間に<b>開始日と終了日</b>を入れると、その範囲の日にカレンダーの<b>「当番・手入れ予定」</b>へ出ます（2026-09-21）。空のままなら出ません。</li>
-      <li><b>投票状況</b>：誰が出していないか見られます。代理でも入れられます。</li>
-      <li><b>当番表</b>：作って、手で直して、保存します。手入れの期間もここから作れます。</li>
-    </ol>
-
-    <h3>5. 手入れをまとめる</h3>
-    <p>チーフと同じ画面です。チーフが決まっていない馬や、チーフが手を付けられないときに副将が代わりに作れます。使い方は「チーフ用」を見てください。</p>
-    <p><b>手入れの希望の募集</b>も、この画面の「期間の編集」→「希望の受付」で切り替えられます（馬ごと・期間ごと）。</p>
-
-    <h3>配るURL</h3>
-    <table>
-      <tr><th>部員に配る</th><td>マイページのURL（そのまま）</td></tr>
-      <tr><th>チーフに配る</th><td>マイページのURLに <span class="mono">?role=chieflinks</span> を付けたもの</td></tr>
-      <tr><th>副将が持つ</th><td>マイページのURLに <span class="mono">?role=admlinks</span> を付けたもの（<b>配らない</b>）</td></tr>
-    </table>
-    <p class="hint">この3本だけ配れば足ります。中の画面へは、それぞれのマイページから入れます。</p>
-  </section>
 </main>
 
 <script>
-/*
-  立場（マイページが覚えたもの）に合わせて、最初に出すところを決める。
-  ?for=buin / chief / fukusho でも選べる（人に「ここを読んで」と送るとき用）。
-*/
 const $ = (id) => document.getElementById(id);
-const 立場の表 = { links: 'buin', chieflinks: 'chief', admlinks: 'fukusho' };
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// このファイルに入っている立場だけ（build.js が上の立場を取り除いていることがある。2026-09-23）
-const あるもの = Array.prototype.map.call(
-  document.querySelectorAll('[data-usepane]'), (p) => p.dataset.usepane);
+let TOKEN = '';
+let D = null;              // soujiLoadAll の返り
+let 見る = { from: '', to: '' };
+let 開いている日 = '';      // 手で直す欄を開いている日
+let 光らせる枠 = [];        // 入れ替えたあとに光らせる [date, slot]
+let busyCount = 0;
 
-function 出す(名) {
-  Array.prototype.forEach.call(document.querySelectorAll('[data-use]'), (b) => {
-    b.className = b.dataset.use === 名 ? 'active' : '';
-  });
-  Array.prototype.forEach.call(document.querySelectorAll('[data-usepane]'), (p) => {
-    p.style.display = p.dataset.usepane === 名 ? 'block' : 'none';
-  });
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
 }
+const API = 'https://bajutsubu-api.hokudai-equestrian.workers.dev/touban';
 
-// 1つしか無いページではタブごと消えている
-const タブ = document.querySelector('.tabs');
-if (タブ) {
-  タブ.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-use]');
-    if (b) 出す(b.dataset.use);
+/**
+ * サーバ（Apps Script）を呼ぶ。
+ *
+ * この画面は script.google.com の外に置いてあるので、GASの画面用の呼び出し口は使えない。
+ * かわりに fetch で叩く。**別オリジンなのでCookieが飛ばない**ぶん、
+ * 複数のGoogleアカウントに同時ログインしていても「ファイルを開くことができません」にならない。
+ * 画面を外に出したのはそのため。
+ *
+ * Content-Type を text/plain にしているのは、application/json にすると
+ * ブラウザが事前確認（preflight の OPTIONS）を投げ、Apps Script がそれを受けられないため。
+ *
+ * 通信のせいで失敗したとき（つながらない・HTMLのエラーページが返った）は、エラーに 通信: true を付ける。
+ * サーバが断ったとき（入力の誤りなど）と分けて、送り直してよいかを画面が判断できるようにするため。
+ *
+ * **送信（submitResponse）だけは keepalive で送る。** 押してすぐ画面を閉じたり
+ * マイページへ戻ったりしても、ブラウザが最後まで届けてくれる。keepalive で失敗したときは
+ * 普通の送り方でもう一度だけ試す（出欠の送信は同じ中身で何度送っても結果が変わらない）。
+ */
+const 閉じても届ける = ['submitResponse'];
+
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  const 本文 = JSON.stringify({ fn: fn, args: args });
+  const 送る = (keepalive) => fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+    body: 本文,
+    keepalive: keepalive,
   });
+  const 届ける = 閉じても届ける.indexOf(fn) >= 0 && 本文.length < 60000;
+  return (届ける ? 送る(true).catch(() => 送る(false)) : 送る(false)).then((res) => {
+    if (!res.ok) throw new Error('つながりませんでした（' + res.status + '）。少し待ってから開き直してください。');
+    return res.json();
+  }).catch((e) => {
+    const err = /^つながりませんでした/.test((e && e.message) || '') ? e
+      : new Error('つながりませんでした。電波の良いところで、少し待ってから開き直してください。');
+    err.通信 = true;
+    throw err;
+  }).then((r) => {
+    if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
+    return r.value;
+  }).finally(() => { busy(false); });
 }
+function 知らせ(場所, cls, html) {
+  $(場所).innerHTML = html ? '<div class="msg ' + cls + '" role="status">' + html + '</div>' : '';
+}
+const 日付 = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+const 日から = (key) => new Date(key + 'T00:00:00');
+const ずらす = (key, n) => { const d = 日から(key); d.setDate(d.getDate() + n); return 日付(d); };
+const 今日 = () => 日付(new Date());
+const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
+const 和風 = (key) => { const d = 日から(key); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + 曜日名[d.getDay()] + '）'; };
+const 休みの印 = { '有給休暇': '有', '季節休み': '季', '体調不良': '体' };
+const エラー文 = (e) => esc((e && e.message) || e);
 
-(function () {
-  if (!あるもの.length) return;
-  const 指定 = new URLSearchParams(location.search).get('for');
-  let 名 = あるもの.indexOf(指定) >= 0 ? 指定 : '';
-  if (!名) {
-    try { 名 = 立場の表[localStorage.getItem('role')] || 'buin'; } catch (e) { 名 = 'buin'; }
-  }
-  // このページに無い立場を指されたら、あるものの中でいちばん上を出す
-  if (あるもの.indexOf(名) < 0) 名 = あるもの[あるもの.length - 1];
-  出す(名);
-  if (あるもの.length === 1) {
-    const 印 = document.getElementById('printHint');
-    if (印) 印.textContent = 'ここに出ているのが、あなたのぶんです。';
+// ===== ログイン =====
+(async () => {
+  const 案内 = (文) => {
+    部品.副将の鍵を消す();
+    $('loading').style.display = 'none';
+    $('app').style.display = 'none';
+    $('loginCard').innerHTML = 部品.入口へ(文);
+    $('loginCard').style.display = 'block';
+  };
+  const 鍵 = 部品.副将の鍵();
+  if (!鍵) return 案内('');
+  TOKEN = 鍵;
+  見る.from = ずらす(今日(), -1);   // カレンダーと同じく「きのうから30日」
+  見る.to = ずらす(見る.from, 29);
+  try {
+    D = await call('soujiLoadAll', TOKEN, 見る.from, 見る.to);
+    $('loading').style.display = 'none';
+    $('app').style.display = 'block';
+    組む欄の既定();
+    描く();
+  } catch (e) {
+    案内(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : '開けませんでした：' + ((e && e.message) || e) + '。');
   }
 })();
+
+async function 読み直す() {
+  D = await call('soujiLoadAll', TOKEN, 見る.from, 見る.to);
+  描く();
+}
+
+// ===== 範囲を動かす =====
+async function 範囲を動かす(from) {
+  見る.from = from;
+  見る.to = ずらす(from, 29);
+  開いている日 = '';
+  知らせ('msg', '', '');
+  try { await 読み直す(); } catch (e) { 知らせ('msg', 'error', '読めませんでした：' + エラー文(e)); }
+}
+$('prevRange').addEventListener('click', () => 範囲を動かす(ずらす(見る.from, -30)));
+$('nextRange').addEventListener('click', () => 範囲を動かす(ずらす(見る.from, 30)));
+$('todayBtn').addEventListener('click', () => 範囲を動かす(ずらす(今日(), -1)));
+
+// ===== 描く =====
+function 描く() {
+  $('rangeNow').textContent = 和風(D.from) + ' 〜 ' + 和風(D.to);
+  const 祝日 = Object.assign({}, 部品.祝日(Number(D.from.slice(0, 4))), 部品.祝日(Number(D.to.slice(0, 4))));
+  const 名簿 = D.members || [];
+  const 今 = D.today || 今日();
+  const まだ空 = D.days.every((d) => d.slots.every((s) => !s.memberId));
+
+  let html = '';
+  if (まだ空) {
+    html += '<p class="muted">この30日にはまだ誰も入っていません。上の「名簿の順に組む」から組んでください。</p>';
+  }
+  html += D.days.map((d) => {
+    const w = 日から(d.date).getDay();
+    const 祝 = 祝日[d.date];
+    const 枠 = d.slots.map((s, i) => {
+      if (!s.memberId) return '<span class="slot-empty">' + (i + 1) + '　空き</span>';
+      const 光る = 光らせる枠.some((x) => x[0] === d.date && x[1] === i + 1);
+      return '<button type="button" class="slot-btn' + (s.休み ? ' off' : '') + (光る ? ' moved' : '') + '" ' +
+        'data-skip="' + d.date + '" data-slot="' + (i + 1) + '" ' +
+        'aria-label="' + esc(s.name) + '（' + 和風(d.date) + '・' + (i + 1) + '人目）。押すと来なかったことにして次の日へ回す"' +
+        (s.休み ? ' title="この日は「' + esc(s.休み) + '」を出しています"' : '') + '>' +
+        '<span class="n">' + (i + 1) + '</span>' + esc(s.name) +
+        (s.休み ? '<span class="offtag">休</span>' : '') +
+        '</button>';
+    }).join('');
+    const 情報 = [];
+    if (祝) 情報.push('<span><span class="badge b-holiday">祝</span> ' + esc(祝) + '</span>');
+    if (d.大会) 情報.push('<span><span class="badge b-meet">大</span> <span class="meet-name">' + esc(d.大会) + '</span></span>');
+    d.休み.forEach((l) => {
+      const 印 = l.kind === 'バイト' ? 部品.バイトの印(l.label) : (休みの印[l.kind] || '休');
+      情報.push('<span class="lv' + (l.state === '申請中' ? ' wait' : '') + '" title="' + esc(l.label || l.kind) + (l.state === '申請中' ? '（了承待ち）' : '') + '">' +
+        '<span class="m">' + esc(印) + '</span>' + esc(l.name) + '</span>');
+    });
+    const 開く = 開いている日 === d.date;
+    return '<div class="sday' + (d.date === 今 ? ' today' : '') + (d.date < 今 ? ' past' : '') + '">' +
+      '<div class="sdate">' + (日から(d.date).getMonth() + 1) + '/' + 日から(d.date).getDate() +
+        '<span class="w' + (w === 6 ? ' sat' : w === 0 || 祝 ? ' sun' : '') + '">' + 曜日名[w] + '</span>' +
+        (d.date === 今 ? '<span class="tlabel">今日</span>' : '') + '</div>' +
+      '<div class="sbody">' +
+        '<div class="slots">' + 枠 +
+          部品.アイコンボタン('edit', 和風(d.date) + ' を手で直す', { 'data-edit': d.date }, 'edit-btn') +
+        '</div>' +
+        (情報.length ? '<div class="sinfo">' + 情報.join('') + '</div>' : '') +
+      '</div>' +
+      (開く ? 直す欄(d, 名簿) : '') +
+      '</div>';
+  }).join('');
+  $('days').innerHTML = html;
+  光らせる枠 = [];
+}
+
+function 直す欄(d, 名簿) {
+  const 選ぶ = (i) => {
+    const 今の = d.slots[i].memberId;
+    const 候補 = 名簿.slice();
+    // 当番に入れない人や消された人が入っていても、選び直すまでは消えないように残す
+    if (今の && !候補.some((m) => m.id === 今の)) 候補.unshift({ id: 今の, name: d.slots[i].name });
+    return '<div><label for="ed' + i + '">' + (i + 1) + '人目</label><select id="ed' + i + '">' +
+      '<option value="">（空き）</option>' +
+      候補.map((m) => '<option value="' + esc(m.id) + '"' + (m.id === 今の ? ' selected' : '') + '>' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>').join('') +
+      '</select></div>';
+  };
+  let h = '<div class="editor">';
+  for (let i = 0; i < D.人数; i++) h += 選ぶ(i);
+  h += '<button type="button" id="edSave">保存</button>' +
+    '<button type="button" class="secondary" id="edClear">この日を空にする</button>' +
+    '<button type="button" class="secondary" id="edClose">閉じる</button></div>';
+  return h;
+}
+
+// ===== 押したとき =====
+$('days').addEventListener('click', async (e) => {
+  const 来ない = e.target.closest('[data-skip]');
+  const 直す = e.target.closest('[data-edit]');
+  if (来ない) return 来なかった(来ない.dataset.skip, Number(来ない.dataset.slot));
+  if (直す) {
+    開いている日 = 開いている日 === 直す.dataset.edit ? '' : 直す.dataset.edit;
+    描く();
+    return;
+  }
+  if (e.target.id === 'edClose') { 開いている日 = ''; 描く(); return; }
+  if (e.target.id === 'edSave' || e.target.id === 'edClear') {
+    const 空 = e.target.id === 'edClear';
+    if (空 && !confirm(和風(開いている日) + ' の掃除当番を空にします。よろしいですか？')) return;
+    const ids = [];
+    for (let i = 0; i < D.人数; i++) ids.push(空 ? '' : $('ed' + i).value);
+    const 日 = 開いている日;
+    try {
+      D = await call('soujiSetDay', TOKEN, 日, ids, 見る);
+      開いている日 = '';
+      描く();
+      知らせ('msg', 'success', esc(和風(日)) + (空 ? ' を空にしました。' : ' を直しました。'));
+    } catch (err) {
+      知らせ('msg', 'error', '保存できませんでした：' + エラー文(err));
+    }
+  }
+});
+
+// 来なかった：次の日の同じ枠の人と入れ替える。もう一度同じ入れ替えをすれば元に戻る
+async function 来なかった(date, slot, 戻す) {
+  try {
+    D = await call('soujiSkip', TOKEN, date, slot, 見る);
+    const x = D.入れ替え || {};
+    光らせる枠 = [[date, slot], [x.明日, slot]];
+    描く();
+    if (戻す) {
+      知らせ('msg', 'success', '元に戻しました。');
+    } else {
+      知らせ('msg', 'success',
+        '<span class="undo-row"><span><b>' + esc(x.来なかった) + '</b> さんを ' + esc(和風(x.明日)) + ' に回し、<b>' + esc(x.出てきた) + '</b> さんを ' + esc(和風(date)) + ' に入れました。</span>' +
+        '<button type="button" class="secondary small" id="undoBtn">' + 部品.アイコン('undo') + '元に戻す</button></span>');
+      $('undoBtn').addEventListener('click', () => 来なかった(date, slot, true), { once: true });
+    }
+  } catch (err) {
+    知らせ('msg', 'error', エラー文(err));
+  }
+}
+
+// ===== 名簿の順に組む =====
+function 組む欄の既定() {
+  // 組んである最後の日の次（それが過去なら今日）から30日
+  const 次 = D.最後の日 ? ずらす(D.最後の日, 1) : 今日();
+  const from = 次 < 今日() ? 今日() : 次;
+  $('genFrom').value = from;
+  $('genTo').value = ずらす(from, 29);
+}
+
+$('genBtn').addEventListener('click', async () => {
+  const from = $('genFrom').value, to = $('genTo').value;
+  if (!from || !to) return 知らせ('genMsg', 'warning', '始まりと終わりの日を入れてください。');
+  if (to < from) return 知らせ('genMsg', 'warning', '終わりの日が始まりの日より前になっています。');
+  const 入っている = D.最後の日 && D.最後の日 >= from;
+  if (入っている && !confirm(和風(from) + '〜' + 和風(to) + ' を組み直します。この範囲で入れ替えたぶんも組み直しになります。よろしいですか？')) return;
+  try {
+    D = await call('soujiGenerate', TOKEN, from, to, 見る);
+    描く();
+    組む欄の既定();
+    知らせ('genMsg', 'success', esc(和風(from)) + '〜' + esc(和風(to)) + ' を組みました。');
+  } catch (err) {
+    知らせ('genMsg', 'error', '組めませんでした：' + エラー文(err));
+  }
+});
 </script>
 <script>
 /*

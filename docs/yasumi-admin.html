@@ -1080,6 +1080,7 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
 .need-row input[type="number"] { width: 4.5rem; min-width: 0; }
 .skip-list { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-top: var(--space-xs); }
 .who.k-kisetsu { border-left-color: var(--care); }
+.who.k-taichou { border-left-color: var(--warning); }   /* 体調不良（2026-10-04） */
 .who.matteiru { border-left-style: dashed; color: var(--muted); }
 </style>
 <style>
@@ -1159,7 +1160,7 @@ a.donehome:hover { background: var(--accent-dark); }
           <button type="button" class="icon-btn outline" id="nextMonth" aria-label="次の月" title="次の月"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
-        <p class="hint">印　<b>有</b> 有給休暇　<b>季</b> 季節休み　バイトは<b>バイト先の1文字目</b>（フロンテア→フ、競馬場→競）　／　点線は了承待ち</p>
+        <p class="hint">印　<b>有</b> 有給休暇　<b>季</b> 季節休み　<b>体</b> 体調不良　バイトは<b>バイト先の1文字目</b>（フロンテア→フ、競馬場→競）　／　点線は了承待ち</p>
       </div>
     </section>
 
@@ -1405,8 +1406,8 @@ a.donehome:hover { background: var(--accent-dark); }
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-const 印 = { '有給休暇': '有', 'バイト': 'バ', '季節休み': '季' };
-const 種類クラス = { '有給休暇': 'k-yuukyuu', 'バイト': 'k-baito', '季節休み': 'k-kisetsu' };
+const 印 = { '有給休暇': '有', 'バイト': 'バ', '季節休み': '季', '体調不良': '体' };
+const 種類クラス = { '有給休暇': 'k-yuukyuu', 'バイト': 'k-baito', '季節休み': 'k-kisetsu', '体調不良': 'k-taichou' };
 const 状態クラス = { '申請中': 's-shinsei', '承認': 's-shounin', '却下': 's-kyakka', '取消': 's-torikeshi' };
 
 let TOKEN = '';

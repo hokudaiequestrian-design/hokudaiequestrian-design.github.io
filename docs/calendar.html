@@ -1213,7 +1213,7 @@ function call(fn) {
 
 const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
 // 表のマスは狭いので1文字の札にする（凡例と、マスの title で正式な名前を出す）
-const 札 = { 有給休暇: '有', 季節休み: '季', バイト: 'バ' };
+const 札 = { 有給休暇: '有', 季節休み: '季', 体調不良: '体', バイト: 'バ' };
 const 覚え = {
   取る(k) { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } },
   置く(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* いっぱいなら諦める */ } },
@@ -1349,7 +1349,7 @@ function タブを描く() {
     ? '<span><b class="nm mine">名前</b> 自分のぶん</span>' +
       (見る表 === 'care' ? '<span><b class="tag asa">朝</b> 朝手入れ（朝練が休みの日だけ）</span>' : '') +
       '<span><i class="sw"></i>大会がある日</span><span>太い線は週の切れ目（月曜）</span>'
-    : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span>' + バイトの凡例 +
+    : '<span><b class="tag off">有</b> 有給休暇</span><span><b class="tag off">季</b> 季節休み</span><span><b class="tag off">体</b> 体調不良</span>' + バイトの凡例 +
       '<span><b class="tag meet">大</b> 大会に出る（人員表ができる前）</span>' +
       '<span><b class="tag entry">出</b> 出場する選手</span>' + 仕事の凡例 +
       '<span><b class="tag off wait">有</b> 点線は了承待ち</span><span><i class="sw"></i>大会がある日</span>';
