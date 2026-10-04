@@ -125,7 +125,9 @@ function 検索避けを入れる(html) {
 /*
   アイコンの原本は アイコン/ の PNG（写真から作るのは アイコン/作る.ps1）。ここで docs/ に写す。
   viewport は Apps Script のときは doGet の addMetaTag が付けていたので、原本の HTML には無い。
-  静的サイトに移してから抜けていた（スマホで PC 幅に縮んで見える）ので、ここで入れる。
+  静的サイトに移してから抜けていた（スマホで PC 幅に縮んで見える）。
+  2026-10-04：一度 device-width（スマホ向けの並び）で入れたが、ユーザーが「PC版の頃くらい情報量を増やしたい」。
+  **スマホでも PC の幅（980px）で並べて縮めて見せる**＝入れる前の見え方。指で拡大はできる。device-width に戻さない。
   manifest は入口（index.html）にだけ置き、立場ごとに別のもの（start_url に ?role= が付く）を差す。
   service worker は置かない：中身は全部 API から取るので、オフラインで開けても使えない。
   覚えておくと push しても古い画面が出る心配のほうが大きい。
@@ -138,7 +140,7 @@ const アプリ = {
   admlinks: { file: 'manifest-adm.webmanifest', name: '北大馬術部（副将）', short: '馬術部副将', start: './?role=admlinks' },
 };
 function ホーム画面の部品(viewportも) {
-  return (viewportも ? '<meta name="viewport" content="width=device-width, initial-scale=1">' + NL : '') +
+  return (viewportも ? '<meta name="viewport" content="width=980">' + NL : '') +
     '<meta name="theme-color" content="' + テーマ色 + '">' + NL +
     '<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">' + NL +
     '<link rel="apple-touch-icon" href="apple-touch-icon.png">' + NL +
