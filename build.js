@@ -144,13 +144,18 @@ function ホーム画面の部品(viewportも) {
     '<meta name="apple-mobile-web-app-capable" content="yes">' + NL +
     '<meta name="apple-mobile-web-app-title" content="' + アプリ.links.short + '">';
 }
-// 入口だけ。立場は ?role= で決まるので、manifest と iPhone の名前を開いた直後に差し替える
+/*
+  入口だけ。立場は ?role= で決まるので、manifest の <link> は**書いておかず**、立場を見てから足す。
+  2026-10-04：最初は部員用の <link> を書いておいて直後に href を差し替えていたが、
+  ホーム画面に置くとチーフ・副将も部員用で開いた。ブラウザが script より先に
+  （先読みで）部員用の manifest を取ってしまうため。最初から正しい1つだけを見せる。
+*/
 function manifestを差す(html) {
   const 表 = {};
   Object.keys(アプリ).forEach((k) => { 表[k] = [アプリ[k].file, アプリ[k].short]; });
-  const 部品 = '<link rel="manifest" href="' + アプリ.links.file + '">' + NL +
-    '<script>(function () { var a = ' + JSON.stringify(表) + '[new URLSearchParams(location.search).get("role")]; if (!a) return;' +
-    ' document.querySelector(\'link[rel="manifest"]\').href = a[0];' +
+  const 部品 =
+    '<script>(function () { var t = ' + JSON.stringify(表) + ', a = t[new URLSearchParams(location.search).get("role")] || t.links;' +
+    ' var l = document.createElement("link"); l.rel = "manifest"; l.href = a[0]; document.head.appendChild(l);' +
     ' document.querySelector(\'meta[name="apple-mobile-web-app-title"]\').content = a[1]; })();</script>';
   const 印 = '<meta name="apple-mobile-web-app-title"';
   const i = html.indexOf(印), j = html.indexOf('>', i);

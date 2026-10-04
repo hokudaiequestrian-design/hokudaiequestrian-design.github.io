@@ -10,8 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="馬術部">
-<link rel="manifest" href="manifest.webmanifest">
-<script>(function () { var a = {"links":["manifest.webmanifest","馬術部"],"chieflinks":["manifest-chief.webmanifest","馬術部チーフ"],"admlinks":["manifest-adm.webmanifest","馬術部副将"]}[new URLSearchParams(location.search).get("role")]; if (!a) return; document.querySelector('link[rel="manifest"]').href = a[0]; document.querySelector('meta[name="apple-mobile-web-app-title"]').content = a[1]; })();</script>
+<script>(function () { var t = {"links":["manifest.webmanifest","馬術部"],"chieflinks":["manifest-chief.webmanifest","馬術部チーフ"],"admlinks":["manifest-adm.webmanifest","馬術部副将"]}, a = t[new URLSearchParams(location.search).get("role")] || t.links; var l = document.createElement("link"); l.rel = "manifest"; l.href = a[0]; document.head.appendChild(l); document.querySelector('meta[name="apple-mobile-web-app-title"]').content = a[1]; })();</script>
 <!--
   Hallmark · genre: playful · theme: custom (tuned) · design-system: design.md · designed-as-app
   pre-emit critique: P5 H5 E5 S5 R4 V4
