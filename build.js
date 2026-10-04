@@ -58,6 +58,8 @@ const ページ = [
   { 出す: 'yasumi-admin.html', 元: 当番 + '/yasumiadmin.html', api: API.当番, 題: 'バイト・休みをまとめる' },
   // 掃除当番（2026-10-04）。副将の入口からだけ
   { 出す: 'souji.html', 元: 当番 + '/souji.html', api: API.当番, 題: '掃除当番' },
+  // 朝の欠席確認（2026-10-04）。副将の入口からだけ
+  { 出す: 'asa.html', 元: 当番 + '/asa.html', api: API.当番, 題: '朝の欠席確認' },
   // みんなのカレンダー（手入れ・休み）。入口のマイページから入る（2026-09-13）
   { 出す: 'calendar.html', 元: 当番 + '/calendar.html', api: API.当番, 題: 'カレンダーを見る' },
   { 出す: 'taikai.html', 元: 人員表 + '/member.html', api: API.人員表, 題: '大会の出欠を出す' },
@@ -398,6 +400,7 @@ function 入口の中身たち() {
     休み_部員: 'yasumi.html',
     休み_副将: 'yasumi-admin.html',
     掃除当番: 'souji.html',
+    朝の確認: 'asa.html',
   });
   // 2026-09-23：'hyou'（公開した人員表を見る）を知らず出欠に落としていた。API 側の 人員表URL() と同じ3通りにそろえる
   const 人員表URL = (page) => (page === 'admin' ? 'taikai-admin.html' : page === 'hyou' ? 'taikai-hyou.html' : 'taikai.html');

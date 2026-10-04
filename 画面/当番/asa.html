@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  朝の欠席確認（2026-10-04 ユーザーの指示）。副将だけの画面。
+  その日の 掃除当番・有給休暇・季節休み・体調不良 を1枚に並べ、無断欠席をプルダウンで入れる。
+  無断が続いている人（前の日までの「無断の続き」が1以上）を「要注意」に出す。数え方はサーバの 無断の続き()。
+  掃除当番は名前を押すと次の日の同じ枠の人と入れ替える（掃除当番の画面と同じ soujiSkip）。
+  スマホでも PC の幅で見るので（2026-10-04）、4つの欄を2列に並べて1画面に収める。
+*/
+header.appbar.asa { background: var(--ink); }
+
+.day-head { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+.day-head .now { font-size: var(--text-lg); font-weight: 700; font-family: var(--font-num); }
+.day-head .tlabel { font-size: var(--text-sm); color: #fff; background: var(--accent); border-radius: var(--radius-pill); padding: 0 var(--space-xs); }
+.day-head input[type="date"] { width: auto; }
+
+.asa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); }
+.asa-grid .card { margin: 0; }
+.asa-grid h2 { margin-top: 0; display: flex; align-items: baseline; gap: var(--space-xs); }
+.asa-grid h2 .cnt { font-size: var(--text-sm); color: var(--muted); font-weight: 400; font-family: var(--font-num); }
+
+/* 掃除当番 */
+.slots { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.slot-btn {
+  min-height: var(--tap); padding: 0 var(--space-sm); border-radius: var(--radius-pill);
+  border: 2px solid var(--rule-strong); background: var(--paper-2); color: var(--ink);
+  font: inherit; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2xs);
+}
+.slot-btn:hover { background: var(--paper-3); }
+.slot-btn .n { font-family: var(--font-num); font-size: var(--text-xs); color: var(--muted); }
+.slot-btn.off { border-style: dashed; border-color: var(--warning); background: var(--warning-soft); }
+.slot-btn .offtag { font-size: var(--text-xs); color: var(--warning); border: 1px solid var(--warning); border-radius: 4px; padding: 0 3px; }
+.slot-empty { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 var(--space-sm); border: 2px dashed var(--rule); border-radius: var(--radius-pill); color: var(--muted); }
+.slot-btn.moved { animation: moved var(--dur-long) var(--ease-out); }
+@keyframes moved { from { box-shadow: 0 0 0 6px var(--focus-inner); } to { box-shadow: 0 0 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .slot-btn.moved { animation: none; outline: 3px solid var(--focus-inner); } }
+
+/* 休み・無断・要注意の一覧 */
+.plist { list-style: none; margin: 0; padding: 0; }
+.plist li { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; padding: var(--space-2xs) 0; border-top: 1px solid var(--rule); }
+.plist li:first-child { border-top: none; }
+.plist .nm { font-weight: 700; }
+.plist .sub { font-size: var(--text-sm); color: var(--muted); }
+.kindtag { font-size: var(--text-xs); font-weight: 700; border-radius: 4px; padding: 0 4px; border: 1px solid; white-space: nowrap; }
+.kindtag.k-yuukyuu { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
+.kindtag.k-kisetsu { color: var(--care-dark); border-color: var(--care); background: var(--care-soft); }
+.kindtag.k-taichou { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
+.waittag { font-size: var(--text-xs); color: var(--muted); border: 1px dashed var(--rule-strong); border-radius: 4px; padding: 0 4px; }
+.plist .end { margin-left: auto; }
+.none { color: var(--muted); margin: 0; }
+
+.mudan-add { display: flex; gap: var(--space-xs); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-sm); }
+.mudan-add select { min-width: 12rem; flex: 1 1 12rem; }
+.mudan-tag { font-size: var(--text-xs); font-weight: 700; color: #fff; background: var(--danger); border-radius: 4px; padding: 0 4px; }
+.left-n { font-family: var(--font-num); font-weight: 700; color: var(--danger-dark); white-space: nowrap; }
+.undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+
+@media (max-width: 720px) { .asa-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar asa"><span>朝の欠席確認（副将）</span></header>
+
+<main class="wide">
+  <div class="card" id="loginCard" style="display:none;"></div>
+  <div id="loading" class="card"><p class="muted" style="margin:0;">読み込んでいます…</p></div>
+
+  <div id="app" style="display:none;">
+    <div class="card">
+      <div class="day-head">
+        <button type="button" class="icon-btn outline" id="prevDay" aria-label="前の日" title="前の日"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <span class="now" id="dayNow"></span>
+        <button type="button" class="icon-btn outline" id="nextDay" aria-label="次の日" title="次の日"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button type="button" class="secondary small" id="todayBtn">今日へ</button>
+        <input type="date" id="dayPick" aria-label="日を選ぶ">
+      </div>
+      <div id="msg" aria-live="polite"></div>
+    </div>
+
+    <div class="asa-grid">
+      <section class="card">
+        <h2>掃除当番</h2>
+        <div class="slots" id="slots"></div>
+        <p class="hint" style="margin-bottom:0;">来なかった人の名前を押すと、<b>次の日の同じ枠の人と入れ替わります</b>（もう一度押すと戻ります）。点線は休みを出している人。組むのは「掃除当番」の画面から。</p>
+      </section>
+
+      <section class="card">
+        <h2>要注意（無断が続いている人）<span class="cnt" id="cautionCnt"></span></h2>
+        <ul class="plist" id="caution"></ul>
+        <p class="hint" style="margin-bottom:0;">無断の日は1つ増え、出席した日（休みでも無断でもない日）は1つ減ります。休みの日は増えも減りもしません。残りがある間、毎朝ここに出ます。</p>
+      </section>
+
+      <section class="card">
+        <h2>休み<span class="cnt" id="leaveCnt"></span></h2>
+        <ul class="plist" id="leaves"></ul>
+        <p class="hint" style="margin-bottom:0;">有給休暇・季節休み・体調不良（了承待ちも）。了承は「バイト・休みをまとめる」で。</p>
+      </section>
+
+      <section class="card">
+        <h2>無断欠席<span class="cnt" id="mudanCnt"></span></h2>
+        <div class="mudan-add">
+          <div style="flex:1 1 12rem;"><label for="mudanSel">来ていない人</label><select id="mudanSel"></select></div>
+          <button type="button" id="mudanAdd">無断欠席に入れる</button>
+        </div>
+        <ul class="plist" id="mudan"></ul>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let TOKEN = '';
+let D = null;           // asaLoad の返り
+let 光らせる枠 = 0;      // 入れ替えたあとに光らせる枠（1〜3）
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler((r) => { busy(false); resolve(r); })
+      .withFailureHandler((e) => { busy(false); reject(e); })[fn].apply(null, args);
+  });
+}
+function 知らせ(html, cls) {
+  $('msg').innerHTML = html ? '<div class="msg ' + (cls || 'success') + '" role="status">' + html + '</div>' : '';
+}
+const 日付 = (d) => d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+const 日から = (key) => new Date(key + 'T00:00:00');
+const ずらす = (key, n) => { const d = 日から(key); d.setDate(d.getDate() + n); return 日付(d); };
+const 今日 = () => 日付(new Date());
+const 曜日名 = ['日', '月', '火', '水', '木', '金', '土'];
+const 和風 = (key) => { const d = 日から(key); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + 曜日名[d.getDay()] + '）'; };
+const 種類クラス = { '有給休暇': 'k-yuukyuu', '季節休み': 'k-kisetsu', '体調不良': 'k-taichou' };
+const エラー文 = (e) => esc((e && e.message) || e);
+const URLの = (名) => { try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; } };
+
+// ===== ログイン =====
+(async () => {
+  const 案内 = (文) => {
+    部品.副将の鍵を消す();
+    $('loading').style.display = 'none';
+    $('app').style.display = 'none';
+    $('loginCard').innerHTML = 部品.入口へ(文);
+    $('loginCard').style.display = 'block';
+  };
+  const 鍵 = 部品.副将の鍵();
+  if (!鍵) return 案内('');
+  TOKEN = 鍵;
+  try {
+    const 指定 = URLの('date');
+    D = await call('asaLoad', TOKEN, /^\d{4}-\d{2}-\d{2}$/.test(指定) ? 指定 : 今日());
+    $('loading').style.display = 'none';
+    $('app').style.display = 'block';
+    描く();
+  } catch (e) {
+    案内(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : '開けませんでした：' + ((e && e.message) || e) + '。');
+  }
+})();
+
+async function 日を変える(key) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
+  知らせ('');
+  try {
+    D = await call('asaLoad', TOKEN, key);
+    try { history.replaceState(null, '', '?date=' + key); } catch (e) { /* 書けなくても画面は動く */ }
+    描く();
+  } catch (e) { 知らせ('読めませんでした：' + エラー文(e), 'error'); }
+}
+$('prevDay').addEventListener('click', () => 日を変える(ずらす(D.date, -1)));
+$('nextDay').addEventListener('click', () => 日を変える(ずらす(D.date, 1)));
+$('todayBtn').addEventListener('click', () => 日を変える(今日()));
+$('dayPick').addEventListener('change', (e) => 日を変える(e.target.value));
+
+// ===== 描く =====
+function 描く() {
+  $('dayNow').innerHTML = esc(和風(D.date)) + (D.date === D.today ? ' <span class="tlabel">今日</span>' : '');
+  $('dayPick').value = D.date;
+
+  // 掃除当番
+  $('slots').innerHTML = D.掃除.map((s, i) => {
+    if (!s.memberId) return '<span class="slot-empty">' + (i + 1) + '　空き</span>';
+    return '<button type="button" class="slot-btn' + (s.休み ? ' off' : '') + (光らせる枠 === i + 1 ? ' moved' : '') + '" data-slot="' + (i + 1) + '" ' +
+      'aria-label="' + esc(s.name) + '（' + (i + 1) + '人目）。押すと次の日の人と入れ替える"' +
+      (s.休み ? ' title="この日は「' + esc(s.休み) + '」を出しています"' : '') + '>' +
+      '<span class="n">' + (i + 1) + '</span>' + esc(s.name) + (s.休み ? '<span class="offtag">休</span>' : '') + '</button>';
+  }).join('') || '<p class="none">まだ組まれていません。</p>';
+  if (D.掃除.every((s) => !s.memberId)) $('slots').innerHTML = '<p class="none">この日はまだ組まれていません（「掃除当番」の画面で組みます）。</p>';
+  光らせる枠 = 0;
+
+  // 要注意
+  const 無断の人 = {};
+  D.無断.forEach((x) => { 無断の人[x.memberId] = true; });
+  const 休む人 = {};
+  (D.休んでいる人 || []).forEach((id) => { 休む人[id] = true; });
+  $('cautionCnt').textContent = D.要注意.length ? D.要注意.length + '人' : '';
+  $('caution').innerHTML = D.要注意.length ? D.要注意.map((x) =>
+    '<li><span class="nm">' + esc(x.name) + '</span>' +
+      '<span class="left-n">あと' + x.残り + '日</span>' +
+      '<span class="sub">無断：' + x.無断の日.map((k) => esc(和風(k))).join('・') + '</span>' +
+      (無断の人[x.memberId] ? '<span class="mudan-tag end">この日も無断</span>' : 休む人[x.memberId] ? '<span class="waittag end">この日は休み</span>' : '') +
+    '</li>').join('') : '<li><p class="none">いません。</p></li>';
+
+  // 休み
+  $('leaveCnt').textContent = D.休み.length ? D.休み.length + '人' : '';
+  $('leaves').innerHTML = D.休み.length ? D.休み.map((l) =>
+    '<li><span class="kindtag ' + (種類クラス[l.kind] || '') + '">' + esc(l.kind) + '</span>' +
+      '<span class="nm">' + esc(l.name) + '</span>' +
+      (l.state === '申請中' ? '<span class="waittag">了承待ち</span>' : '') +
+      (l.reason ? '<span class="sub">' + esc(l.reason) + '</span>' : '') +
+    '</li>').join('') : '<li><p class="none">いません。</p></li>';
+
+  // 無断欠席
+  $('mudanCnt').textContent = D.無断.length ? D.無断.length + '人' : '';
+  $('mudan').innerHTML = D.無断.length ? D.無断.map((x) =>
+    '<li><span class="mudan-tag">無断</span><span class="nm">' + esc(x.name) + '</span>' +
+      '<span class="end">' + 部品.アイコンボタン('x', x.name + ' を無断欠席から外す', { 'data-unmudan': x.memberId }) + '</span></li>').join('')
+    : '<li><p class="none">いません。</p></li>';
+
+  // プルダウン：休み・もう無断の人は出さない。要注意の人を先に
+  const 候補 = D.members.filter((m) => !無断の人[m.id] && !休む人[m.id]);
+  const 注意 = {};
+  D.要注意.forEach((x) => { 注意[x.memberId] = true; });
+  const opt = (m) => '<option value="' + esc(m.id) + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>';
+  const 先 = 候補.filter((m) => 注意[m.id]);
+  const 後 = 候補.filter((m) => !注意[m.id]);
+  $('mudanSel').innerHTML = '<option value="">選んでください</option>' +
+    (先.length ? '<optgroup label="要注意の人">' + 先.map(opt).join('') + '</optgroup><optgroup label="ほかの人">' + 後.map(opt).join('') + '</optgroup>' : 後.map(opt).join(''));
+}
+
+// ===== 掃除当番：押したら次の日の人と入れ替え =====
+async function 入れ替える(slot, 戻す) {
+  try {
+    const r = await call('soujiSkip', TOKEN, D.date, slot, { from: D.date, to: D.date });
+    D.掃除 = r.days[0].slots;
+    光らせる枠 = slot;
+    描く();
+    const x = r.入れ替え || {};
+    if (戻す) return 知らせ('元に戻しました。');
+    知らせ('<span class="undo-row"><span><b>' + esc(x.来なかった) + '</b> さんを ' + esc(和風(x.明日)) + ' に回し、<b>' + esc(x.出てきた) + '</b> さんを入れました。</span>' +
+      '<button type="button" class="secondary small" id="undoBtn">' + 部品.アイコン('undo') + '元に戻す</button></span>');
+    $('undoBtn').addEventListener('click', () => 入れ替える(slot, true), { once: true });
+  } catch (e) { 知らせ(エラー文(e), 'error'); }
+}
+$('slots').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-slot]');
+  if (b) 入れ替える(Number(b.dataset.slot));
+});
+
+// ===== 無断欠席 =====
+$('mudanAdd').addEventListener('click', async () => {
+  const id = $('mudanSel').value;
+  if (!id) return 知らせ('「来ていない人」で名前を選んでください。', 'warning');
+  try {
+    D = await call('asaAddMudan', TOKEN, D.date, id);
+    描く();
+    const m = D.members.filter((x) => x.id === id)[0];
+    知らせ('<b>' + esc(m ? m.name : '') + '</b> さんを無断欠席に入れました。');
+  } catch (e) { 知らせ(エラー文(e), 'error'); }
+});
+$('mudan').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-unmudan]');
+  if (!b) return;
+  try {
+    D = await call('asaRemoveMudan', TOKEN, D.date, b.dataset.unmudan);
+    描く();
+    知らせ('無断欠席から外しました。');
+  } catch (err) { 知らせ(エラー文(err), 'error'); }
+});
+</script>
+</body>
+</html>
