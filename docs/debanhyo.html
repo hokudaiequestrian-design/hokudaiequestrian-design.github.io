@@ -350,6 +350,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     await wb.xlsx.load(data);
     const out = { file: name, team: '', event: '', dates: {}, catalogs: {}, fees: {}, entries: [], warnings: [] };
     const ws = n => wb.getWorksheet(n);
+    // 大会の雛形（エントリー障害・馬場・フレンドシップ）でないもの：ホースショー型の申込書、人馬登録名簿、入厩届だけのファイル
+    if (!SEQS.some(q => ws(q.sheet))) {
+      if (ws('参加申込書')) return parseShowForm(name, ws('参加申込書'), out);
+      const ro = wb.worksheets.find(w => /人馬登録名簿/.test(w.name) || /人馬登録名簿/.test(clean(w.getCell('A2').value)));
+      return { file: name, kind: ro ? 'roster' : 'other', kana: ro ? readRoster(ro) : null };
+    }
     const nyu = ws('入厩届');
     if (nyu) { out.event = tidy(nyu.getCell('A1').value); out.team = tidy(nyu.getCell('I3').value); }
     for (const sq of SEQS) {
@@ -395,6 +401,83 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (!out.team) out.team = name.replace(/\.xlsx$/i, '').replace(/^\d+/, '');
     for (const e of out.entries) e.team = out.team;
     return out;
+  }
+  // ホースショー型の申込書（2026-10-07 北大ホースショー）：1枚のシートに、横＝馬（「馬名」の行）、縦＝種目、交わるマスに選手名。
+  // 1日・障害の馬場だけの大会なので、ジャンピングの日付の列（A1の曜日、なければ日）に入れる。エントリー料は「1種目 3,000円」
+  function parseShowForm(name, sh, out) {
+    const title = clean(sh.getCell('A1').value);
+    const nt = title.normalize('NFKC');
+    const md = nt.match(/(\d{1,2})月\s*(\d{1,2})日\s*\(?([月火水木金土日])?/);
+    const day = md && md[3] === '土' ? 'sat' : 'sun';
+    const seq = day === 'sat' ? 'jsat' : 'jsun';
+    const sheetName = sh.name;
+    if (md) out.dates[day] = { m: +md[1], d: +md[2] };
+    out.event = tidy(title.replace(/^.*?(\d{1,2}|[０-９]{1,2})日\s*[（(][^）)]*[）)]\s*(開催)?/, '')) || tidy(title);
+    let headRow = 0, nameCol = 0, fee = null;
+    for (let r = 1; r <= 40; r++) {
+      for (let c = 1; c <= 20; c++) {
+        const v = clean(sh.getCell(r, c).value);
+        if (!v) continue;
+        if (/^団体名/.test(v) && !out.team) {
+          const rest = v.replace(/^団体名[:：]?/, '').trim();
+          if (rest) out.team = tidy(rest);
+          else for (let k = c + 1; k <= c + 4; k++) { const w = clean(sh.getCell(r, k).value); if (w && !/[:：]$/.test(w)) { out.team = tidy(w); break; } }
+        }
+        if (!headRow && v === '馬名') { headRow = r; nameCol = c; }
+        if (fee == null && /エントリー料/.test(v)) {
+          for (let k = c; k <= c + 3; k++) { const m = clean(sh.getCell(r, k).value).normalize('NFKC').match(/([\d,]+)\s*円/); if (m) { fee = +m[1].replace(/,/g, ''); break; } }
+        }
+      }
+    }
+    if (!headRow) { out.warnings.push(`${name}: 「馬名」の行が見つからない`); return out; }
+    const horses = [];
+    for (let c = nameCol + 1, blank = 0; c <= nameCol + 40 && blank < 3; c++) {
+      const h = clean(sh.getCell(headRow, c).value);
+      if (h) { horses.push({ c, h }); blank = 0; } else blank++;
+    }
+    const cat = [];
+    for (let r = headRow + 1; r <= headRow + 40; r++) {
+      const no = clean(sh.getCell(r, 1).value), cls = clean(sh.getCell(r, 2).value);
+      if (!/^\d+$/.test(no) || !cls) { if (cat.length) break; continue; }
+      cat.push(cls);
+      for (const { c, h } of horses) {
+        for (const rider of splitRiders(sh.getCell(r, c).value)) {
+          out.entries.push(mkEntry(name, seq, sheetName, r, cls, rider, '', h, '', fee));
+        }
+      }
+    }
+    for (const sq of SEQS) { out.catalogs[sq.key] = []; out.fees[sq.key] = {}; }
+    out.catalogs[seq] = cat;
+    for (const nm of cat) out.fees[seq][nm] = fee;
+    if (!out.team) out.team = name.replace(/\.xlsx$/i, '').replace(/^\d+/, '');
+    for (const e of out.entries) e.team = out.team;
+    return out;
+  }
+  // 1つのマスに何人も：「山端　慶士郎・中西　紗慧」「白木・米本」、区切りなしの「白木　花芽　米本　悠乃」（4語以上の偶数なら2語ずつ）
+  function splitRiders(v) {
+    const parts = cellText(v).split(/[・、,，\/／\r\n]+/).map(s => s.replace(/[\s　]+/g, ' ').trim()).filter(Boolean);
+    const outp = [];
+    for (const p of parts) {
+      const w = p.split(' ');
+      if (w.length >= 4 && w.length % 2 === 0 && w.every(x => !/^[\x21-\x7E]+$/.test(x))) { for (let i = 0; i < w.length; i += 2) outp.push(w[i] + '　' + w[i + 1]); }
+      else outp.push(p);
+    }
+    return outp;
+  }
+  // 人馬登録名簿 → 名前のキー → ふりがな（選手と馬）
+  function readRoster(sh) {
+    const kana = {};
+    let nameCol = 0, kanaCol = 0;
+    for (let r = 1; r <= 80; r++) {
+      for (let c = 1; c <= 8; c++) {
+        const v = clean(sh.getCell(r, c).value);
+        if (/^(選手氏名|氏名|馬名)$/.test(v)) { nameCol = c; kanaCol = 0; for (let k = c + 1; k <= c + 2; k++) if (/ふりがな|フリガナ/.test(clean(sh.getCell(r, k).value))) kanaCol = k; }
+      }
+      if (!nameCol || !kanaCol) continue;
+      const n = clean(sh.getCell(r, nameCol).value), k = clean(sh.getCell(r, kanaCol).value);
+      if (n && k && !/ふりがな|フリガナ/.test(k)) kana[keyOf(n)] = k;
+    }
+    return kana;
   }
   function mkEntry(file, seq, sheet, row, cls, rider, kana, horse, hkana, fee) {
     return {
@@ -937,7 +1020,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   async function loadFiles(files) {
     const teams = [];
-    for (const f of files) teams.push(await parseEntry(f.name, f.data));
+    const kana = {}, skipped = [];
+    for (const f of files) {
+      const t = await parseEntry(f.name, f.data);
+      if (t.kind) { if (t.kana) Object.assign(kana, t.kana); else skipped.push(f.name); continue; }
+      teams.push(t);
+    }
+    // 人馬登録名簿があれば、ふりがなの空いた申込に入れる（ホースショー型の申込書にはふりがなの欄がない）
+    for (const t of teams) for (const e of t.entries) {
+      if (!e.kana && kana[e.riderKey]) e.kana = kana[e.riderKey];
+      if (!e.hkana && kana[e.horseKey]) e.hkana = kana[e.horseKey];
+    }
+    if (skipped.length && teams.length) teams[0].warnings.push(`申込書ではないので読み飛ばした: ${skipped.join('、')}`);
     return teams;
   }
 
