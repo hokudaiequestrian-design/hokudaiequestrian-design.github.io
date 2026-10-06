@@ -90,7 +90,8 @@ header.appbar.asa { background: var(--ink); }
         <summary>毎週の朝練なし（馬休日など）</summary>
         <div class="fold-body">
           <div class="np-week" id="npWeek"></div>
-          <p class="hint" style="margin-bottom:0;">朝練なしの日は、無断の数え方で<b>出席にも数えません</b>（増えも減りもしない）。その日は無断欠席を入れられません。</p>
+          <p class="hint" style="margin-bottom:0;">朝練なしの日は、無断の数え方で<b>出席にも数えません</b>（増えも減りもしない）。その日は無断欠席を入れられません。<br>
+            毎週の曜日にしていても、朝練があった日は、その日を開いて「この日は朝練があった」で<b>その日だけ解除</b>できます。</p>
         </div>
       </details>
       <div id="msg" aria-live="polite"></div>
@@ -208,8 +209,11 @@ function 描く() {
   const なし = D.朝練なし || { 曜日: [], 日付: [], この日: '' };
   const 曜 = ['月', '火', '水', '木', '金', '土', '日'];
   const この曜 = 曜[(日から(D.date).getDay() + 6) % 7];
+  // 毎週の朝練なしの曜日でも、朝練があった日はこの日だけ解除できる（2026-10-07 ユーザーの指示）
   $('npRow').innerHTML = なし.この日 === '曜日'
-    ? '<span class="np-banner">この日は朝練なし（毎週' + この曜 + '曜）</span><span class="hint">毎週の設定は下の「毎週の朝練なし」で変えます。</span>'
+    ? '<span class="np-banner">この日は朝練なし（毎週' + この曜 + '曜）</span><button type="button" class="secondary small" data-np="' + D.date + '" data-on="0">この日は朝練があった（この日だけ解除）</button>'
+    : なし.毎週なし
+      ? '<span class="np-banner" style="border-left-color:var(--accent);">毎週' + この曜 + '曜は朝練なしですが、この日は朝練あり</span><button type="button" class="secondary small" data-np="' + D.date + '" data-on="1">朝練なしに戻す</button>'
     : なし.この日 === '日付'
       ? '<span class="np-banner">この日は朝練なし</span><button type="button" class="secondary small" data-np="' + D.date + '" data-on="0">朝練があった日に戻す</button>'
       : '<button type="button" class="secondary small" data-np="' + D.date + '" data-on="1">この日を朝練なしにする</button>';
