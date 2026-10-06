@@ -1015,6 +1015,12 @@ header.appbar.asa { background: var(--ink); }
 .left-n { font-family: var(--font-num); font-weight: 700; color: var(--danger-dark); white-space: nowrap; }
 .undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
 
+/* 朝練なし（2026-10-07） */
+.np-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); margin-top: var(--space-sm); }
+.np-banner { padding: var(--space-xs) var(--space-sm); border-left: 4px solid var(--muted); background: var(--paper-3); font-weight: 700; }
+.np-week { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-md); }
+.np-week label { display: inline-flex; align-items: center; gap: var(--space-2xs); margin: 0; font-weight: 400; }
+
 @media (max-width: 720px) { .asa-grid { grid-template-columns: 1fr; } }
 </style>
 <style>
@@ -1057,6 +1063,14 @@ a.donehome:hover { background: var(--accent-dark); }
         <button type="button" class="secondary small" id="todayBtn">今日へ</button>
         <input type="date" id="dayPick" aria-label="日を選ぶ">
       </div>
+      <div class="np-row" id="npRow"></div>
+      <details class="fold">
+        <summary>毎週の朝練なし（馬休日など）</summary>
+        <div class="fold-body">
+          <div class="np-week" id="npWeek"></div>
+          <p class="hint" style="margin-bottom:0;">朝練なしの日は、無断の数え方で<b>出席にも数えません</b>（増えも減りもしない）。その日は無断欠席を入れられません。</p>
+        </div>
+      </details>
       <div id="msg" aria-live="polite"></div>
     </div>
 
@@ -1205,6 +1219,17 @@ function 描く() {
   $('dayNow').innerHTML = esc(和風(D.date)) + (D.date === D.today ? ' <span class="tlabel">今日</span>' : '');
   $('dayPick').value = D.date;
 
+  // 朝練なし（2026-10-07）
+  const なし = D.朝練なし || { 曜日: [], 日付: [], この日: '' };
+  const 曜 = ['月', '火', '水', '木', '金', '土', '日'];
+  const この曜 = 曜[(日から(D.date).getDay() + 6) % 7];
+  $('npRow').innerHTML = なし.この日 === '曜日'
+    ? '<span class="np-banner">この日は朝練なし（毎週' + この曜 + '曜）</span><span class="hint">毎週の設定は下の「毎週の朝練なし」で変えます。</span>'
+    : なし.この日 === '日付'
+      ? '<span class="np-banner">この日は朝練なし</span><button type="button" class="secondary small" data-np="' + D.date + '" data-on="0">朝練があった日に戻す</button>'
+      : '<button type="button" class="secondary small" data-np="' + D.date + '" data-on="1">この日を朝練なしにする</button>';
+  $('npWeek').innerHTML = 曜.map((w) => '<label><input type="checkbox" data-npw="' + w + '"' + (なし.曜日.indexOf(w) >= 0 ? ' checked' : '') + '> ' + w + '曜</label>').join('');
+
   // 掃除当番
   $('slots').innerHTML = D.掃除.map((s, i) => {
     if (!s.memberId) return '<span class="slot-empty">' + (i + 1) + '　空き</span>';
@@ -1275,9 +1300,27 @@ $('slots').addEventListener('click', (e) => {
   if (b) 入れ替える(Number(b.dataset.slot));
 });
 
+// ===== 朝練なし =====
+async function 朝練なしを決める(キー, on) {
+  try {
+    D = await call('asaSetNoPractice', TOKEN, キー, on, D.date);
+    描く();
+    知らせ(on ? '朝練なしにしました。' : '朝練なしを外しました。');
+  } catch (e) { 知らせ(エラー文(e), 'error'); }
+}
+$('npRow').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-np]');
+  if (b) 朝練なしを決める(b.dataset.np, b.dataset.on === '1');
+});
+$('npWeek').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-npw]');
+  if (c) 朝練なしを決める(c.dataset.npw, c.checked);
+});
+
 // ===== 無断欠席 =====
 $('mudanAdd').addEventListener('click', async () => {
   const id = $('mudanSel').value;
+  if (D.朝練なし && D.朝練なし.この日) return 知らせ('この日は朝練なしの日なので、無断欠席は入れられません。朝練があった日なら、上の「朝練なし」を外してください。', 'warning');
   if (!id) return 知らせ('「来ていない人」で名前を選んでください。', 'warning');
   try {
     D = await call('asaAddMudan', TOKEN, D.date, id);
