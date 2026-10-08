@@ -991,22 +991,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           if (block.empty) { carryNewCourse = carryNewCourse || c.newCourse; blocks.push(block); continue; }
           const newCourse = c.newCourse || carryNewCourse;
           carryNewCourse = false;
+          // startRule は Excel の時刻の式を組むのに使う（2026-10-08）：first＝その日の最初／course＝コース替え（＋下見）／gap＝競技の間／none＝続けて
+          block.startRule = started ? 'none' : 'first';
           if (started) {
             if (newCourse && (as.courseChange > 0 || as.preview > 0)) {
               preview = roundUp(t + as.courseChange, as.roundTo);
               t = preview + as.preview;
               if (as.preview === 0) preview = null;
+              block.startRule = 'course';
             } else if (as.compGap > 0) {
               t = roundUp(t + as.compGap, as.roundTo);
+              block.startRule = 'gap';
             }
           }
           started = true;
-          block.start = t; block.preview = preview;
+          block.start = t; block.preview = preview; block.minutes = c.minutes;
           rc.rows.forEach((row, i2) => {
             if (as.breakEvery > 0 && i2 > 0 && i2 % as.breakEvery === 0) { block.rows.push({ kind: 'break' }); t += as.breakMinutes; }
             const r = { kind: 'entry', no: row.no, time: fmtHM(t), t, rider: row.entry.rider, horse: row.entry.horse, team: row.entry.team, entry: row.entry, violations: row.violations };
             block.rows.push(r);
-            out.flat.push({ arena, day: sq.day, compNo: c.no, comp: c.display, no: row.no, time: r.time, t, rider: r.rider, horse: r.horse, team: r.team, riderKey: row.entry.riderKey, horseKey: row.entry.horseKey });
+            const fl = { arena, day: sq.day, compNo: c.no, comp: c.display, no: row.no, time: r.time, t, rider: r.rider, horse: r.horse, team: r.team, riderKey: row.entry.riderKey, horseKey: row.entry.horseKey };
+            Object.defineProperty(fl, 'row', { value: r, enumerable: false });   // Excel の一覧から出番表のマスを指すため（2026-10-08）
+            out.flat.push(fl);
             t += c.minutes;
           });
           block.end = t;
@@ -1077,6 +1083,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const thin = { style: 'thin', color: { argb: 'FF000000' } };
     const box = { top: thin, left: thin, bottom: thin, right: thin };
     const created = nowText();
+    /*
+      時刻は式で書く（2026-10-08 ユーザーの指示：「出番表の Excel にも時間の関数が入っているように」）。
+      その日の最初の1頭だけが時刻の値で、あとは「前の人＋1頭の分数」。休憩・競技の間・コース替え・下見も
+      画面と同じ決まり（5分単位の切り上げは分に直して CEILING。時刻の小数のまま切り上げると誤差で1単位ずれるため）。
+      どこかの時刻を書き換えると、そこから後ろが全部ずれる。下見の時刻も、その競技の最初の人の時刻から引いて出す。
+      一覧シートの時刻は出番表のシートのマスを指す。
+    */
+    wb.calcProperties = { fullCalcOnLoad: true };
+    const 時刻の式 = (f, t) => ({ formula: f, result: t / 1440 });
+    const 分 = (n) => `TIME(0,${n},0)`;
+    const 番地 = new Map();   // 出番の行（row）→ 'シート名'!B12
 
     for (const arena of ARENAS) {
       const a = out.arenas[arena];
@@ -1109,19 +1126,48 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           set(r, 1, dateText(out, d.day, true), { align: { horizontal: 'center' } }); ws.mergeCells(r, 1, r, 5); r++;
           if (arena === 'ジャンピング') r++;
         }
+        let 前の人 = null;      // この日の直前の出番の時刻のマス（B12 など）
+        let 前の分数 = 0;       // その競技の1頭の分数
         for (const b of d.blocks) {
           const title = b.no === null ? b.display : `第${as.zenNo ? toZenDigits(b.no) : b.no}競技　${b.display}`;
           set(r, 1, title, { font: { size: 12, bold: arena !== 'フレンドシップ' } });
-          if (b.preview !== null && b.preview !== undefined && !b.empty) set(r, 5, `下見　${fmtHM(b.preview)}〜`, { font: { size: 12 } });
+          const 下見の行 = (b.preview !== null && b.preview !== undefined && !b.empty) ? r : 0;
           r++;
           ['出番', as.timeHeader, '選手名', '馬名', '所属'].forEach((h, i) => set(r, i + 1, h, { border: true, align: { horizontal: 'center' } }));
           r++;
           if (b.empty) { mergedRow(r, '不実施'); r++; r++; continue; }
           let first = true;
+          let 休憩をはさむ = false;
           for (const row of b.rows) {
-            if (row.kind === 'break') { mergedRow(r, '休憩'); r++; continue; }
+            if (row.kind === 'break') { mergedRow(r, '休憩'); r++; 休憩をはさむ = true; continue; }
             set(r, 1, row.no, { border: true, align: { horizontal: 'center' } });
-            set(r, 2, row.time, { border: true, align: { horizontal: 'center' }, font: as.hideTimes && !first ? { color: { argb: 'FFFFFFFF' } } : {} });
+            // 時刻の式。競技の最初の人は、前の競技の終わり（前の人＋1頭の分数）から決まりどおりに
+            let f;
+            if (first && (!前の人 || b.startRule === 'first')) {
+              f = row.t / 1440;   // その日の最初の1頭だけは値
+            } else if (first) {
+              const 終わり = `ROUND(${前の人}*1440,0)+${前の分数}`;   // 前の競技の終わり（分）
+              const 単位 = as.roundTo || 1;
+              if (b.startRule === 'course') {
+                f = 時刻の式(`CEILING(${終わり}+${as.courseChange},${単位})/1440${as.preview > 0 ? '+' + 分(as.preview) : ''}`, row.t);
+              } else if (b.startRule === 'gap') {
+                f = 時刻の式(`CEILING(${終わり}+${as.compGap},${単位})/1440`, row.t);
+              } else {
+                f = 時刻の式(`(${終わり})/1440`, row.t);
+              }
+            } else {
+              f = 時刻の式(`${前の人}+${分(b.minutes + (休憩をはさむ ? as.breakMinutes : 0))}`, row.t);
+            }
+            const tc = set(r, 2, f, { border: true, align: { horizontal: 'center' }, font: as.hideTimes && !first ? { color: { argb: 'FFFFFFFF' } } : {} });
+            tc.numFmt = 'h:mm';
+            if (first && 下見の行) {
+              // 下見は「最初の人の時刻 − 下見の分数」。最初の人の時刻を書き換えると下見もずれる
+              set(下見の行, 5, { formula: `"下見　"&TEXT(B${r}-${分(as.preview)},"h:mm")&"〜"`, result: `下見　${fmtHM(b.preview)}〜` }, { font: { size: 12 } });
+            }
+            前の人 = 'B' + r;
+            前の分数 = b.minutes;
+            休憩をはさむ = false;
+            番地.set(row, `'${ARENA_SHEET[arena]}'!B${r}`);
             set(r, 3, row.rider, { border: true });
             set(r, 4, row.horse, { border: true });
             set(r, 5, row.team, { border: true });
@@ -1145,7 +1191,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       { header: '競技名', key: 'comp', width: 28 }, { header: '出番', key: 'no', width: 6 }, { header: '時刻', key: 'time', width: 7 },
       { header: '選手名', key: 'rider', width: 16 }, { header: '馬名', key: 'horse', width: 24 }, { header: '所属', key: 'team', width: 30 },
     ];
-    for (const f of out.flat) list.addRow({ arena: f.arena, date: dateText(out, f.day, false), compNo: f.compNo === null ? '' : f.compNo, comp: f.comp, no: f.no, time: f.time, rider: f.rider, horse: f.horse, team: f.team });
+    for (const f of out.flat) {
+      const a = f.row && 番地.get(f.row);
+      const added = list.addRow({ arena: f.arena, date: dateText(out, f.day, false), compNo: f.compNo === null ? '' : f.compNo, comp: f.comp, no: f.no,
+        time: a ? 時刻の式(a, f.t) : f.time, rider: f.rider, horse: f.horse, team: f.team });
+      if (a) added.getCell('time').numFmt = 'h:mm';
+    }
     list.getRow(1).font = { ...FONT, bold: true };
 
     // 確認（自動で解決できなかったこと）
