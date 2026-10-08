@@ -57,6 +57,13 @@
   table.deban td.mv { white-space:nowrap; width:1%; padding:2px 4px; }
   table.deban td.mv button { min-width:36px; }
   table.deban tr.dragging { background:#e0eefb; opacity:.85; }
+  /* 出番表の上で直す（2026-10-08）：押すと入力欄になるマス */
+  table.deban td.ed { cursor:text; }
+  table.deban td.ed:hover { background:#f3f7fc; outline:1px dashed #9bb7d6; }
+  table.deban td.ed input { width:100%; box-sizing:border-box; font:inherit; padding:2px 4px; }
+  table.deban tr.op td.no { color:#555; font-style:italic; }
+  .addrow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0 14px; }
+  .addrow input { width:11em; }
   table.deban tr.dragging td { border-top:2px solid var(--accent); border-bottom:2px solid var(--accent); }
   .res-head { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; align-items:baseline; }
   .edited { color:var(--warn); font-size:14px; }
@@ -90,7 +97,7 @@
   .mapgrid td:hover { outline:2px solid var(--accent); outline-offset:-2px; }
   .mapgrid tr.head td { background:#fff1b8; font-weight:600; }
   .mapgrid td.c-rider { background:#d7ecff; } .mapgrid td.c-horse { background:#dff5e1; } .mapgrid td.c-cls { background:#f3e3ff; }
-  .mapgrid td.c-kana, .mapgrid td.c-hkana { background:#eef0f2; } .mapgrid td.c-fee { background:#ffe7d6; }
+  .mapgrid td.c-kana, .mapgrid td.c-hkana { background:#eef0f2; } .mapgrid td.c-fee { background:#ffe7d6; } .mapgrid td.c-team { background:#e6f4ea; }
   .mapgrid th .tag { display:block; font-size:11px; color:var(--accent); font-weight:700; }
   @media (max-width:700px) { section { padding:12px; } th, td { padding:3px 5px; } }
 </style>
@@ -345,7 +352,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return out;
   }
   // 突き合わせ用のキー
-  function keyOf(s) { return clean(s).normalize('NFKC').replace(/[\s　]+/g, '').replace(/[()（）]/g, '').toLowerCase(); }
+  function keyOf(s) { return clean(s).normalize('NFKC').replace(/\(\s*op\s*\)/gi, '').replace(/[\s　]+/g, '').replace(/[()（）]/g, '').toLowerCase(); }
+  /*
+    オープン参加（2026-10-08 ユーザーの指示）：選手名の横に (op)（全角・大文字も）が付いている人。
+    競技の先頭にまとめ、出番は 01・02…（ふつうの人の 1 より上）。間隔の決まりは同じ人として数える。
+  */
+  const isOp = (e) => /\(\s*op\s*\)/i.test(clean(e && e.rider).normalize('NFKC'));
   // 「6,000 」「８，５００円」→ 6000
   function parseFee(v) { const d = clean(v).normalize('NFKC').replace(/[^\d]/g, ''); return d ? +d : null; }
   function toZenDigits(n) { return String(n).replace(/[0-9]/g, d => String.fromCharCode(d.charCodeAt(0) + 0xFEE0)); }
@@ -451,6 +463,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const RE_CLS = /種目|クラス|競技名|^競技$|区分|課目|部門|カテゴリ/;
   const RE_KANA = /ふりがな|フリガナ|よみがな|ヨミガナ|^よみ$|^カナ$/;
   const RE_FEE = /料金|エントリー料|参加費|金額|^料$/;
+  // 所属の列（2026-10-08：1つのファイルに何団体かまとめて出されたとき、行ごとの所属を使う）
+  const RE_TEAM = /^(所属|所属団体|所属クラブ|所属先|団体|団体名|チーム|チーム名|クラブ|クラブ名)$/;
   const headKey = s => clean(s).normalize('NFKC').replace(/[(（][^)）]*[)）]/g, '').replace(/[\s:：*※]/g, '');
   // シートの文字を2次元の配列に（結合セルは ExcelJS が親の値を返す）
   function sheetRows(sh, maxR = 400, maxC = 40) {
@@ -474,7 +488,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const rider = row.findIndex(v => RE_RIDER.test(v)) + 1, horse = row.findIndex(v => RE_HORSE.test(v)) + 1;
       if (rider && horse) {
         const pick = (re, not) => { const i = row.findIndex((v, k) => re.test(v) && !not.includes(k + 1) && !RE_RIDER.test(v) && !/競技者/.test(v)); return i + 1; };
-        const cols = { rider, horse, cls: pick(RE_CLS, [rider, horse]), kana: 0, hkana: 0, fee: pick(RE_FEE, [rider, horse]) };
+        const cols = { rider, horse, cls: pick(RE_CLS, [rider, horse]), kana: 0, hkana: 0, fee: pick(RE_FEE, [rider, horse]), team: pick(RE_TEAM, [rider, horse]) };
         row.forEach((v, k) => {
           if (!RE_KANA.test(v)) return;
           const c = k + 1;
@@ -588,9 +602,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (cls && !out.catalogs[seq].some(x => keyOf(x) === keyOf(cls))) { out.catalogs[seq].push(cls); out.fees[seq][cls] = fee; }
         return seq;
       };
-      const push = (r, cls, rider, horse, kana, hkana, fee) => {
+      const push = (r, cls, rider, horse, kana, hkana, fee, team) => {
         const seq = addCat(cls, fee);
-        out.entries.push(mkEntry(name, seq, sh.name, r, cls, rider, kana, horse, hkana, fee));
+        const e = mkEntry(name, seq, sh.name, r, cls, rider, kana, horse, hkana, fee);
+        if (team) e.team = tidy(team);   // 行ごとの所属（無ければあとでファイルの団体名）
+        out.entries.push(e);
       };
       if (sp.layout === 'matrix') {
         const horses = [];
@@ -629,12 +645,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const c0 = g(r, k.cls);
           if (c0) cur = c0;
           const fee = k.fee ? parseFee(g(r, k.fee)) : null;
-          push(r, k.cls ? (c0 || cur) : cur, rider, horse, g(r, k.kana), g(r, k.hkana), fee != null ? fee : sheetFee);
+          push(r, k.cls ? (c0 || cur) : cur, rider, horse, g(r, k.kana), g(r, k.hkana), fee != null ? fee : sheetFee, g(r, k.team));
         }
       }
     }
     if (!out.team) out.team = name.replace(/\.xlsx$/i, '').replace(/^\d+/, '');
-    for (const e of out.entries) e.team = out.team;
+    for (const e of out.entries) if (!e.team) e.team = out.team;
     return out;
   }
   // 画面で読み方を教えるとき用：シートの中身（上から rows 行・cols 列）と、自動の見当
@@ -891,7 +907,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const pos = base + out.length;
       const tail = n - out.length - 1;
       let bestE = null, bestScore = -Infinity;
-      for (const e of remaining) {
+      const pool = remaining.some(isOp) ? remaining.filter(isOp) : remaining;   // (op) は先頭（2026-10-08）
+      for (const e of pool) {
         const r = lr.get(e.riderKey), h = lh.get(e.horseKey);
         const dr = r ? pos - r.pos - 1 : Infinity, dh = h ? pos - h.pos - 1 : Infinity;
         const shortR = Math.max(0, gapRider - dr), shortH = Math.max(0, gapHorse - dh);
@@ -957,7 +974,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const comps = activeComps(model, s, sq.key).map(c => {
           // 並びに無いエントリー（あとから振り分けたもの）は末尾に足し、もう無いものは落とす
           const prev = orders[sq.key][c.index] || [];
-          const entries = prev.filter(e => c.entries.includes(e)).concat(c.entries.filter(e => !prev.includes(e)));
+          const kept = prev.filter(e => c.entries.includes(e)).concat(c.entries.filter(e => !prev.includes(e)));
+          const entries = kept.filter(isOp).concat(kept.filter(e => !isOp(e)));   // (op) はいつも先頭（手で動かしても戻る）
           orders[sq.key][c.index] = entries;
           return { ...c, entries, no: as.numbered ? ++compNo : null };
         });
@@ -965,15 +983,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const lastRider = new Map(), lastHorse = new Map();
         let pos = 0;
         const res = comps.map(c => {
-          const rows = c.entries.map((e, i) => {
+          let opN = 0, n = 0;
+          const rows = c.entries.map((e) => {
+            const no = isOp(e) ? String(++opN).padStart(2, '0') : ++n;   // (op) は 01・02…、ほかは 1 から
+            const i = no;
             const v = [];
             const lr = lastRider.get(e.riderKey), lh = lastHorse.get(e.horseKey);
             if (lr && pos - lr.pos - 1 < s.gapRider) v.push({ kind: '人', name: e.rider, prev: lr, between: pos - lr.pos - 1, need: s.gapRider });
             if (lh && pos - lh.pos - 1 < s.gapHorse) v.push({ kind: '馬', name: e.horse, prev: lh, between: pos - lh.pos - 1, need: s.gapHorse });
-            for (const x of v) out.violations.push({ arena, day: sq.day, ...x, comp: c.display, no: i + 1, entry: e });
-            lastRider.set(e.riderKey, { pos, comp: c.display, no: i + 1 });
-            lastHorse.set(e.horseKey, { pos, comp: c.display, no: i + 1 });
-            return { entry: e, pos: pos++, no: i + 1, violations: v };
+            for (const x of v) out.violations.push({ arena, day: sq.day, ...x, comp: c.display, no: i, entry: e });
+            lastRider.set(e.riderKey, { pos, comp: c.display, no: i });
+            lastHorse.set(e.horseKey, { pos, comp: c.display, no: i });
+            return { entry: e, pos: pos++, no: i, op: isOp(e), violations: v };
           });
           return { comp: c, rows };
         });
@@ -1227,13 +1248,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (const t of teams) for (const e of t.entries) {
       if (!e.rider && !e.horse) continue;
       const sq = bySeq[e.seq];
-      const key = e.riderKey + '|' + t.team;
-      if (!riders.has(key)) riders.set(key, { rider: e.rider || '（選手名なし）', team: t.team, items: [], total: 0 });
+      const team = e.team || t.team;   // 1ファイルに何団体か入っているときは行ごとの所属（2026-10-08）
+      const key = e.riderKey + '|' + team;
+      if (!riders.has(key)) riders.set(key, { rider: e.rider || '（選手名なし）', team, items: [], total: 0 });
       const r = riders.get(key);
       const item = { day: sq.day, arena: sq.arena, comp: displayName(sq.arena, e.clsRaw) || '（種目なし）', horse: e.horse, fee: e.fee, source: e.source };
       r.items.push(item);
       if (e.fee != null) { r.total += e.fee; total += e.fee; } else unknown++;
-      byTeam.set(t.team, (byTeam.get(t.team) || 0) + (e.fee || 0));
+      byTeam.set(team, (byTeam.get(team) || 0) + (e.fee || 0));
     }
     const dayOrder = { fri: 0, sat: 1, sun: 2 };
     const list = [...riders.values()].map(r => ({ ...r, items: r.items.slice().sort((a, b) => dayOrder[a.day] - dayOrder[b.day] || ARENAS.indexOf(a.arena) - ARENAS.indexOf(b.arena)) }));
@@ -1318,8 +1340,39 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return e;
   }
 
+  /*
+    出番表の画面で人を消す・足す（2026-10-08 ユーザーの指示：出番表の時点で消したり足したり名前を変えたり）。
+    エントリーはモデルと団体（teams）で同じものを指しているので、両方から消す・両方に足す。
+    並び（orders）はそのまま使えば、消した人は落ち、足した人は競技の最後（(op) なら先頭）に入る。
+  */
+  function removeEntry(model, teams, e) {
+    for (const sq of Object.values(model.seqs)) {
+      for (const c of sq.comps) { const i = c.entries.indexOf(e); if (i >= 0) c.entries.splice(i, 1); }
+      const u = sq.unmatched.indexOf(e); if (u >= 0) sq.unmatched.splice(u, 1);
+    }
+    for (const t of teams || []) { const i = t.entries.indexOf(e); if (i >= 0) t.entries.splice(i, 1); }
+  }
+  function addEntryTo(model, teams, seqKey, compIndex, x) {
+    const c = model.seqs[seqKey] && model.seqs[seqKey].comps[compIndex];
+    if (!c) throw new Error('競技が見つからない');
+    const teamName = tidy(x.team || '');
+    // その所属の申込がどこかのファイルにあれば、そのファイルの団体に入れる（1ファイルに何団体か入っているとき）
+    let t = (teams || []).find(tt => tt.team === teamName) || (teams || []).find(tt => tt.entries.some(y => y.team === teamName));
+    if (!t && teams) {
+      // 申込書の無い所属：画面で足した人だけの団体を作る（大会名・日付・競技の一覧は持たない）
+      t = { file: '（出番表で足した：' + (teamName || '所属なし') + '）', data: null, team: teamName || '（所属なし）', event: '', dates: {}, catalogs: {}, fees: {}, entries: [], warnings: [], how: 'added', catalogKnown: false };
+      teams.push(t);
+    }
+    const e = mkEntry(t ? t.file : '（画面で足した）', seqKey, '（出番表で足した）', 0, c.name, x.rider || '', '', x.horse || '', '', c.fee);
+    e.team = t ? t.team : teamName; e.edited = true;
+    e.id = Math.max(0, ...Object.values(model.seqs).flatMap(q => q.comps.flatMap(cc => cc.entries.map(y => y.id || 0)))) + 1;
+    if (t) t.entries.push(e);
+    c.entries.push(e);
+    return e;
+  }
+
   return {
-    SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI,
+    SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI, isOp, removeEntry, addEntryTo,
     keyOf, clean, tidy, fmtHM, parseHM, dateText, displayName, courseCode, checkLines,
     parseFee, ribbonCount, ribbonSummary, accounting, writeAccountingWorkbook,
     readZip, parseEntry, loadFiles, fillKana, setEntry, addEntry, detectProfile, previewFile, finishProfile, arenaOf,
@@ -2041,7 +2094,7 @@ window.DebanhyoTemplates = {
     $('#result').innerHTML = ''; $('#runMsg').innerHTML = '';
   }
   function msg(sel, kind, text) { $(sel).innerHTML = ''; $(sel).append(el('div', { class: 'msg ' + kind, text })); }
-  const HOW = { template: '大会の雛形', auto: '自動で見分けた', saved: '保存した読み方', manual: 'この場で教えた読み方' };
+  const HOW = { template: '大会の雛形', auto: '自動で見分けた', saved: '保存した読み方', manual: 'この場で教えた読み方', added: '出番表で足した' };
 
   function renderLoad(teams) {
     const box = $('#loadSummary'); box.innerHTML = '';
@@ -2060,10 +2113,12 @@ window.DebanhyoTemplates = {
     const ul = el('ul');
     for (const t of teams) {
       const name = el('input', { type: 'text', value: t.team, 'aria-label': `${t.file} の団体名`, style: 'width:14em' });
-      name.addEventListener('change', () => { t.team = name.value.trim() || t.team; for (const e of t.entries) e.team = t.team; rebuild(true); });
+      name.addEventListener('change', () => { const old = t.team; t.team = name.value.trim() || t.team; for (const e of t.entries) if (!e.team || e.team === old) e.team = t.team; rebuild(true); });
       const how = HOW[t.how] + (t.profileLabel ? `「${t.profileLabel}」` : '');
-      ul.append(el('li', {}, name, `　申込 ${t.entries.length}　`, el('span', { class: 'how', text: `${t.file}・${how}` }), ' ',
-        el('button', { type: 'button', class: 'small secondary', text: '読み方を直す', onclick: () => openMapper(t.file, t.data, t.profile) })));
+      // 1つのファイルに何団体か入っているとき（所属の列があった）は、その所属を並べて見せる
+      const 所属 = [...new Set(t.entries.map(e => e.team).filter(Boolean))];
+      ul.append(el('li', {}, name, `　申込 ${t.entries.length}　`, el('span', { class: 'how', text: `${t.file}・${how}` + (所属.length > 1 ? `・所属 ${所属.length}：${所属.join('、')}` : '') }), ' ',
+        t.data ? el('button', { type: 'button', class: 'small secondary', text: '読み方を直す', onclick: () => openMapper(t.file, t.data, t.profile) }) : null));
     }
     det.append(ul); box.append(det);
     if (teams.unknown && teams.unknown.length) {
@@ -2143,7 +2198,7 @@ window.DebanhyoTemplates = {
 
   // ---------- 読み方を教える（2026-10-07） ----------
   const FIELDS = {
-    list: [['rider', '選手名の列'], ['horse', '馬名の列'], ['cls', '種目の列'], ['kana', '選手のふりがな'], ['hkana', '馬のふりがな'], ['fee', '参加費の列']],
+    list: [['rider', '選手名の列'], ['horse', '馬名の列'], ['cls', '種目の列'], ['kana', '選手のふりがな'], ['hkana', '馬のふりがな'], ['fee', '参加費の列'], ['team', '所属の列']],
     matrix: [['horses', '馬名の並び（最初の馬）'], ['cls', '種目の列']],
   };
   const colName = c => { let s = ''; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
@@ -2159,7 +2214,7 @@ window.DebanhyoTemplates = {
     drawMapper();
     $('#mapper').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-  const blankSpec = (sheet, layout) => ({ sheet, layout, headerRow: 1, cols: { rider: 0, horse: 0, cls: 0, kana: 0, hkana: 0, fee: 0 }, horseFrom: 0, clsCol: 0, arena: 'auto', day: 'auto' });
+  const blankSpec = (sheet, layout) => ({ sheet, layout, headerRow: 1, cols: { rider: 0, horse: 0, cls: 0, kana: 0, hkana: 0, fee: 0, team: 0 }, horseFrom: 0, clsCol: 0, arena: 'auto', day: 'auto' });
   function curSpec() { return mp.specs[mp.sheet]; }
   function clickCell(r, c) {
     let sp = curSpec();
@@ -2429,8 +2484,56 @@ window.DebanhyoTemplates = {
     renderResult();
     window.scrollTo(0, y);
   }
+  /*
+    出番表の上で人を直す・消す・足す（2026-10-08 ユーザーの指示）。並びはそのまま、時刻と間隔だけ出し直す。
+    直したものは「読み取った申込」（1）にも入る（同じものを指している）。
+  */
+  function afterResultEdit() {
+    edited++;
+    const y = window.scrollY;
+    out = D.layout(model, settings, out.orders);
+    renderResult();
+    renderEntries();
+    window.scrollTo(0, y);
+  }
+  function editCell(td, e, field) {
+    if (td.querySelector('input')) return;
+    const before = field === 'team' ? e.team : field === 'horse' ? e.horse : e.rider;
+    const inp = el('input', { type: 'text', value: before || '', 'aria-label': { rider: '選手名', horse: '馬名', team: '所属' }[field] });
+    if (field === 'team') inp.setAttribute('list', 'teamNames');
+    td.textContent = ''; td.append(inp); inp.focus(); inp.select();
+    let done = false;
+    const commit = (keep) => {
+      if (done) return; done = true;
+      const v = inp.value.trim();
+      if (keep && v && v !== before) { D.setEntry(e, field, v); afterResultEdit(); }
+      else renderResult();
+    };
+    inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') commit(true); else if (ev.key === 'Escape') commit(false); });
+    inp.addEventListener('blur', () => commit(true));
+  }
+  function removeFromResult(r) {
+    if (!confirm(`${r.rider}／${r.horse} を出番表から消します（申込も消えます）。よろしいですか？`)) return;
+    D.removeEntry(model, teams, r.entry);
+    afterResultEdit();
+  }
+  function addRowFor(b) {
+    const rider = el('input', { type: 'text', placeholder: '選手名（オープンは (op) を付ける）', 'aria-label': '足す人の選手名' });
+    const horse = el('input', { type: 'text', placeholder: '馬名', 'aria-label': '足す人の馬名' });
+    const team = el('input', { type: 'text', placeholder: '所属', list: 'teamNames', 'aria-label': '足す人の所属' });
+    const add = () => {
+      if (!rider.value.trim() || !horse.value.trim()) { alert('選手名と馬名を入れてください。'); return; }
+      D.addEntryTo(model, teams, b.seqKey, b.compIndex, { rider: rider.value.trim(), horse: horse.value.trim(), team: team.value.trim() });
+      afterResultEdit();
+    };
+    return el('div', { class: 'addrow' }, el('span', { class: 'hint', text: 'この競技に足す：' }), rider, horse, team,
+      el('button', { type: 'button', class: 'small', text: '足す', onclick: add }));
+  }
   function renderResult() {
     const box = $('#result'); box.innerHTML = '';
+    const dl = el('datalist', { id: 'teamNames' });
+    for (const nm of [...new Set((teams || []).flatMap(t => [t.team].concat(t.entries.map(e => e.team))).filter(Boolean))]) dl.append(el('option', { value: nm }));
+    box.append(dl);
     const lines = D.checkLines(out);
     msg('#runMsg', lines.length ? 'warn' : 'ok', (lines.length ? `できました。確認が ${lines.length} 件あります（Excelの「確認」シートにも同じものが入る）。` : 'できました。間隔も時刻も問題なし。') + (edited ? `　手で ${edited} 回入れ替えています。` : ''));
     if (lines.length) {
@@ -2447,10 +2550,11 @@ window.DebanhyoTemplates = {
     const d = x.day, as = settings.arenas[x.sq.arena];
     const n = d.blocks.reduce((a, b) => a + b.rows.filter(r => r.kind === 'entry').length, 0);
     box.append(el('div', { class: 'res-head' }, el('b', { text: `${x.sq.arena}　${D.dateText(out, d.day, true)}` }), el('span', { class: 'hint', text: `${n}頭・終了 ${D.fmtHM(d.end)}` })));
+    box.append(el('p', { class: 'hint', text: '選手名・馬名・所属のマスを押すと直せます（Enter で決まり、Esc でやめる）。× で消す、競技の下の欄で足す。名前に (op) が付いた人はオープン参加で、競技の先頭に 01・02… で並びます。' }));
     for (const b of d.blocks) {
       const title = b.no === null ? b.display : `第${b.no}競技　${b.display}`;
       box.append(el('div', { class: 'comp-title', text: title + (b.preview != null && !b.empty ? `　（下見 ${D.fmtHM(b.preview)}〜）` : '') }));
-      if (b.empty) { box.append(el('div', { class: 'ghost', text: '不実施' })); continue; }
+      if (b.empty) { box.append(el('div', { class: 'ghost', text: '不実施' })); box.append(addRowFor(b)); continue; }
       const t = el('table', { class: 'deban' });
       t.append(el('thead', {}, el('tr', {}, el('th', { text: '' }), el('th', { text: '出番' }), el('th', { text: as.timeHeader }), el('th', { text: '選手名' }), el('th', { text: '馬名' }), el('th', { text: '所属' }), el('th', { text: '' }))));
       const tb = el('tbody');
@@ -2459,19 +2563,22 @@ window.DebanhyoTemplates = {
         if (r.kind === 'break') { tb.append(el('tr', { class: 'break' }, el('td', { colspan: 7, text: '休憩' }))); continue; }
         const i = idx++;
         const note = r.violations.map(v => `${v.kind}「${v.name}」: ${v.prev.comp} ${v.prev.no}番から ${v.between}頭（${v.need}頭必要）`).join('\n');
-        const tr = el('tr', { class: 'entry' + (r.violations.length ? ' viol' : ''), 'data-i': i },
+        const ed = (field, text) => { const td = el('td', { class: 'ed', text, title: '押すと直せます' }); td.addEventListener('click', () => editCell(td, r.entry, field)); return td; };
+        const tr = el('tr', { class: 'entry' + (r.violations.length ? ' viol' : '') + (D.isOp(r.entry) ? ' op' : ''), 'data-i': i },
           el('td', { class: 'handle', text: '≡', title: '上下にドラッグして入れ替え', 'aria-label': '並べ替えのつまみ' }),
           el('td', { class: 'no', text: r.no, title: note }),
-          el('td', { text: r.time }), el('td', { text: r.rider }), el('td', { text: r.horse }), el('td', { text: r.team }),
+          el('td', { text: r.time }), ed('rider', r.rider), ed('horse', r.horse), ed('team', r.team),
           el('td', { class: 'mv' },
             el('button', { type: 'button', class: 'small secondary', text: '↑', 'aria-label': `${r.rider}を上へ`, onclick: () => commitMove(b.seqKey, b.compIndex, i, i - 1) }), ' ',
-            el('button', { type: 'button', class: 'small secondary', text: '↓', 'aria-label': `${r.rider}を下へ`, onclick: () => commitMove(b.seqKey, b.compIndex, i, i + 1) })));
+            el('button', { type: 'button', class: 'small secondary', text: '↓', 'aria-label': `${r.rider}を下へ`, onclick: () => commitMove(b.seqKey, b.compIndex, i, i + 1) }), ' ',
+            el('button', { type: 'button', class: 'small secondary', text: '×', title: '出番表から消す', 'aria-label': `${r.rider}を消す`, onclick: () => removeFromResult(r) })));
         if (note) tr.title = note;
         tb.append(tr);
       }
       makeDraggable(tb, b.seqKey, b.compIndex);
       t.append(tb);
       box.append(t);
+      box.append(addRowFor(b));
     }
     renderRibbons(box, x.sq.key);
   }
