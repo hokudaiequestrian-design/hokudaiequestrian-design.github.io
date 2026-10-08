@@ -1215,12 +1215,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (const f of files) {
       const t = await parseEntry(f.name, f.data, opts);
       if (t.kind) { if (t.kana) Object.assign(kana, t.kana); else if (t.kind === 'unknown') unknown.push({ name: f.name, data: f.data }); else skipped.push(f.name); continue; }
-      teams.push(t);
+      teams.push(...splitByTeam(t));
     }
     fillKana(teams, kana);
     if (skipped.length && teams.length) teams[0].warnings.push(`申込書ではないので読み飛ばした: ${skipped.join('、')}`);
     teams.unknown = unknown; teams.skipped = skipped; teams.kana = kana;
     return teams;
+  }
+  /*
+    団体名＝所属（2026-10-08 ユーザーの指示）。1つのファイルに何団体か入っている（シートごとの団体名・所属の列）と、
+    前はファイルで1団体にまとめていたので、画面の「団体」がファイルの団体名（最初のシート）のままだった。
+    読み込んだときに所属ごとの団体に分ける。ファイル（file・data・読み方）は分けたどれもが同じものを指す。
+  */
+  function splitByTeam(t) {
+    const names = [...new Set(t.entries.map(e => e.team || t.team).filter(Boolean))];
+    if (names.length <= 1) { if (names[0]) t.team = names[0]; return [t]; }
+    return names.map((nm, i) => ({ ...t, team: nm, entries: t.entries.filter(e => (e.team || t.team) === nm), warnings: i === 0 ? t.warnings : [] }));
   }
   // 人馬登録名簿があれば、ふりがなの空いた申込に入れる（ホースショー型の申込書にはふりがなの欄がない）
   function fillKana(teams, kana) {
@@ -1281,7 +1291,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   return {
-    SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI, isOp, removeEntry, addEntryTo,
+    SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI, isOp, removeEntry, addEntryTo, splitByTeam,
     keyOf, clean, tidy, fmtHM, parseHM, dateText, displayName, courseCode, checkLines,
     parseFee, ribbonCount, ribbonSummary, accounting, writeAccountingWorkbook,
     readZip, parseEntry, loadFiles, fillKana, setEntry, addEntry, detectProfile, previewFile, finishProfile, arenaOf,

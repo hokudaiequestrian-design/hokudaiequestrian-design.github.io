@@ -1320,12 +1320,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     for (const f of files) {
       const t = await parseEntry(f.name, f.data, opts);
       if (t.kind) { if (t.kana) Object.assign(kana, t.kana); else if (t.kind === 'unknown') unknown.push({ name: f.name, data: f.data }); else skipped.push(f.name); continue; }
-      teams.push(t);
+      teams.push(...splitByTeam(t));
     }
     fillKana(teams, kana);
     if (skipped.length && teams.length) teams[0].warnings.push(`申込書ではないので読み飛ばした: ${skipped.join('、')}`);
     teams.unknown = unknown; teams.skipped = skipped; teams.kana = kana;
     return teams;
+  }
+  /*
+    団体名＝所属（2026-10-08 ユーザーの指示）。1つのファイルに何団体か入っている（シートごとの団体名・所属の列）と、
+    前はファイルで1団体にまとめていたので、画面の「団体」がファイルの団体名（最初のシート）のままだった。
+    読み込んだときに所属ごとの団体に分ける。ファイル（file・data・読み方）は分けたどれもが同じものを指す。
+  */
+  function splitByTeam(t) {
+    const names = [...new Set(t.entries.map(e => e.team || t.team).filter(Boolean))];
+    if (names.length <= 1) { if (names[0]) t.team = names[0]; return [t]; }
+    return names.map((nm, i) => ({ ...t, team: nm, entries: t.entries.filter(e => (e.team || t.team) === nm), warnings: i === 0 ? t.warnings : [] }));
   }
   // 人馬登録名簿があれば、ふりがなの空いた申込に入れる（ホースショー型の申込書にはふりがなの欄がない）
   function fillKana(teams, kana) {
@@ -1386,7 +1396,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   return {
-    SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI, isOp, removeEntry, addEntryTo,
+    SEQS, ARENAS, ARENA_SHEET, DAY_LABEL, YOUBI, isOp, removeEntry, addEntryTo, splitByTeam,
     keyOf, clean, tidy, fmtHM, parseHM, dateText, displayName, courseCode, checkLines,
     parseFee, ribbonCount, ribbonSummary, accounting, writeAccountingWorkbook,
     readZip, parseEntry, loadFiles, fillKana, setEntry, addEntry, detectProfile, previewFile, finishProfile, arenaOf,
@@ -2165,13 +2175,14 @@ window.DebanhyoTemplates = {
     det.append(dl);
     // 絞り込み
     const tsel = el('select', { 'aria-label': '団体で絞る' }, el('option', { value: '', text: '（全部の団体）' }));
-    for (const t of teams) tsel.append(el('option', { value: t.file, text: t.team }));
+    const tkey = t => t.file + '|' + t.team;   // 1つのファイルを所属ごとに分けた団体も見分ける（2026-10-08）
+    for (const t of teams) tsel.append(el('option', { value: tkey(t), text: t.team }));
     tsel.value = entryFilter.team;
     const q = el('input', { type: 'text', placeholder: '選手・馬・種目で探す', value: entryFilter.q, style: 'width:14em' });
     const draw = () => {
       entryFilter = { team: tsel.value, q: q.value.trim() };
       wrap.innerHTML = '';
-      const rows = all.filter(({ t, e }) => (!entryFilter.team || t.file === entryFilter.team) && (!entryFilter.q || [e.rider, e.horse, e.clsRaw].some(v => (v || '').includes(entryFilter.q))));
+      const rows = all.filter(({ t, e }) => (!entryFilter.team || tkey(t) === entryFilter.team) && (!entryFilter.q || [e.rider, e.horse, e.clsRaw].some(v => (v || '').includes(entryFilter.q))));
       const tbl = el('table', { class: 'entries' });
       tbl.append(el('thead', {}, el('tr', {}, ...['団体', '日・馬場', '種目', '選手', '馬', '参加費', '出どころ', ''].map(h => el('th', { text: h })))));
       const tb = el('tbody');
@@ -2199,9 +2210,9 @@ window.DebanhyoTemplates = {
     tsel.addEventListener('change', draw);
     q.addEventListener('input', draw);
     const add = el('button', { type: 'button', class: 'small secondary', text: '申込を足す', onclick: () => {
-      const t = teams.find(x => x.file === tsel.value) || teams[0];
+      const t = teams.find(x => tkey(x) === tsel.value) || teams[0];
       D.addEntry(t, (t.entries[0] && t.entries[0].seq) || 'jsun', '');
-      entryFilter.team = t.file; rebuild(true);
+      entryFilter.team = tkey(t); rebuild(true);
     } });
     det.append(el('div', { class: 'actions' }, tsel, q, add));
     const wrap = el('div', { class: 'entries-wrap' });
@@ -2351,8 +2362,10 @@ window.DebanhyoTemplates = {
     if (mp.save) { const list = loadProfiles().filter(p => p.label !== prof.label); list.push(prof); saveProfiles(list); t.how = 'saved'; }
     t.profileLabel = prof.label;
     D.fillKana([t], teams.kana || {});
+    const parts = D.splitByTeam(t);   // 所属ごとに分ける（2026-10-08）
     const i = teams.findIndex(x => x.file === mp.name);
-    if (i >= 0) teams[i] = t; else teams.push(t);
+    for (let k = teams.length - 1; k >= 0; k--) if (teams[k].file === mp.name) teams.splice(k, 1);
+    teams.splice(i >= 0 ? i : teams.length, 0, ...parts);
     teams.unknown = (teams.unknown || []).filter(f => f.name !== mp.name);
     const n = t.entries.length;
     mp = null; drawMapper();
