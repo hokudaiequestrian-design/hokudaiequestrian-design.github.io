@@ -550,7 +550,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // 団体名：「団体名：○○」かその右のマス
   function findTeam(wb) {
-    for (const sh of wb.worksheets) {
+    for (const sh of wb.worksheets) { const t = findTeamInSheet(sh); if (t) return t; }
+    return '';
+  }
+  /*
+    1枚のシートの団体名（2026-10-08）。ホースショーの参加申込書は、1つのファイルに団体ごとのシートが並んでいる
+    （「JRA札幌競馬場」「札幌光星高等学校」…のシートに、それぞれ「団体名：」）。前は最初のシートの団体名を全員に付けていた。
+  */
+  function findTeamInSheet(sh) {
+    {
       const rows = sheetRows(sh, 40, 30);
       for (let r = 1; r <= rows.length; r++) for (let c = 1; c <= rows[r - 1].length; c++) {
         const v = at(rows, r, c);
@@ -590,6 +598,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const sheetArena = sp.arena && sp.arena !== 'auto' ? sp.arena : (arenaOf(sh.name) || arenaOf(top));
       const sheetDay = sp.day && sp.day !== 'auto' ? sp.day : (dayOf(sh.name, year) || dayOf(top, year));
       const sheetFee = findFee(rows);
+      const sheetTeam = findTeamInSheet(sh);   // シートごとの団体名（無ければファイルの団体名）
       const seqFor = cls => {
         const arena = (sp.arena && sp.arena !== 'auto') ? sp.arena : (arenaOf(cls) || sheetArena || 'ジャンピング');
         let day = sheetDay || 'sun';
@@ -620,7 +629,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           if (!cls || /^(種目|クラス|競技)$/.test(headKey(cls))) { blank++; continue; }
           blank = 0;
           addCat(cls, sheetFee);
-          for (const { c, h } of horses) for (const rider of splitRiders(sh.getCell(r, c).value)) push(r, cls, rider, h, '', '', sheetFee);
+          for (const { c, h } of horses) for (const rider of splitRiders(sh.getCell(r, c).value)) push(r, cls, rider, h, '', '', sheetFee, sheetTeam);
         }
       } else {
         const k = sp.cols || {};
@@ -645,7 +654,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const c0 = g(r, k.cls);
           if (c0) cur = c0;
           const fee = k.fee ? parseFee(g(r, k.fee)) : null;
-          push(r, k.cls ? (c0 || cur) : cur, rider, horse, g(r, k.kana), g(r, k.hkana), fee != null ? fee : sheetFee, g(r, k.team));
+          push(r, k.cls ? (c0 || cur) : cur, rider, horse, g(r, k.kana), g(r, k.hkana), fee != null ? fee : sheetFee, g(r, k.team) || sheetTeam);
         }
       }
     }
@@ -672,7 +681,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
   // 1つのマスに何人も：「山端　慶士郎・中西　紗慧」「白木・米本」、区切りなしの「白木　花芽　米本　悠乃」（4語以上の偶数なら2語ずつ）
   function splitRiders(v) {
-    const parts = cellText(v).split(/[・、,，\/／\r\n]+/).map(s => s.replace(/[\s　]+/g, ' ').trim()).filter(Boolean);
+    // 「ボトシュ・A・歌音」のように、中黒の間に頭文字1字（A・Ｊ.）があるのは1人の名前。中黒では切らない（2026-10-08）
+    const 区切り = cellText(v).split(/[、,，\/／\r\n]+/).map(x => x.trim()).filter(Boolean);
+    const parts = 区切り.flatMap(x => (x.split('・').some(y => /^[A-Za-zＡ-Ｚａ-ｚ][.．]?$/.test(y.trim())) ? [x] : x.split('・')))
+      .map(s => s.replace(/[\s　]+/g, ' ').trim()).filter(Boolean);
     const outp = [];
     for (const p of parts) {
       const w = p.split(' ');
