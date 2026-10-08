@@ -915,7 +915,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const c = rc.comp;
           const n = rc.rows.length;
           const block = { seqKey: sq.key, compIndex: c.index, no: c.no, name: c.name, display: c.display, rows: [], empty: n === 0,
-            count: n, fee: c.fee, ribbons: ribbonCount(n, s.ribbonPercent == null ? 25 : s.ribbonPercent, s.ribbonMax), newCourse: !!c.newCourse };
+            // リボンの頭数に (op) は入れない（2026-10-08 ユーザーの指示：オープン参加は表彰しない）。count は出る全員、opCount はそのうちの (op)
+            count: n, opCount: rc.rows.filter(x => isOp(x.entry)).length, fee: c.fee, newCourse: !!c.newCourse };
+          block.ribbons = ribbonCount(n - block.opCount, s.ribbonPercent == null ? 25 : s.ribbonPercent, s.ribbonMax);
           if (block.empty) { carryNewCourse = carryNewCourse || c.newCourse; blocks.push(block); continue; }
           const newCourse = c.newCourse || carryNewCourse;
           carryNewCourse = false;
@@ -964,7 +966,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function ribbonSummary(out) {
     const rows = [], total = { ribbons: 0, comps: 0, byFee: {} };
     for (const arena of ARENAS) for (const d of out.arenas[arena].days) for (const b of d.blocks) {
-      rows.push({ arena, day: d.day, seqKey: d.key, no: b.no, display: b.display, count: b.count, fee: b.fee, ribbons: b.ribbons, empty: b.empty });
+      rows.push({ arena, day: d.day, seqKey: d.key, no: b.no, display: b.display, count: b.count, opCount: b.opCount || 0, fee: b.fee, ribbons: b.ribbons, empty: b.empty });
       if (!b.empty) {
         total.comps++; total.ribbons += b.ribbons;
         const k = b.fee == null ? '不明' : String(b.fee);

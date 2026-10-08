@@ -1020,7 +1020,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const c = rc.comp;
           const n = rc.rows.length;
           const block = { seqKey: sq.key, compIndex: c.index, no: c.no, name: c.name, display: c.display, rows: [], empty: n === 0,
-            count: n, fee: c.fee, ribbons: ribbonCount(n, s.ribbonPercent == null ? 25 : s.ribbonPercent, s.ribbonMax), newCourse: !!c.newCourse };
+            // リボンの頭数に (op) は入れない（2026-10-08 ユーザーの指示：オープン参加は表彰しない）。count は出る全員、opCount はそのうちの (op)
+            count: n, opCount: rc.rows.filter(x => isOp(x.entry)).length, fee: c.fee, newCourse: !!c.newCourse };
+          block.ribbons = ribbonCount(n - block.opCount, s.ribbonPercent == null ? 25 : s.ribbonPercent, s.ribbonMax);
           if (block.empty) { carryNewCourse = carryNewCourse || c.newCourse; blocks.push(block); continue; }
           const newCourse = c.newCourse || carryNewCourse;
           carryNewCourse = false;
@@ -1069,7 +1071,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function ribbonSummary(out) {
     const rows = [], total = { ribbons: 0, comps: 0, byFee: {} };
     for (const arena of ARENAS) for (const d of out.arenas[arena].days) for (const b of d.blocks) {
-      rows.push({ arena, day: d.day, seqKey: d.key, no: b.no, display: b.display, count: b.count, fee: b.fee, ribbons: b.ribbons, empty: b.empty });
+      rows.push({ arena, day: d.day, seqKey: d.key, no: b.no, display: b.display, count: b.count, opCount: b.opCount || 0, fee: b.fee, ribbons: b.ribbons, empty: b.empty });
       if (!b.empty) {
         total.comps++; total.ribbons += b.ribbons;
         const k = b.fee == null ? '不明' : String(b.fee);
@@ -2600,7 +2602,7 @@ window.DebanhyoTemplates = {
     const sum = D.ribbonSummary(out);
     const rows = sum.rows.filter(r => r.seqKey === seqKey);
     box.append(el('h3', { text: 'リボン（この列）' }));
-    box.append(el('p', { class: 'hint', text: `頭数の ${settings.ribbonPercent}% を切り上げた数。参加費は申込書の一覧から。` }));
+    box.append(el('p', { class: 'hint', text: `頭数の ${settings.ribbonPercent}% を切り上げた数（オープン参加＝(op) の人は頭数に入れない）。参加費は申込書の一覧から。` }));
     const t = el('table', { class: 'ribbon' });
     t.append(el('thead', {}, el('tr', {}, el('th', { text: '競技番号' }), el('th', { text: '競技名' }), el('th', { class: 'num', text: '頭数' }), el('th', { class: 'num', text: '参加費' }), el('th', { class: 'num', text: 'リボン' }))));
     const tb = el('tbody');
@@ -2610,7 +2612,7 @@ window.DebanhyoTemplates = {
       if (!r.empty) { n += r.ribbons; const k = yen(r.fee); byFee[k] = (byFee[k] || 0) + r.ribbons; }
       tb.append(el('tr', { class: r.empty ? 'ghost' : '' },
         el('td', { text: r.no === null ? '' : r.no }), el('td', { text: r.display }),
-        el('td', { class: 'num', text: r.empty ? '不実施' : r.count }), el('td', { class: 'num', text: yen(r.fee) }),
+        el('td', { class: 'num', text: r.empty ? '不実施' : r.count + (r.opCount ? `（うちOP ${r.opCount}）` : '') }), el('td', { class: 'num', text: yen(r.fee) }),
         el('td', { class: 'num', text: r.empty ? '' : r.ribbons })));
     }
     tb.append(el('tr', { class: 'total' }, el('td', { colspan: 4, text: 'この列の合計　' + Object.entries(byFee).map(([k, v]) => `${k}: ${v}個`).join('　') }), el('td', { class: 'num', text: n })));
