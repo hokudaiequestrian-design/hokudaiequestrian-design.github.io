@@ -51,6 +51,11 @@ header.appbar.asa { background: var(--ink); }
 .kindtag.k-taichou { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
 .waittag { font-size: var(--text-xs); color: var(--muted); border: 1px dashed var(--rule-strong); border-radius: 4px; padding: 0 4px; }
 .plist .end { margin-left: auto; }
+/* 休みを決める画面へ（2026-10-10） */
+.decide-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 var(--space-sm); border-radius: var(--radius-pill);
+  border: 1px solid var(--accent); color: var(--accent-dark); background: var(--paper); font-size: var(--text-sm); font-weight: 700; text-decoration: none; white-space: nowrap; }
+.decide-link:hover { background: var(--accent-soft); }
+.decide-link.wait { background: var(--accent); border-color: var(--accent); color: #fff; }
 .none { color: var(--muted); margin: 0; }
 
 .mudan-add { display: flex; gap: var(--space-xs); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-sm); }
@@ -113,7 +118,7 @@ header.appbar.asa { background: var(--ink); }
       <section class="card">
         <h2>休み<span class="cnt" id="leaveCnt"></span></h2>
         <ul class="plist" id="leaves"></ul>
-        <p class="hint" style="margin-bottom:0;">有給休暇・季節休み・体調不良（了承待ちも）。了承は「バイト・休みをまとめる」で。</p>
+        <p class="hint" style="margin-bottom:0;">有給休暇・季節休み・体調不良（了承待ちも）。「決める」を押すと、<b>その人の休みを了承・却下するところ</b>（バイト・休みをまとめる）が開きます。</p>
       </section>
 
       <section class="card">
@@ -121,7 +126,9 @@ header.appbar.asa { background: var(--ink); }
         <div class="mudan-add">
           <div style="flex:1 1 12rem;"><label for="mudanSel">来ていない人</label><select id="mudanSel"></select></div>
           <button type="button" id="mudanAdd">無断欠席に入れる</button>
+          <button type="button" class="secondary" id="leaveAdd">休みを入れる</button>
         </div>
+        <p class="hint" style="margin-top:0;">無断ではなく休みにするなら「休みを入れる」。選んだ人とこの日を入れた状態で、休みを入れる画面が開きます（入れたあと、そこから戻れます）。</p>
         <ul class="plist" id="mudan"></ul>
       </section>
     </div>
@@ -162,6 +169,12 @@ const 和風 = (key) => { const d = 日から(key); return (d.getMonth() + 1) + 
 const 種類クラス = { '有給休暇': 'k-yuukyuu', '季節休み': 'k-kisetsu', '体調不良': 'k-taichou' };
 const エラー文 = (e) => esc((e && e.message) || e);
 const URLの = (名) => { try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; } };
+
+// 休みを入れる画面へ（2026-10-10 ユーザーの指示）。プルダウンで選んだ人とこの日を渡す
+$('leaveAdd').addEventListener('click', () => {
+  const id = $('mudanSel').value;
+  location.href = 'yasumi-admin.html?from=asa&tab=add&day=' + encodeURIComponent(D.date) + (id ? '&member=' + encodeURIComponent(id) : '');
+});
 
 // ===== ログイン =====
 (async () => {
@@ -250,6 +263,9 @@ function 描く() {
       '<span class="nm">' + esc(l.name) + '</span>' +
       (l.state === '申請中' ? '<span class="waittag">了承待ち</span>' : '') +
       (l.reason ? '<span class="sub">' + esc(l.reason) + '</span>' : '') +
+      // その人の休みを決めるところへ（2026-10-10 ユーザーの指示）。休みをまとめる画面が ?member=&day= を見て、その人だけを出す
+      '<a class="decide-link end' + (l.state === '申請中' ? ' wait' : '') + '" href="yasumi-admin.html?from=asa&member=' + encodeURIComponent(l.memberId) +
+        '&day=' + encodeURIComponent(D.date) + '">' + (l.state === '申請中' ? '了承・却下を決める' : '決める') + '</a>' +
     '</li>').join('') : '<li><p class="none">いません。</p></li>';
 
   // 無断欠席

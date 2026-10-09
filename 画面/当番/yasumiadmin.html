@@ -22,6 +22,11 @@ header.appbar.yasumi { background: var(--ink); }
 .state.s-shounin { border-color: var(--care); color: var(--care); background: var(--care-soft); }
 .state.s-kyakka { border-color: var(--danger); color: var(--danger); background: var(--danger-soft); }
 .state.s-torikeshi { color: var(--muted); }
+/* 朝の欠席確認から1人を決めに来たとき（2026-10-10） */
+.person-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; margin-bottom: 12px;
+  border-left: 4px solid var(--accent); background: var(--accent-soft); }
+.yasumi-grid tr.hit td { background: var(--warning-soft); }
+.yasumi-grid tr.hit td:first-child { box-shadow: inset 4px 0 0 var(--warning); }
 
 table.yasumi-grid td { vertical-align: middle; }
 table.yasumi-grid td.acts { white-space: nowrap; }
@@ -146,6 +151,7 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
       </div>
     </div>
 
+    <div id="backAsa"></div>
     <div class="tabs" role="tablist">
       <button type="button" class="active" data-tab="apply">申し込み</button>
       <button type="button" data-tab="cal">カレンダー</button>
@@ -166,6 +172,7 @@ td.nokori.ng { color: var(--danger); font-weight: 700; }
         <div class="row tight" style="margin-bottom:12px;">
           <label class="inline"><input type="checkbox" id="onlyWaiting" checked> 了承待ちだけ出す</label>
         </div>
+        <div id="personBar"></div>
         <div id="applyMsg"></div>
         <div class="grid-wrap">
           <table class="yasumi-grid" id="applyTable"></table>
@@ -473,6 +480,7 @@ const 和風 = (key) => {
     const all = await call('yasumiLoadAll', TOKEN, null);
     $('app').style.display = 'block';
     await 読み直す(null, all);
+    朝から来たときの用意();
   } catch (e) {
     案内(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : '開けませんでした：' + ((e && e.message) || e) + '。');
   }
@@ -527,18 +535,61 @@ $('yearSelect').addEventListener('change', async () => {
 // ===== ① 申し込み =====
 $('onlyWaiting').addEventListener('change', 申し込みを出す);
 
+/*
+  朝の欠席確認から1人を決めに来たとき（2026-10-10 ユーザーの指示）。URL の ?member=部員ID&day=日付 を見て、
+  申し込みをその人の分だけにし、その日にかかる休みの行を目立たせる。了承済みも直せるように、待ちだけの絞りはかけない。
+*/
+const 朝から = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new Map(); } })();
+let 個人 = 朝から.get('member') && 朝から.get('tab') !== 'add' ? { id: 朝から.get('member'), day: 朝から.get('day') || '' } : null;
+
+// 朝の欠席確認から来たとき：戻るリンク・休みを入れるタブ（人と日を入れておく）・その人の行を見せる（2026-10-10）
+function 朝から来たときの用意() {
+  if (朝から.get('from') !== 'asa') return;
+  const 日 = 朝から.get('day') || '';
+  const 戻り先 = 'asa.html' + (/^\d{4}-\d{2}-\d{2}$/.test(日) ? '?date=' + encodeURIComponent(日) : '');
+  $('backAsa').innerHTML = '<div class="person-bar" style="border-left-color:var(--ink);background:var(--paper-3);">' +
+    '<a class="secondary small" href="' + 戻り先 + '" style="text-decoration:none;">‹ 朝の欠席確認へ戻る</a>' +
+    (日 ? '<span class="muted">' + 和風(日) + 'の確認から開きました</span>' : '') + '</div>';
+  if (朝から.get('tab') === 'add') {
+    const b = document.querySelector('.tabs [data-tab="add"]');
+    if (b) b.click();
+    if (朝から.get('member')) $('addMember').value = 朝から.get('member');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(日)) { $('addFrom').value = 日; $('addTo').value = 日; }
+    $('tab-add').scrollIntoView({ block: 'start' });
+    return;
+  }
+  const 当たり = 個人 && document.querySelector('#applyTable tr.hit');
+  if (当たり) 当たり.scrollIntoView({ block: 'center' });
+}
+$('personBar').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-allpeople]')) return;
+  個人 = null;
+  try { history.replaceState(null, '', location.pathname); } catch (err) { /* 消せなくても表示は戻る */ }
+  申し込みを出す();
+});
+
 function 申し込みを出す() {
-  const 待ちだけ = $('onlyWaiting').checked;
-  const 並び = D.leaves.filter((l) => !待ちだけ || l.state === '申請中');
+  const 待ちだけ = $('onlyWaiting').checked && !個人;
+  const 並び = D.leaves.filter((l) => (個人 ? l.memberId === 個人.id : (!待ちだけ || l.state === '申請中')));
+  const その日 = (l) => 個人 && 個人.day && l.from <= 個人.day && 個人.day <= l.to;
+  if (個人) {
+    const m = (D.members || []).find((x) => x.id === 個人.id);
+    const 名 = m ? m.name : (並び[0] ? 並び[0].name : 'この人');
+    $('personBar').innerHTML = '<div class="person-bar"><span><b>' + esc(名) + '</b> さんの休みだけ出しています' +
+      (個人.day ? '（' + 和風(個人.day) + 'にかかる休みに色）' : '') + '</span>' +
+      '<button type="button" class="secondary small" data-allpeople="1">全員の申し込みを出す</button></div>';
+  } else {
+    $('personBar').innerHTML = '';
+  }
   if (!並び.length) {
     $('applyTable').innerHTML = '<tbody><tr><td class="muted">' +
-      (待ちだけ ? '了承待ちはありません。' : 'この年度の休みはまだありません。') + '</td></tr></tbody>';
+      (個人 ? 'この年度に、この人の休みはありません。' : 待ちだけ ? '了承待ちはありません。' : 'この年度の休みはまだありません。') + '</td></tr></tbody>';
     return;
   }
   $('applyTable').innerHTML =
     '<thead><tr><th>来た順</th><th>名前</th><th>休み</th><th>いつ</th><th>日数</th><th>今</th><th>ひとこと</th><th>副将メモ</th><th>する</th></tr></thead><tbody>' +
     並び.map((l, i) =>
-      '<tr>' +
+      '<tr' + (その日(l) ? ' class="hit"' : '') + '>' +
         '<td class="no-col">' + (i + 1) + '</td>' +
         '<td>' + esc(l.name) + '</td>' +
         '<td>' + esc(l.kind) + '</td>' +
@@ -644,7 +695,7 @@ $('addBtn').addEventListener('click', async () => {
     });
     $('addReason').value = '';
     await 読み直す(D.year);
-    知らせ('addMsg', 'success', '入れました（' + r.days + '日ぶん）。その場で承認になっています。');
+    知らせ('addMsg', 'success', '入れました（' + r.days + '日ぶん）。その場で承認になっています。' + (朝から.get('from') === 'asa' ? '上の「朝の欠席確認へ戻る」で戻れます。' : ''));
   } catch (e) {
     知らせ('addMsg', 'error', ((e && e.message) || e));
   }
