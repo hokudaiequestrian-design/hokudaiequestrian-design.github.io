@@ -1205,21 +1205,47 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 /*
   朝練の馬配（2026-10-21 ユーザーの指示：確定したらみんなのマイページのいちばん上に）。
   副将が朝の欠席確認の画面で確定した今日・明日のぶん。名前を選ぶ前から出す。
-  ホワイトボードと同じく 前半（6:00〜）と 後半（7:00〜）の2列。自分の名前は塗って目立たせ、上に1行で「あなたは〜」。
+  同じ日に「部室のホワイトボードに寄せて」（写真あり）：アルミの枠の白いボード、
+  6:00〜・7:00〜 の2列に馬と人のマグネット、右に出席の欄、下に掃除。自分は黄色いマグネット。
+  ボードは物なので、暗い表示でも白いまま。
 */
-.me-uh { margin: 0 0 var(--space-md); border: 2px solid var(--accent); border-radius: var(--radius-card); overflow: hidden; background: var(--paper); }
-.me-uh + .me-uh { margin-top: calc(-1 * var(--space-xs)); }
-.me-uh .u-head { margin: 0; padding: var(--space-xs) var(--space-md); background: var(--accent); color: #fff; font-weight: 700; font-size: var(--text-base); display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: baseline; }
-.me-uh .u-head .d { font-family: var(--font-num); }
-.me-uh .u-me { margin: 0; padding: var(--space-xs) var(--space-md); background: var(--accent-soft); font-weight: 700; border-bottom: 1px solid var(--rule); }
-.me-uh .u-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-md); padding: var(--space-2xs) var(--space-md) var(--space-xs); }
-.me-uh .u-col h3 { margin: var(--space-2xs) 0; font-size: var(--text-sm); color: var(--muted); font-family: var(--font-num); }
-.me-uh .u-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-sm); padding: 4px 0; border-top: 1px solid var(--rule); }
-.me-uh .u-row .h { font-weight: 700; min-width: 7em; }
-.me-uh .u-row .p { font-size: var(--text-base); }
-.me-uh .u-row .p .k { font-family: var(--font-num); font-size: var(--text-xs); color: var(--muted); margin-right: 2px; }
-.me-uh .u-row .p.mine { background: var(--accent); color: #fff; border-radius: 4px; padding: 0 4px; font-weight: 700; }
-.me-uh .u-row .p.mine .k { color: #fff; }
+.me-uh { margin: 0 0 var(--space-md); }
+.me-uh .wb-board {
+  --wb-ink: #1d1d1f; --wb-marker: #222; --wb-yellow: #f4e626;
+  position: relative; padding: 14px 20px 18px; background: #fbfbf7; color: var(--wb-ink);
+  border: 9px solid #a9adb1; border-top-color: #c3c6c9; border-bottom-color: #8d9195; border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #7f8387, inset 0 2px 10px rgba(0, 0, 0, .06), 0 3px 10px rgba(0, 0, 0, .18);
+}
+.me-uh .wb-hand { font-family: "Klee One", "Yu Gothic", var(--font-body); font-weight: 600; color: var(--wb-marker); }
+.me-uh .wb-top { display: flex; align-items: baseline; gap: var(--space-sm); flex-wrap: wrap; }
+.me-uh .wb-date { font-size: 1.9rem; letter-spacing: .02em; }
+.me-uh .wb-when { font-size: var(--text-sm); color: #666; }
+.me-uh .wb-me { margin: 6px 0 0; display: inline-block; padding: 2px 10px; background: var(--wb-yellow); font-weight: 700; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); }
+.me-uh .wb-main { display: grid; grid-template-columns: 1fr 1fr minmax(15em, .9fr); gap: 0 var(--space-lg); margin-top: 6px; }
+.me-uh .wb-time { font-size: 1.4rem; margin: 4px 0 8px; }
+.me-uh .wb-none { margin: 0; color: #999; }
+.me-uh .wb-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; flex-wrap: wrap; }
+.me-uh .wb-riders { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.me-uh .wb-side { border-left: 2px solid #d9d9d4; padding-left: var(--space-md); }
+.me-uh .wb-srow { display: flex; align-items: center; gap: 8px; min-height: 2.2em; flex-wrap: wrap; }
+.me-uh .wb-lab { font-size: 1.15rem; min-width: 4.2em; }
+.me-uh .wb-mags { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.me-uh .wb-bottom { margin-top: var(--space-sm); padding-top: var(--space-xs); border-top: 2px dashed #e0e0da; display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-xl); }
+.me-uh .wb-souji { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
+.me-uh .wb-names { font-size: 1.3rem; }
+.me-uh .wb-names .me { background: var(--wb-yellow); padding: 0 4px; }
+
+/* マグネット：印字したラベルを貼った小さな板 */
+.me-uh .mg {
+  display: inline-block; padding: 1px 7px; background: #fff; color: #111; white-space: nowrap;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif; font-weight: 600; font-size: var(--text-sm); line-height: 1.5;
+  border: 1px solid #333; border-bottom-width: 3px; border-radius: 1px;
+  box-shadow: 1px 2px 2px rgba(0, 0, 0, .22); transform: rotate(var(--tilt, 0deg));
+}
+.me-uh .mg.horse { min-width: 8.5em; padding: 1px 10px; letter-spacing: .08em; text-align: center; font-size: var(--text-xs); }
+.me-uh .mg.sm { font-size: var(--text-xs); padding: 0 5px; }
+.me-uh .mg.horse.sm { min-width: 0; }
+.me-uh .mg.mine { background: var(--wb-yellow); border-color: #111; font-weight: 800; }
 
 /* 一限がある曜日（2026-10-21）。押すと入れ外し */
 .me-ichigen { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
@@ -2120,22 +2146,58 @@ const API = {
     サーバは確定した今日・明日のぶんを返す。版が同じあいだは前の返事を使い回すので、
     日付が変わったあとに前の日のぶんが残らないよう、ここで自分の今日より前を落とす。
   */
+  /*
+    2026-10-21 ユーザーの指示：部室のホワイトボードに寄せる（写真あり）。
+    白いボードに 6:00〜・7:00〜 の2列、馬と人はマグネット（左から1鞍目・2鞍目…）、右に出席の欄、下に掃除。
+    日付・時間・欄の名前はマーカーの手書き風（Klee One）、マグネットは印字したラベル風（明朝）。
+    自分の名前と乗る馬は黄色いマグネット（ボードの黄色いテープの感じ）。
+  */
+  const 傾き = ['-1.2deg', '0.6deg', '-0.4deg', '1deg', '-0.8deg', '0.3deg', '1.3deg'];
+  function マグネット(文字, cls, i) {
+    return '<span class="mg' + (cls ? ' ' + cls : '') + '" style="--tilt:' + 傾き[i % 傾き.length] + '">' + esc(文字) + '</span>';
+  }
+  function 手書きの字を読む() {
+    if (document.getElementById('wbFont')) return;
+    const l = document.createElement('link');
+    l.id = 'wbFont';
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap';
+    document.head.appendChild(l);
+  }
+  function ボードの日付(key) {
+    const d = new Date(key + 'T00:00:00');
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日（' + '日月火水木金土'.charAt(d.getDay()) + '）';
+  }
   function 馬配の見た目(x, 名, 今日) {
     let 私 = '';
-    const 列 = [['前', '前半 6:00〜'], ['後', '後半 7:00〜']].map((k) => {
+    let n = 0;
+    const 列 = [['前', '6:00〜'], ['後', '7:00〜']].map((k) => {
       const 行 = (x[k[0]] || []).map((r) => {
-        const 人 = r.人.map((n, i) => {
-          if (名 && n === 名 && !私) 私 = r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';
-          return '<span class="p' + (名 && n === 名 ? ' mine' : '') + '"><span class="k">' + (i + 1) + '</span>' + esc(n) + '</span>';
+        const 乗る = 名 && r.人.indexOf(名) >= 0;
+        const 人 = r.人.map((p, i) => {
+          if (名 && p === 名 && !私) 私 = r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';
+          return マグネット(p, 名 && p === 名 ? 'mine' : '', n++);
         }).join('');
-        return '<div class="u-row"><span class="h">' + esc(r.馬) + '</span>' + 人 + '</div>';
+        return '<div class="wb-row">' + マグネット(r.馬, 'horse' + (乗る ? ' mine' : ''), n++) + '<span class="wb-riders">' + 人 + '</span></div>';
       }).join('');
-      return 行 ? '<div class="u-col"><h3>' + k[1] + '</h3>' + 行 + '</div>' : '';
+      return '<div class="wb-col"><div class="wb-hand wb-time">' + k[1] + '</div>' + (行 || '<p class="wb-none wb-hand">なし</p>') + '</div>';
     }).join('');
+    const 出席 = (x.出席 || []).map((s) =>
+      '<div class="wb-srow"><span class="wb-hand wb-lab">' + esc(s.欄) + '</span><span class="wb-mags">' +
+      s.人.map((p) => マグネット(p, 名 && p === 名 ? 'mine sm' : 'sm', n++)).join('') + '</span></div>').join('');
+    const 掃除 = (x.掃除 || []).length
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">掃除</span><span class="wb-hand wb-names">' + x.掃除.map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : esc(p))).join('・') + '</span></div>' : '';
+    const 休む馬 = (x.休む馬 || []).length
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">休む馬</span><span class="wb-mags">' + x.休む馬.map((h) => マグネット(h, 'horse sm', n++)).join('') + '</span></div>' : '';
     return '<section class="me-uh" aria-label="朝練の馬配">' +
-      '<p class="u-head">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練の馬配<span class="d">' + esc(和風(x.date)) + '</span></p>' +
-      (名 ? '<p class="u-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは入っていません') + '</p>' : '') +
-      '<div class="u-cols">' + 列 + '</div></section>';
+      '<div class="wb-board">' +
+      '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
+      '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span></div>' +
+      (名 ? '<p class="wb-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは乗る馬に入っていません') + '</p>' : '') +
+      '<div class="wb-main">' + 列 +
+      (出席 ? '<div class="wb-side"><div class="wb-hand wb-time">出席</div>' + 出席 + '</div>' : '') + '</div>' +
+      (掃除 || 休む馬 ? '<div class="wb-bottom">' + 掃除 + 休む馬 + '</div>' : '') +
+      '</div></section>';
   }
 
   function 馬配を出す(並び, 名) {
@@ -2149,6 +2211,7 @@ const API = {
     }
     const 今日 = 文字に(new Date());
     const html = (並び || []).filter((x) => x.date >= 今日).map((x) => 馬配の見た目(x, 名, 今日)).join('');
+    if (html) 手書きの字を読む();
     if (箱.innerHTML !== html) 箱.innerHTML = html;
   }
 

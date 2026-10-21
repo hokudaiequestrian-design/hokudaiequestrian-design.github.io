@@ -434,22 +434,58 @@
     サーバは確定した今日・明日のぶんを返す。版が同じあいだは前の返事を使い回すので、
     日付が変わったあとに前の日のぶんが残らないよう、ここで自分の今日より前を落とす。
   */
+  /*
+    2026-10-21 ユーザーの指示：部室のホワイトボードに寄せる（写真あり）。
+    白いボードに 6:00〜・7:00〜 の2列、馬と人はマグネット（左から1鞍目・2鞍目…）、右に出席の欄、下に掃除。
+    日付・時間・欄の名前はマーカーの手書き風（Klee One）、マグネットは印字したラベル風（明朝）。
+    自分の名前と乗る馬は黄色いマグネット（ボードの黄色いテープの感じ）。
+  */
+  const 傾き = ['-1.2deg', '0.6deg', '-0.4deg', '1deg', '-0.8deg', '0.3deg', '1.3deg'];
+  function マグネット(文字, cls, i) {
+    return '<span class="mg' + (cls ? ' ' + cls : '') + '" style="--tilt:' + 傾き[i % 傾き.length] + '">' + esc(文字) + '</span>';
+  }
+  function 手書きの字を読む() {
+    if (document.getElementById('wbFont')) return;
+    const l = document.createElement('link');
+    l.id = 'wbFont';
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap';
+    document.head.appendChild(l);
+  }
+  function ボードの日付(key) {
+    const d = new Date(key + 'T00:00:00');
+    return (d.getMonth() + 1) + '月' + d.getDate() + '日（' + '日月火水木金土'.charAt(d.getDay()) + '）';
+  }
   function 馬配の見た目(x, 名, 今日) {
     let 私 = '';
-    const 列 = [['前', '前半 6:00〜'], ['後', '後半 7:00〜']].map((k) => {
+    let n = 0;
+    const 列 = [['前', '6:00〜'], ['後', '7:00〜']].map((k) => {
       const 行 = (x[k[0]] || []).map((r) => {
-        const 人 = r.人.map((n, i) => {
-          if (名 && n === 名 && !私) 私 = r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';
-          return '<span class="p' + (名 && n === 名 ? ' mine' : '') + '"><span class="k">' + (i + 1) + '</span>' + esc(n) + '</span>';
+        const 乗る = 名 && r.人.indexOf(名) >= 0;
+        const 人 = r.人.map((p, i) => {
+          if (名 && p === 名 && !私) 私 = r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';
+          return マグネット(p, 名 && p === 名 ? 'mine' : '', n++);
         }).join('');
-        return '<div class="u-row"><span class="h">' + esc(r.馬) + '</span>' + 人 + '</div>';
+        return '<div class="wb-row">' + マグネット(r.馬, 'horse' + (乗る ? ' mine' : ''), n++) + '<span class="wb-riders">' + 人 + '</span></div>';
       }).join('');
-      return 行 ? '<div class="u-col"><h3>' + k[1] + '</h3>' + 行 + '</div>' : '';
+      return '<div class="wb-col"><div class="wb-hand wb-time">' + k[1] + '</div>' + (行 || '<p class="wb-none wb-hand">なし</p>') + '</div>';
     }).join('');
+    const 出席 = (x.出席 || []).map((s) =>
+      '<div class="wb-srow"><span class="wb-hand wb-lab">' + esc(s.欄) + '</span><span class="wb-mags">' +
+      s.人.map((p) => マグネット(p, 名 && p === 名 ? 'mine sm' : 'sm', n++)).join('') + '</span></div>').join('');
+    const 掃除 = (x.掃除 || []).length
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">掃除</span><span class="wb-hand wb-names">' + x.掃除.map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : esc(p))).join('・') + '</span></div>' : '';
+    const 休む馬 = (x.休む馬 || []).length
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">休む馬</span><span class="wb-mags">' + x.休む馬.map((h) => マグネット(h, 'horse sm', n++)).join('') + '</span></div>' : '';
     return '<section class="me-uh" aria-label="朝練の馬配">' +
-      '<p class="u-head">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練の馬配<span class="d">' + esc(和風(x.date)) + '</span></p>' +
-      (名 ? '<p class="u-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは入っていません') + '</p>' : '') +
-      '<div class="u-cols">' + 列 + '</div></section>';
+      '<div class="wb-board">' +
+      '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
+      '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span></div>' +
+      (名 ? '<p class="wb-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは乗る馬に入っていません') + '</p>' : '') +
+      '<div class="wb-main">' + 列 +
+      (出席 ? '<div class="wb-side"><div class="wb-hand wb-time">出席</div>' + 出席 + '</div>' : '') + '</div>' +
+      (掃除 || 休む馬 ? '<div class="wb-bottom">' + 掃除 + 休む馬 + '</div>' : '') +
+      '</div></section>';
   }
 
   function 馬配を出す(並び, 名) {
@@ -463,6 +499,7 @@
     }
     const 今日 = 文字に(new Date());
     const html = (並び || []).filter((x) => x.date >= 今日).map((x) => 馬配の見た目(x, 名, 今日)).join('');
+    if (html) 手書きの字を読む();
     if (箱.innerHTML !== html) 箱.innerHTML = html;
   }
 
