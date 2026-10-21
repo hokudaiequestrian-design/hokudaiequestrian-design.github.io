@@ -377,6 +377,12 @@
     // チーフの名前は出さない（2026-09-13にユーザーが決めた。自分のページに要らない）
     const 馬 = ((t && t.手入れ) || []).map((p) => p.horse);
     if (馬.length) 事実.push('<div>サブの馬　' + esc(馬.join('／')) + '</div>');
+    // 一限がある曜日（2026-10-21）。押して入れ外しする。朝練の馬配で前半の馬に入れるのに使う
+    if (t && t.me) {
+      const 一限 = t.一限 || [];
+      事実.push('<div class="me-ichigen"><span>一限がある曜日</span>' + ['月', '火', '水', '木', '金', '土'].map((w) =>
+        '<button type="button" data-ichigen="' + w + '" aria-pressed="' + (一限.indexOf(w) >= 0) + '">' + w + '</button>').join('') + '</div>');
+    }
     if (t && t.有給) {
       事実.push('<div>有給の残り　<b>' + esc(t.有給.残り) + '</b> 日' +
         (t.有給.待ち ? '<span class="tag" style="margin-left:8px;">了承待ち ' + esc(t.有給.待ち) + '日</span>' : '') + '</div>');
@@ -423,6 +429,66 @@
     Object.keys(残り).forEach((k) => { 残り[k].remove(); delete 描いた[k]; });
   }
 
+  /*
+    朝練の馬配（2026-10-21 ユーザーの指示：確定したら、みんなのマイページのいちばん上に）。
+    サーバは確定した今日・明日のぶんを返す。版が同じあいだは前の返事を使い回すので、
+    日付が変わったあとに前の日のぶんが残らないよう、ここで自分の今日より前を落とす。
+  */
+  function 馬配の見た目(x, 名, 今日) {
+    let 私 = '';
+    const 列 = [['前', '前半 6:00〜'], ['後', '後半 7:00〜']].map((k) => {
+      const 行 = (x[k[0]] || []).map((r) => {
+        const 人 = r.人.map((n, i) => {
+          if (名 && n === 名 && !私) 私 = r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';
+          return '<span class="p' + (名 && n === 名 ? ' mine' : '') + '"><span class="k">' + (i + 1) + '</span>' + esc(n) + '</span>';
+        }).join('');
+        return '<div class="u-row"><span class="h">' + esc(r.馬) + '</span>' + 人 + '</div>';
+      }).join('');
+      return 行 ? '<div class="u-col"><h3>' + k[1] + '</h3>' + 行 + '</div>' : '';
+    }).join('');
+    return '<section class="me-uh" aria-label="朝練の馬配">' +
+      '<p class="u-head">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練の馬配<span class="d">' + esc(和風(x.date)) + '</span></p>' +
+      (名 ? '<p class="u-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは入っていません') + '</p>' : '') +
+      '<div class="u-cols">' + 列 + '</div></section>';
+  }
+
+  function 馬配を出す(並び, 名) {
+    let 箱 = $('meUmahai');
+    if (!箱) {
+      const 先頭 = document.querySelector('main .me-pick');
+      if (!先頭 || !先頭.parentNode) return;
+      箱 = document.createElement('div');
+      箱.id = 'meUmahai';
+      先頭.parentNode.insertBefore(箱, 先頭.parentNode.firstChild);   // ページのいちばん上
+    }
+    const 今日 = 文字に(new Date());
+    const html = (並び || []).filter((x) => x.date >= 今日).map((x) => 馬配の見た目(x, 名, 今日)).join('');
+    if (箱.innerHTML !== html) 箱.innerHTML = html;
+  }
+
+  /*
+    一限がある曜日を押したとき（2026-10-21）。押した見た目はすぐ変え、保存できたら読み直す。
+  */
+  let 今の = { 名: '', t: null };
+  function 一限を押せるようにする() {
+    const 本体 = $('meBody');
+    if (!本体) return;
+    本体.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-ichigen]');
+      if (!b || !今の.t || !今の.t.me) return;
+      b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+      const 曜日 = Array.prototype.filter.call(本体.querySelectorAll('[data-ichigen]'), (x) => x.getAttribute('aria-pressed') === 'true')
+        .map((x) => x.dataset.ichigen);
+      try {
+        await 呼ぶ(API.当番, 'saveFirstPeriod', [今の.t.me.id, 曜日]);
+        出す(今の.名);
+      } catch (err) {
+        alert('一限の曜日を保存できませんでした：' + err.message);
+        出す(今の.名);
+      }
+    });
+  }
+
   // 名簿を選べるようにする。名簿は当番側のどの getMyPage でも一緒に返ってくる。
   function 名簿を並べる(sel, members, 名) {
     if (!members || !members.length) return;
@@ -438,7 +504,7 @@
 
     // 前に取ってあるぶんを先に出す。通信を待たずに読み始められる。
     const 前 = 取り出す(鍵(名));
-    if (前) 描く(前.t, 前.j, [], true);
+    if (前) { 描く(前.t, 前.j, [], true); 馬配を出す(前.t && 前.t.馬配, 名); }
     else $('meBody').innerHTML = '<p class="me-msg">読み込んでいます…</p>';
 
     let t = null, j = null;
@@ -481,6 +547,8 @@
       if (!j) j = 前.j;
     }
     描く(t, j, 困った, false, 追いつかず);
+    今の = { 名: 名, t: t };
+    if (t) 馬配を出す(t.馬配, 名);
   }
 
   /**
@@ -493,6 +561,7 @@
     const sel = $('meSelect');
     if (!sel) return;
     sel.addEventListener('change', () => 出す(sel.value));
+    一限を押せるようにする();
     送り待ちを送る();   // 出欠の画面で、届く前に閉じられたぶん
 
     const 名 = 覚えた名前();
@@ -512,6 +581,7 @@
     try {
       const r = await 呼ぶ(API.当番, 'getMyPage', ['']);
       名簿を並べる(sel, r.members, '');
+      馬配を出す(r.馬配, '');
       保存する('mypage:名簿', r.members || []);
     } catch (e) {
       if (sel.options.length <= 1) {

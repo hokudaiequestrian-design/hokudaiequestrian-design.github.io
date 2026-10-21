@@ -166,3 +166,27 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .fk-on { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); flex-wrap: wrap; font-size: var(--text-sm); }
 .fk-out { background: var(--paper-2); color: var(--accent); border-color: var(--accent); min-height: 36px; padding: 4px 14px; font-size: var(--text-sm); }
 .fk-out:hover { background: var(--accent-soft); }
+
+/*
+  朝練の馬配（2026-10-21 ユーザーの指示：確定したらみんなのマイページのいちばん上に）。
+  副将が朝の欠席確認の画面で確定した今日・明日のぶん。名前を選ぶ前から出す。
+  ホワイトボードと同じく 前半（6:00〜）と 後半（7:00〜）の2列。自分の名前は塗って目立たせ、上に1行で「あなたは〜」。
+*/
+.me-uh { margin: 0 0 var(--space-md); border: 2px solid var(--accent); border-radius: var(--radius-card); overflow: hidden; background: var(--paper); }
+.me-uh + .me-uh { margin-top: calc(-1 * var(--space-xs)); }
+.me-uh .u-head { margin: 0; padding: var(--space-xs) var(--space-md); background: var(--accent); color: #fff; font-weight: 700; font-size: var(--text-base); display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: baseline; }
+.me-uh .u-head .d { font-family: var(--font-num); }
+.me-uh .u-me { margin: 0; padding: var(--space-xs) var(--space-md); background: var(--accent-soft); font-weight: 700; border-bottom: 1px solid var(--rule); }
+.me-uh .u-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-md); padding: var(--space-2xs) var(--space-md) var(--space-xs); }
+.me-uh .u-col h3 { margin: var(--space-2xs) 0; font-size: var(--text-sm); color: var(--muted); font-family: var(--font-num); }
+.me-uh .u-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-sm); padding: 4px 0; border-top: 1px solid var(--rule); }
+.me-uh .u-row .h { font-weight: 700; min-width: 7em; }
+.me-uh .u-row .p { font-size: var(--text-base); }
+.me-uh .u-row .p .k { font-family: var(--font-num); font-size: var(--text-xs); color: var(--muted); margin-right: 2px; }
+.me-uh .u-row .p.mine { background: var(--accent); color: #fff; border-radius: 4px; padding: 0 4px; font-weight: 700; }
+.me-uh .u-row .p.mine .k { color: #fff; }
+
+/* 一限がある曜日（2026-10-21）。押すと入れ外し */
+.me-ichigen { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
+.me-ichigen button { min-height: 36px; min-width: 40px; padding: 2px 10px; font-size: var(--text-sm); background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); }
+.me-ichigen button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
