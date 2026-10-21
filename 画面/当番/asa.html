@@ -962,7 +962,7 @@ $('uhPeople').addEventListener('change', async (e) => {
       if (r.date === D.date) U = r;
       if (c.checked && 編.馬.some((x) => x.人.indexOf(id) >= 0)) { 編.馬.forEach((x) => { x.人 = x.人.filter((y) => y !== id); }); 直した(); }
       else 馬配を描く();
-      馬配の知らせ(esc(人の名(id)) + ' を' + (c.checked ? '毎日乗らない人にしました（自動で組むときに入れません。来ていればみんなのボードの「鞍なし」に出ます）。' : '毎日乗らない人から外しました。'));
+      馬配の知らせ(esc(人の名(id)) + ' を' + (c.checked ? '毎日乗らない人にしました（自動で組むときに入れません。みんなのボードにも出しません）。' : '毎日乗らない人から外しました。'));
     } catch (err) { c.checked = !c.checked; 馬配の知らせ(エラー文(err), 'error'); }
     return;
   }
