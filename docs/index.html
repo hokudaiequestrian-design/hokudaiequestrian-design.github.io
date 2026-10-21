@@ -1233,6 +1233,7 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-uh .wb-bottom { margin-top: var(--space-sm); padding-top: var(--space-xs); border-top: 2px dashed #e0e0da; display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-xl); }
 .me-uh .wb-souji { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
 .me-uh .wb-names { font-size: 1.3rem; }
+.me-uh .wb-kyu { display: inline-flex; align-items: center; gap: 4px; margin-right: 12px; }   /* 馬休コーナー：馬と手入れの人（2026-10-21） */
 .me-uh .wb-place { font-size: 1.3rem; padding: 0 6px; border-bottom: 2px solid #c9c9c2; }   /* 掃除場所（2026-10-21） */
 .me-uh .wb-names .me { background: var(--wb-yellow); padding: 0 4px; }
 
@@ -1378,6 +1379,7 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 
   /* ===== メニュー・保存の帯：ばねで出る ===== */
   .menu-list { animation: mo-menu 320ms var(--ease-spring); transform-origin: top right; }
+  .uh-pop { animation: mo-menu 300ms var(--ease-spring); transform-origin: top left; }   /* 馬配の学年ごとの選ぶ欄 */
   @keyframes mo-menu { from { opacity: 0; transform: translateY(-6px) scale(0.94); } }
   .saving-bar.on { animation: mo-bar 380ms var(--ease-spring); }
   @keyframes mo-bar { from { opacity: 0; transform: translateY(18px); } }
@@ -2333,8 +2335,12 @@ const API = {
     const 掃除 = ((x.掃除 || []).length || x.掃除場所)
       ? '<div class="wb-souji"><span class="wb-hand wb-lab">掃除</span>' +
         (x.掃除場所 ? '<span class="wb-hand wb-place">' + esc(x.掃除場所) + '</span>' : '') + '<span class="wb-hand wb-names">' + (x.掃除 || []).map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : esc(p))).join('・') + '</span></div>' : '';
-    const 休む馬 = (x.休む馬 || []).length
-      ? '<div class="wb-souji"><span class="wb-hand wb-lab">馬休</span><span class="wb-mags">' + x.休む馬.map((h) => マグネット(h, 'horse sm', n++)).join('') + '</span></div>' : '';
+    // 馬休コーナー（2026-10-21）：馬と手入れの人。古い返り（馬休が無い）は馬だけ
+    const 馬休 = x.馬休 || (x.休む馬 || []).map((h) => ({ 馬: h, 人: '' }));
+    馬休.forEach((k) => { if (名 && k.人 === 名) 私 += (私 ? '、' : '') + '馬休の ' + k.馬 + ' の手入れ'; });
+    const 休む馬 = 馬休.length
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">馬休</span><span class="wb-mags">' + 馬休.map((k) => '<span class="wb-kyu">' + マグネット(k.馬, 'horse sm', n++) +
+          (k.人 ? マグネット(k.人, 名 && k.人 === 名 ? 'mine sm' : 一限.indexOf(k.人) >= 0 ? 'ichigen sm' : 'sm', n++) : '') + '</span>').join('') + '</span></div>' : '';
     return '<section class="me-uh" aria-label="朝練の馬配">' +
       '<div class="wb-board">' +
       '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +

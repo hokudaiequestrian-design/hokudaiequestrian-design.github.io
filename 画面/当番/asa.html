@@ -113,7 +113,40 @@ header.appbar.asa { background: var(--ink); }
 .uh-riders { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; flex: 1 1 auto; }
 .uh-tools { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-left: auto; }
 .uh-tools button { min-height: 30px; padding: 0 8px; font-size: var(--text-xs); }
-.uh-add { width: auto; min-width: 6.5rem; max-width: 100%; min-height: 30px; padding: 0 6px; font-size: var(--text-xs); }
+.uh-add { min-width: 0; min-height: 30px; padding: 0 10px; font-size: var(--text-xs); }
+/*
+  学年ごと4列の選ぶ欄（2026-10-21 ユーザーの指示：プルダウンは学年ごと4列くらいに。編集画面のほかのプルダウンも）。
+  押したボタンの近くに浮かぶ。グループ（まだ入っていない人 など）ごとに見出し、その下に 1年・2年・3年・4年〜 の列。
+*/
+.uh-pop {
+  position: fixed; z-index: var(--z-modal); width: min(680px, calc(100vw - 16px)); max-height: min(70vh, 560px); overflow: auto;
+  background: var(--paper-2); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); box-shadow: var(--shadow-lift);
+  padding: var(--space-xs) var(--space-sm) var(--space-sm);
+}
+.uh-pop .pt { margin: 0 0 var(--space-2xs); font-weight: 700; display: flex; align-items: center; gap: var(--space-xs); }
+.uh-pop .pt .icon-btn { margin-left: auto; }
+.uh-pop .top { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-bottom: var(--space-2xs); }
+.uh-pop .pg + .pg { margin-top: var(--space-xs); padding-top: var(--space-xs); border-top: 1px solid var(--rule); }
+.uh-pop .pg-t { margin: 0 0 2px; font-size: var(--text-sm); font-weight: 700; color: var(--accent-dark); }
+.uh-pop .pg-cols { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 var(--space-xs); }
+.uh-pop .pc-h { margin: 0; font-size: var(--text-xs); color: var(--muted); border-bottom: 1px solid var(--rule); }
+.uh-pop .pc { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.uh-pop .pi {
+  display: block; width: 100%; min-width: 0; min-height: 34px; margin: 0; padding: 2px 6px; text-align: left; white-space: normal;
+  background: transparent; color: var(--ink); border: 1px solid transparent; border-radius: 6px; font-weight: 700; font-size: var(--text-sm); line-height: 1.3;
+}
+.uh-pop .pi small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.uh-pop .pi:hover, .uh-pop .pi:focus-visible { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); }
+.uh-pop .pi.now { background: var(--accent-soft); border-color: var(--accent); }
+.uh-pop .none { color: var(--muted); font-size: var(--text-xs); padding: 2px 6px; }
+
+/* 馬休コーナー（2026-10-21：馬休の馬にも手入れがある。手入れの人を付ける） */
+.uh-kyu { margin-top: var(--space-sm); padding: 8px 10px; border: 2px solid #d9d9d4; border-radius: 3px; background: #f6f6f1; display: flex; flex-wrap: wrap; gap: 6px 22px; align-items: center; }
+.uh-kyu > .wb-hand { font-size: 1.25rem; margin-right: 2px; }
+.uh-kyu .kr { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.uh-kyu .kr button.secondary { min-height: 30px; padding: 0 8px; font-size: var(--text-xs); }
+.uh-wb .mg.kyu-none { background: transparent; border-style: dashed; color: #777; }
+.uh-wb div.mg.horse { cursor: default; }
 .uh-empty { color: #999; }
 .uh-wb .uh-empty { font-size: var(--text-sm); }
 
@@ -259,13 +292,13 @@ header.appbar.asa { background: var(--ink); }
       <ul class="uh-warns" id="uhWarns" hidden></ul>
       <div class="uh-wb" id="uhWb" hidden>
         <div class="uh-board" id="uhBoard"></div>
+        <div class="uh-kyu" id="uhKyu"></div>
         <div class="uh-souji" id="uhSouji"></div>
         <div class="uh-tray" id="uhTray"></div>
         <p class="uh-pickmsg" id="uhPick" aria-live="polite"></p>
       </div>
       <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
-      <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;"><b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。左の欄に<b>掃除場所</b>を打ち込めます（新しく組むと前の日の場所が入っています）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>馬休</b>の馬は下の「馬休」に並び、手入れの人は自動でその馬のチーフ（ほかの馬には乗せない＝鞍なし。足りないときだけ乗る）。手入れの人のマグネットを押すと選び直せます。<b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。左の欄に<b>掃除場所</b>を打ち込めます（新しく組むと前の日の場所が入っています）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -560,7 +593,7 @@ async function 馬配を読む(date, 直しを残す) {
     if (r.date !== D.date) return;   // 読んでいるあいだに日を変えた
     U = r;
     if (!直しを残す || !編) {
-      編 = U.中身 ? 複製(U.中身) : { 馬: [], 休む馬: [], 一限: U.一限.slice(), 乗らない: [], 掃除: [] };
+      編 = U.中身 ? 複製(U.中身) : { 馬: [], 休む馬: [], 馬休の人: {}, 一限: U.一限.slice(), 乗らない: [], 掃除: [] };
       選んだ人 = '';
       掃除の人数を選んだ = 0;
       馬配を変えた = false;
@@ -596,6 +629,7 @@ function 馬配の同じ時間に2頭() {
 }
 
 function 直した() {
+  選ぶ欄を閉じる(false);
   選んだ人 = '';   // 位置で覚えているので、並びが変わったら選び直し
   馬配を変えた = true;
   馬配の知らせ('');
@@ -639,7 +673,11 @@ function 注意を集める() {
   if (後半でない.length) 出.push('後半に乗っていない人が掃除に入っています：' + 名々(後半でない));
   if (編.馬.length && 後半.length && !(編.掃除 || []).length) 出.push('掃除がだれも入っていません');
   if ((編.掃除 || []).length && !String(編.掃除場所 || '').trim()) 出.push('掃除場所がまだ入っていません（掃除欄の左に打ち込むと、みんなのボードに出ます）');
-  const まだ = U.members.filter((m) => 乗れるか(m) && !回数[m.id]);
+  const 手入れなし = (編.休む馬 || []).filter((h) => !(編.馬休の人 || {})[h]).map((h) => (馬で(h) || {}).name).filter(Boolean);
+  if (手入れなし.length) 出.push('手入れの人がいない馬休の馬：' + 手入れなし.map(esc).join('・'));
+  const 手入れが休み = Object.keys(編.馬休の人 || {}).map((h) => 編.馬休の人[h]).filter((id) => U.出られない[id]);
+  if (手入れが休み.length) 出.push('馬休の手入れの人が休み・無断です：' + 名々(手入れが休み));
+  const まだ = U.members.filter((m) => 乗れるか(m) && !回数[m.id] && !馬配の手入れだけ(m.id));
   if (編.馬.length && まだ.length) 出.push('まだ入っていない人（' + まだ.length + '人）：' + 名々(まだ.map((m) => m.id)));
   return 出;
 }
@@ -691,31 +729,13 @@ function 馬配を描く() {
     選んだ人 = '';
     $('uhBoard').innerHTML = '';
     $('uhTray').innerHTML = '';
-    $('uhRest').innerHTML = '';
+    $('uhKyu').innerHTML = '';
     return;
   }
   $('uhWb').classList.toggle('picking', !!選んだ人 && 選んだ人.indexOf('馬:') !== 0);
 
-  // 足すときのプルダウン：まだ入っていない人 → ほかの馬の人（移す） → 休み・乗らない・4年以上
   const 今の馬 = {};
   編.馬.forEach((r) => r.人.forEach((id) => { if (!今の馬[id]) 今の馬[id] = r.horseId; }));
-  const opt = (m, 添え) => '<option value="' + esc(m.id) + '">' + esc(m.name) + (添え ? '（' + esc(添え) + '）' : '') + '</option>';
-  const 足す候補 = (r) => {
-    const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id]);
-    const ほか = U.members.filter((m) => 今の馬[m.id] && 今の馬[m.id] !== r.horseId);
-    const 残り = U.members.filter((m) => !乗れるか(m) && !今の馬[m.id]);
-    // 二頭目（2026-10-21）：もう片方の時間に1頭だけ乗っている人。移さずにこの馬にも入れる
-    const 二頭目 = U.members.filter((m) => {
-      const 枠 = 馬配の鞍の枠(m.id);
-      return 枠.length === 1 && 枠[0] !== r.枠 && r.人.indexOf(m.id) < 0;
-    });
-    return '<option value="">＋ 足す</option>' +
-      (二頭目.length ? '<optgroup label="二頭目として足す（' + (r.枠 === '前' ? '後半' : '前半') + 'に乗っている人）">' +
-        二頭目.map((m) => '<option value="2:' + esc(m.id) + '">' + esc(m.name) + '（' + esc((馬で(今の馬[m.id]) || {}).name || '') + ' と二頭）</option>').join('') + '</optgroup>' : '') +
-      (まだ.length ? '<optgroup label="まだ入っていない人">' + まだ.map((m) => opt(m, 入っている(編.一限, m.id) ? '一限' : '')).join('') + '</optgroup>' : '') +
-      (ほか.length ? '<optgroup label="ほかの馬から移す">' + ほか.map((m) => opt(m, (馬で(今の馬[m.id]) || {}).name)).join('') + '</optgroup>' : '') +
-      (残り.length ? '<optgroup label="休み・無断の残り・乗らない・4年以上">' + 残り.map((m) => opt(m, U.出られない[m.id] || (無断の残り(m.id) ? '無断の残り' + 無断の残り(m.id) : 入っている(編.乗らない, m.id) ? '乗らない' : '4年以上'))).join('') + '</optgroup>' : '');
-  };
 
   const 回数 = {};
   編.馬.forEach((r) => r.人.forEach((id) => { 回数[id] = (回数[id] || 0) + 1; }));
@@ -752,7 +772,7 @@ function 馬配を描く() {
         ' title="' + esc(h.chief ? 'チーフ ' + h.chief : '') + '">' + esc(h.name) + '</button>' +
       '<span class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') + '</span>' +
       '<span class="uh-tools">' +
-        '<select class="uh-add" data-uh-add="' + i + '" aria-label="' + esc(h.name) + ' に乗る人を足す">' + 足す候補(r) + '</select>' +
+        '<button type="button" class="secondary small uh-add" data-uh-add="' + i + '" aria-haspopup="dialog" aria-label="' + esc(h.name) + ' に乗る人を足す">＋ 足す</button>' +
         '<button type="button" class="secondary small" data-uh-move="' + i + '">' + (r.枠 === '前' ? '後半へ' : '前半へ') + '</button>' +
         '<button type="button" class="secondary small" data-uh-rest="' + i + '">馬休にする</button>' +
       '</span></div>';
@@ -778,7 +798,7 @@ function 馬配を描く() {
   if (!後半の人.length && !掃除.length) $('uhSouji').insertAdjacentHTML('beforeend', '<span class="uh-empty">後半に乗る人がいません</span>');
 
   // まだ入っていない人（乗れる人だけ）。ボードの人と入れ替えられる
-  const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id]);
+  const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id] && !馬配の手入れだけ(m.id));   // 馬休の手入れだけの人は鞍なし
   まだの人 = まだ.map((m) => m.id);
   $('uhTray').innerHTML = '<span class="wb-hand">まだ</span>' +
     (まだ.length ? まだ.map((m, k) => 人の板(m.id, 'tray:' + k, 0, '', '')).join('') : '<span class="uh-empty">みんな入っています</span>');
@@ -786,18 +806,145 @@ function 馬配を描く() {
     : 選んだ人.indexOf('馬:') === 0 ? ((馬で(編.馬[Number(選んだ人.slice(2))].horseId) || {}).name || '馬') + ' を選んでいます。入れ替える馬を押してください（もう一度押すとやめます）。'
       : 人の名(位置の人(選んだ人)) + ' を選んでいます。入れ替える人か、移す先の馬を押してください（もう一度押すとやめます）。';
 
-  // 休ませている馬
+  // 馬休コーナー（2026-10-21）：馬休の馬と手入れの人。組んだあとに足された馬（まだどこにもいない）もここに出す
   const 休む = (編.休む馬 || []).map((id) => 馬で(id)).filter(Boolean);
   const 使っている = {};
   編.馬.forEach((r) => { 使っている[r.horseId] = true; });
   (編.休む馬 || []).forEach((id) => { 使っている[id] = true; });
-  const 新しい馬 = U.horses.filter((h) => !使っている[h.id]);   // 組んだあとに足された馬
-  $('uhRest').innerHTML = (休む.length || 新しい馬.length)
-    ? '<div class="uh-rest"><span class="lb">馬休</span>' +
-        休む.concat(新しい馬).map((h) => '<span class="uh-chip">' + esc(h.name) +
-          '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>').join('') +
-      '</div>'
-    : '';
+  const 新しい馬 = U.horses.filter((h) => !使っている[h.id]);
+  const 手入れ = 編.馬休の人 || (編.馬休の人 = {});
+  $('uhKyu').innerHTML = '<span class="wb-hand">馬休</span>' +
+    (休む.length || 新しい馬.length ? '' : '<span class="uh-empty">馬休の馬はいません（馬の「馬休にする」で入ります）</span>') +
+    休む.map((h) => {
+      const id = 手入れ[h.id];
+      return '<span class="kr"><span class="mg horse" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '">' + esc(h.name) + '</span>' +
+        '<button type="button" class="mg' + (id ? (U.出られない[id] ? ' bad' : '') + (入っている(編.一限, id) ? ' ichigen' : '') : ' kyu-none') + '" data-uh-kyu="' + esc(h.id) + '" data-flip="k:' + esc(h.id) + '"' +
+          ' aria-haspopup="dialog" title="押すと手入れの人を選び直す" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '">' +
+          (id ? esc(人の名(id)) + (id === h.chiefId ? '<span class="uh-mark c" title="チーフ">チ</span>' : '') : '手入れの人') + '</button>' +
+        '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>';
+    }).join('') +
+    新しい馬.map((h) => '<span class="kr"><span class="mg horse" style="--tilt:0deg">' + esc(h.name) + '</span><span class="uh-empty">（新しく足された馬）</span>' +
+      '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>').join('');
+}
+
+// 馬休の手入れだけで、どの馬にも乗っていない人（鞍なし。2026-10-21）
+function 馬配の手入れだけ(id) {
+  if (!編) return false;
+  const 手入れ = 編.馬休の人 || {};
+  return Object.keys(手入れ).some((h) => 手入れ[h] === id && 入っている(編.休む馬, h)) && !編.馬.some((r) => r.人.indexOf(id) >= 0);
+}
+
+// ===== 学年ごと4列の選ぶ欄（2026-10-21） =====
+/*
+  中身 = { 題, 上: [{ v, 文字 }]（列の前に横に並べる。「なし」など）, 組: [{ 題, 人: [{ v, id, 添え }] }] }
+  選んだら(v) を呼んで閉じる。外を押す・Esc・×で閉じる。学年が無い・5年以上は「4年〜」の列。
+*/
+let 選ぶ欄 = null;
+function 選ぶ欄を閉じる(戻す) {
+  if (!選ぶ欄) return;
+  const x = 選ぶ欄;
+  選ぶ欄 = null;
+  x.箱.remove();
+  document.removeEventListener('pointerdown', x.外, true);
+  document.removeEventListener('keydown', x.鍵, true);
+  window.removeEventListener('resize', x.閉じ);
+  if (戻す && x.元 && x.元.isConnected) x.元.focus();
+}
+function 選ぶ欄を開く(元, 中身, 選んだら, 今の) {
+  選ぶ欄を閉じる();
+  const 学年 = (id) => Number((U.members.filter((m) => m.id === id)[0] || {}).grade) || 0;
+  const 列 = (id) => { const g = 学年(id); return g >= 1 && g <= 3 ? g - 1 : 3; };
+  const 見出し = ['1年', '2年', '3年', '4年〜'];
+  const 項目 = (x) => '<button type="button" class="pi' + (今の && x.v === 今の ? ' now' : '') + '" data-v="' + esc(x.v) + '">' + esc(人の名(x.id)) +
+    (x.添え ? '<small>' + esc(x.添え) + '</small>' : '') + '</button>';
+  const 箱 = document.createElement('div');
+  箱.className = 'uh-pop';
+  箱.setAttribute('role', 'dialog');
+  箱.setAttribute('aria-label', 中身.題);
+  箱.innerHTML = '<p class="pt">' + esc(中身.題) + 部品.アイコンボタン('x', '閉じる', { 'data-close': '1' }) + '</p>' +
+    ((中身.上 || []).length ? '<div class="top">' + 中身.上.map((x) => '<button type="button" class="secondary small" data-v="' + esc(x.v) + '">' + esc(x.文字) + '</button>').join('') + '</div>' : '') +
+    (中身.組.filter((g) => g.人.length).map((g) => {
+      const 分け = [[], [], [], []];
+      g.人.forEach((x) => 分け[列(x.id)].push(x));
+      分け.forEach((a) => a.sort((p, q) => 学年(q.id) - 学年(p.id)));
+      return '<div class="pg"><p class="pg-t">' + esc(g.題) + '</p><div class="pg-cols">' +
+        分け.map((a, k) => '<div class="pc"><p class="pc-h">' + 見出し[k] + '</p>' + (a.length ? a.map(項目).join('') : '<span class="none">―</span>') + '</div>').join('') +
+        '</div></div>';
+    }).join('') || '<p class="uh-empty">選べる人がいません。</p>');
+  document.body.appendChild(箱);
+  // 置き場所：ボタンの下。はみ出すなら上
+  const r = 元.getBoundingClientRect();
+  const w = 箱.offsetWidth, h = 箱.offsetHeight;
+  箱.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+  箱.style.top = (r.bottom + 4 + h > window.innerHeight - 8 && r.top - 4 - h > 8 ? r.top - 4 - h : Math.min(r.bottom + 4, Math.max(8, window.innerHeight - h - 8))) + 'px';
+  const x = { 箱: 箱, 元: 元 };
+  x.外 = (e) => { if (!箱.contains(e.target) && e.target !== 元) 選ぶ欄を閉じる(false); };
+  x.鍵 = (e) => { if (e.key === 'Escape') { e.preventDefault(); 選ぶ欄を閉じる(true); } };
+  x.閉じ = () => 選ぶ欄を閉じる(false);
+  document.addEventListener('pointerdown', x.外, true);
+  document.addEventListener('keydown', x.鍵, true);
+  window.addEventListener('resize', x.閉じ);
+  箱.addEventListener('click', (e) => {
+    if (e.target.closest('[data-close]')) { 選ぶ欄を閉じる(true); return; }
+    const b = e.target.closest('[data-v]');
+    if (!b) return;
+    選ぶ欄を閉じる(false);
+    選んだら(b.dataset.v);
+  });
+  選ぶ欄 = x;
+  const 先 = 箱.querySelector('.pi.now') || 箱.querySelector('[data-v]');
+  if (先) 先.focus();
+}
+
+// 「＋ 足す」の中身。グループは前のプルダウンと同じ（二頭目 → まだ → 馬休の手入れ → ほかの馬から移す → 休みなど）
+function 足す欄の中身(i) {
+  const r = 編.馬[i];
+  const h = 馬で(r.horseId) || { name: '' };
+  const 今の馬 = {};
+  編.馬.forEach((x) => x.人.forEach((id) => { if (!今の馬[id]) 今の馬[id] = x.horseId; }));
+  const 馬名 = (id) => (馬で(今の馬[id]) || {}).name || '';
+  const 二頭目 = U.members.filter((m) => { const 枠 = 馬配の鞍の枠(m.id); return 枠.length === 1 && 枠[0] !== r.枠 && r.人.indexOf(m.id) < 0; });
+  const 手入れだけ = U.members.filter((m) => 馬配の手入れだけ(m.id));
+  const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id] && !馬配の手入れだけ(m.id));
+  const ほか = U.members.filter((m) => 今の馬[m.id] && 今の馬[m.id] !== r.horseId);
+  const 残り = U.members.filter((m) => !乗れるか(m) && !今の馬[m.id] && !馬配の手入れだけ(m.id));
+  const 理由 = (m) => U.出られない[m.id] || (無断の残り(m.id) ? '無断の残り' + 無断の残り(m.id) : 入っている(編.乗らない, m.id) ? '乗らない' : '4年以上');
+  const 馬休の馬 = (id) => { const 手 = 編.馬休の人 || {}; return Object.keys(手).filter((k) => 手[k] === id).map((k) => (馬で(k) || {}).name).join('・'); };
+  return {
+    題: h.name + ' に乗る人を足す（' + (r.枠 === '前' ? '前半' : '後半') + '）',
+    組: [
+      { 題: '二頭目として足す（' + (r.枠 === '前' ? '後半' : '前半') + 'に乗っている人）', 人: 二頭目.map((m) => ({ v: '2:' + m.id, id: m.id, 添え: 馬名(m.id) + ' と二頭' })) },
+      { 題: 'まだ入っていない人', 人: まだ.map((m) => ({ v: m.id, id: m.id, 添え: 入っている(編.一限, m.id) ? '一限' : '' })) },
+      { 題: '馬休の手入れの人（いまは鞍なし）', 人: 手入れだけ.map((m) => ({ v: m.id, id: m.id, 添え: 馬休の馬(m.id) + ' の手入れ' })) },
+      { 題: 'ほかの馬から移す', 人: ほか.map((m) => ({ v: m.id, id: m.id, 添え: 馬名(m.id) })) },
+      { 題: '休み・無断の残り・乗らない・4年以上', 人: 残り.map((m) => ({ v: m.id, id: m.id, 添え: 理由(m) })) },
+    ],
+  };
+}
+function 馬配に足す(i, v) {
+  if (!v) return;
+  // 「2:」は二頭目として足す（移さない）
+  if (v.indexOf('2:') === 0) { 編.馬[i].人.push(v.slice(2)); 直した(); return; }
+  // ほかの馬に入っていたら、そこから移す
+  編.馬.forEach((r) => { r.人 = r.人.filter((x) => x !== v); });
+  編.馬[i].人.push(v);
+  直した();
+}
+// 馬休の手入れの人を選び直す
+function 手入れ欄の中身(h) {
+  const 今の馬 = {};
+  編.馬.forEach((x) => x.人.forEach((id) => { if (!今の馬[id]) 今の馬[id] = x.horseId; }));
+  const 来る = U.members.filter((m) => !U.出られない[m.id] && 朝練に出る(m));
+  const 来ない = U.members.filter((m) => !(!U.出られない[m.id] && 朝練に出る(m)));
+  const 添え = (m) => 今の馬[m.id] ? (馬で(今の馬[m.id]) || {}).name + ' に乗る' : '鞍なし';
+  return {
+    題: ((馬で(h) || {}).name || '') + '（馬休）の手入れの人',
+    上: [{ v: '-', 文字: 'なし（だれも付けない）' }],
+    組: [
+      { 題: '来ている人', 人: 来る.map((m) => ({ v: m.id, id: m.id, 添え: 添え(m) })) },
+      { 題: '休み・無断・4年以上', 人: 来ない.map((m) => ({ v: m.id, id: m.id, 添え: U.出られない[m.id] || '4年以上' })) },
+    ],
+  };
 }
 
 // 一限・乗らない
@@ -964,6 +1111,11 @@ $('uhBoard').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   const 位置 = (s) => s.split(':').map(Number);
+  if (b.dataset.uhAdd !== undefined) {   // 学年ごと4列の選ぶ欄を開く
+    const i = Number(b.dataset.uhAdd);
+    選ぶ欄を開く(b, 足す欄の中身(i), (v) => 馬配に足す(i, v));
+    return;
+  }
   選んだ人 = '';   // 並びが変わるので選ぶのはやめる
   if (b.dataset.uhDel) {
     const p = 位置(b.dataset.uhDel);
@@ -976,29 +1128,28 @@ $('uhBoard').addEventListener('click', (e) => {
     if (r.人.length && !confirm((馬で(r.horseId) || {}).name + ' に入っている ' + r.人.length + '人は、どの馬にも入っていない状態になります。馬休にしますか？')) return;
     編.馬.splice(Number(b.dataset.uhRest), 1);
     (編.休む馬 = 編.休む馬 || []).push(r.horseId);
+    // 手入れの人は、来ていればチーフ（2026-10-21）
+    const c = (馬で(r.horseId) || {}).chiefId;
+    if (c && !U.出られない[c]) (編.馬休の人 = 編.馬休の人 || {})[r.horseId] = c;
   } else return;
   直した();
 });
-$('uhBoard').addEventListener('change', (e) => {
-  const s = e.target.closest('[data-uh-add]');
-  if (!s || !s.value) return;
-  // 「2:」は二頭目として足す（移さない。2026-10-21）
-  if (s.value.indexOf('2:') === 0) {
-    編.馬[Number(s.dataset.uhAdd)].人.push(s.value.slice(2));
-    直した();
+$('uhKyu').addEventListener('click', (e) => {
+  const k = e.target.closest('[data-uh-kyu]');
+  if (k) {
+    const h = k.dataset.uhKyu;
+    選ぶ欄を開く(k, 手入れ欄の中身(h), (v) => {
+      編.馬休の人 = 編.馬休の人 || {};
+      if (v === '-') delete 編.馬休の人[h]; else 編.馬休の人[h] = v;
+      直した();
+    }, (編.馬休の人 || {})[h]);
     return;
   }
-  const id = s.value;
-  // ほかの馬に入っていたら、そこから移す
-  編.馬.forEach((r) => { r.人 = r.人.filter((x) => x !== id); });
-  編.馬[Number(s.dataset.uhAdd)].人.push(id);
-  直した();
-});
-$('uhRest').addEventListener('click', (e) => {
   const b = e.target.closest('[data-uh-back]');
   if (!b) return;
   const id = b.dataset.uhBack;
   編.休む馬 = (編.休む馬 || []).filter((x) => x !== id);
+  if (編.馬休の人) delete 編.馬休の人[id];
   編.馬.push({ horseId: id, 枠: '前', 人: [] });
   直した();
 });

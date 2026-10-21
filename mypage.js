@@ -479,8 +479,12 @@
     const 掃除 = ((x.掃除 || []).length || x.掃除場所)
       ? '<div class="wb-souji"><span class="wb-hand wb-lab">掃除</span>' +
         (x.掃除場所 ? '<span class="wb-hand wb-place">' + esc(x.掃除場所) + '</span>' : '') + '<span class="wb-hand wb-names">' + (x.掃除 || []).map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : esc(p))).join('・') + '</span></div>' : '';
-    const 休む馬 = (x.休む馬 || []).length
-      ? '<div class="wb-souji"><span class="wb-hand wb-lab">馬休</span><span class="wb-mags">' + x.休む馬.map((h) => マグネット(h, 'horse sm', n++)).join('') + '</span></div>' : '';
+    // 馬休コーナー（2026-10-21）：馬と手入れの人。古い返り（馬休が無い）は馬だけ
+    const 馬休 = x.馬休 || (x.休む馬 || []).map((h) => ({ 馬: h, 人: '' }));
+    馬休.forEach((k) => { if (名 && k.人 === 名) 私 += (私 ? '、' : '') + '馬休の ' + k.馬 + ' の手入れ'; });
+    const 休む馬 = 馬休.length
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">馬休</span><span class="wb-mags">' + 馬休.map((k) => '<span class="wb-kyu">' + マグネット(k.馬, 'horse sm', n++) +
+          (k.人 ? マグネット(k.人, 名 && k.人 === 名 ? 'mine sm' : 一限.indexOf(k.人) >= 0 ? 'ichigen sm' : 'sm', n++) : '') + '</span>').join('') + '</span></div>' : '';
     return '<section class="me-uh" aria-label="朝練の馬配">' +
       '<div class="wb-board">' +
       '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
