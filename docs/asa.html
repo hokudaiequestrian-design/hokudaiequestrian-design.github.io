@@ -1400,7 +1400,7 @@ a.donehome:hover { background: var(--accent-dark); }
       </div>
       <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
       <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;"><b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -1826,6 +1826,14 @@ function 注意を集める() {
     if (h && h.chiefId && r.人.length && r.人[0] !== h.chiefId && 入っている(r.人, h.chiefId)) チーフ.push(h.name);
   });
   if (チーフ.length) 出.push('チーフが1鞍目でない馬：' + チーフ.map(esc).join('・'));
+  // チーフがいない馬は、できるだけ学年が高い人が1鞍目（2026-10-21）
+  const 学年 = (id) => Number((U.members.filter((m) => m.id === id)[0] || {}).grade) || 0;
+  const 上が後ろ = 編.馬.filter((r) => {
+    const h = 馬で(r.horseId);
+    if (!h || !r.人.length || (h.chiefId && 入っている(r.人, h.chiefId))) return false;
+    return r.人.some((id) => 学年(id) > 学年(r.人[0]));
+  }).map((r) => (馬で(r.horseId) || {}).name);
+  if (上が後ろ.length) 出.push('チーフがいないのに1鞍目より学年が高い人が後ろにいる馬：' + 上が後ろ.map(esc).join('・'));
   const 後半 = 馬配の後半の人();
   const 後半でない = (編.掃除 || []).filter((id) => 後半.indexOf(id) < 0);
   if (後半でない.length) 出.push('後半に乗っていない人が掃除に入っています：' + 名々(後半でない));
@@ -1942,7 +1950,7 @@ function 馬配を描く() {
       '<span class="uh-tools">' +
         '<select class="uh-add" data-uh-add="' + i + '" aria-label="' + esc(h.name) + ' に乗る人を足す">' + 足す候補(r) + '</select>' +
         '<button type="button" class="secondary small" data-uh-move="' + i + '">' + (r.枠 === '前' ? '後半へ' : '前半へ') + '</button>' +
-        '<button type="button" class="secondary small" data-uh-rest="' + i + '">休ませる</button>' +
+        '<button type="button" class="secondary small" data-uh-rest="' + i + '">馬休にする</button>' +
       '</span></div>';
   };
   $('uhBoard').innerHTML = ['前', '後'].map((枠) => {
@@ -1980,7 +1988,7 @@ function 馬配を描く() {
   (編.休む馬 || []).forEach((id) => { 使っている[id] = true; });
   const 新しい馬 = U.horses.filter((h) => !使っている[h.id]);   // 組んだあとに足された馬
   $('uhRest').innerHTML = (休む.length || 新しい馬.length)
-    ? '<div class="uh-rest"><span class="lb">この日は乗らない馬</span>' +
+    ? '<div class="uh-rest"><span class="lb">馬休</span>' +
         休む.concat(新しい馬).map((h) => '<span class="uh-chip">' + esc(h.name) +
           '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>').join('') +
       '</div>'
@@ -2154,7 +2162,7 @@ $('uhBoard').addEventListener('click', (e) => {
     r.枠 = r.枠 === '前' ? '後' : '前';
   } else if (b.dataset.uhRest) {
     const r = 編.馬[Number(b.dataset.uhRest)];
-    if (r.人.length && !confirm((馬で(r.horseId) || {}).name + ' に入っている ' + r.人.length + '人は、どの馬にも入っていない状態になります。休ませますか？')) return;
+    if (r.人.length && !confirm((馬で(r.horseId) || {}).name + ' に入っている ' + r.人.length + '人は、どの馬にも入っていない状態になります。馬休にしますか？')) return;
     編.馬.splice(Number(b.dataset.uhRest), 1);
     (編.休む馬 = 編.休む馬 || []).push(r.horseId);
   } else return;

@@ -477,7 +477,7 @@
     const 掃除 = (x.掃除 || []).length
       ? '<div class="wb-souji"><span class="wb-hand wb-lab">掃除</span><span class="wb-hand wb-names">' + x.掃除.map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : esc(p))).join('・') + '</span></div>' : '';
     const 休む馬 = (x.休む馬 || []).length
-      ? '<div class="wb-souji"><span class="wb-hand wb-lab">休む馬</span><span class="wb-mags">' + x.休む馬.map((h) => マグネット(h, 'horse sm', n++)).join('') + '</span></div>' : '';
+      ? '<div class="wb-souji"><span class="wb-hand wb-lab">馬休</span><span class="wb-mags">' + x.休む馬.map((h) => マグネット(h, 'horse sm', n++)).join('') + '</span></div>' : '';
     return '<section class="me-uh" aria-label="朝練の馬配">' +
       '<div class="wb-board">' +
       '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
