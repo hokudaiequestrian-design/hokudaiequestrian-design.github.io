@@ -2219,10 +2219,13 @@ window.addEventListener('beforeunload', (e) => {
   // ----- 入れ替えのすべり（FLIP） -----
   function 位置を覚える() {
     const 位置 = new Map();
+    const 重なり = new Set();
     文書.querySelectorAll('[data-flip]').forEach((el) => {
       const k = el.getAttribute('data-flip');
-      if (!位置.has(k)) 位置.set(k, el.getBoundingClientRect());
+      if (位置.has(k)) 重なり.add(k);
+      else 位置.set(k, el.getBoundingClientRect());
     });
+    重なり.forEach((k) => 位置.delete(k));   // 同じ目印が2つ以上あると、どれがどこへ行ったか分からないので動かさない
     直前のFLIP = { 時刻: performance.now(), 位置: 位置 };
     // 押した処理が描き直したあとで、すべらせる
     requestAnimationFrame(すべらせる);
@@ -2231,7 +2234,10 @@ window.addEventListener('beforeunload', (e) => {
     if (!直前のFLIP) return;
     const 位置 = 直前のFLIP.位置;
     const 動いた = new Set();
+    const 今の数 = {};
+    文書.querySelectorAll('[data-flip]').forEach((el) => { const k = el.getAttribute('data-flip'); 今の数[k] = (今の数[k] || 0) + 1; });
     文書.querySelectorAll('[data-flip]').forEach((el) => {
+      if (今の数[el.getAttribute('data-flip')] > 1) return;
       const 前 = 位置.get(el.getAttribute('data-flip'));
       if (!前) return;
       // 外側（馬の行）がすべるときは、中（その馬の人）は一緒に動くので重ねない
