@@ -951,10 +951,18 @@ const 部品 = (() => {
     入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
     副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
   */
-  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
-  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  /*
+    2026-10-21 ユーザーの指示：副将の画面でパスワードを聞かない。入口で1回入れると、パスワードと鍵を
+    この端末の localStorage に覚える（ログアウトするまで消えない）。鍵が無い・切れたときは、画面の call() が
+    覚えたパスワードで入り直す（build.js）。パスワードを覚えているのに鍵が無いときは、仮の鍵を渡して入り直させる。
+  */
+  const 読む = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const 副将の鍵 = () => 読む('fukusho:touban') || (読む('fukusho:pw') ? 'a_入り直す' : '');
+  const 副将の鍵を消す = () => {
+    try { ['fukusho:touban', 'fukusho:jinin'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* 消せなくても6時間で切れる */ }
+  };
   const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
-    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。1回入れると、この端末ではログアウトするまで聞きません。</p>';
 
   return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ, 祝日: 祝日の表, バイトの印: バイトの印 };
 })();

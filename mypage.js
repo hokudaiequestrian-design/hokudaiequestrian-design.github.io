@@ -661,18 +661,34 @@
     if (箱) 箱.innerHTML = '';
   }
 
-  const 副将の鍵の名 = { 当番: 'fukusho:touban', 人員表: 'fukusho:jinin' };
-  const 鍵を読む = (k) => { try { return sessionStorage.getItem(k) || ''; } catch (e) { return ''; } };
-  const 鍵を置く = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) { /* 置けなければ画面ごとに入口へ戻される */ } };
+  /*
+    2026-10-21 ユーザーの指示：副将のパスワードをなくして（質問して「端末で覚える」に決めた）。
+    鍵とパスワードを localStorage に置き、**この端末ではログアウトするまで聞かない**。鍵は6時間で切れるので、
+    切れていたら覚えたパスワードで入り直す（副将の各画面では build.js の call() が同じことをする）。
+    パスワードが変わっていたら覚えたものを消して、入れ直してもらう。
+  */
+  const 副将の鍵の名 = { 当番: 'fukusho:touban', 人員表: 'fukusho:jinin', パスワード: 'fukusho:pw' };
+  const 鍵を読む = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const 鍵を置く = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* 置けなければ画面ごとに入口へ戻される */ } };
   const 鍵を消す = () => {
     try {
+      localStorage.removeItem(副将の鍵の名.当番);
+      localStorage.removeItem(副将の鍵の名.人員表);
+      localStorage.removeItem(副将の鍵の名.パスワード);
+      // 前（2026-10-20 まで）はタブごとに置いていた
       sessionStorage.removeItem(副将の鍵の名.当番);
       sessionStorage.removeItem(副将の鍵の名.人員表);
     } catch (e) { /* 消せなくても6時間で切れる */ }
   };
+  async function パスワードで入る(pw) {
+    const 鍵 = await Promise.all([呼ぶ(API.当番, 'login', [pw]), 呼ぶ(API.人員表, 'login', [pw])]);
+    鍵を置く(副将の鍵の名.当番, 鍵[0]);
+    鍵を置く(副将の鍵の名.人員表, 鍵[1]);
+    鍵を置く(副将の鍵の名.パスワード, pw);
+  }
 
   function 副将のログイン() {
-    if (typeof 立場 === 'undefined' || 立場 !== 'admlinks' || typeof sessionStorage === 'undefined') return;
+    if (typeof 立場 === 'undefined' || 立場 !== 'admlinks' || typeof localStorage === 'undefined') return;
     const 群 = Array.prototype.filter.call(document.querySelectorAll('#hub-groups .hub-group'),
       (g) => !!g.querySelector('a.hub-link[href="touban-admin.html"]'))[0];
     if (!群) return;
@@ -683,7 +699,7 @@
 
     function 入っている() {
       一覧.hidden = false;
-      箱.innerHTML = '<p class="fk-on"><span>副将でログインしています。このタブを閉じるまで、下の画面ではパスワードを聞きません。</span>' +
+      箱.innerHTML = '<p class="fk-on"><span>副将でログインしています。この端末では、ログアウトするまでパスワードを聞きません。</span>' +
         '<button type="button" class="fk-out">ログアウト</button></p>';
       箱.querySelector('.fk-out').addEventListener('click', () => { 鍵を消す(); 入っていない('ログアウトしました。'); });
       休みの知らせを出す(鍵を読む(副将の鍵の名.当番));   // 了承待ちの休み（2026-09-21）
@@ -693,15 +709,13 @@
       知らせを消す();   // ログアウト・期限切れのあとに、前の中身を残さない
       箱.innerHTML = '<label for="fkPw">副将パスワード</label>' +
         '<div class="fk-row"><input type="password" id="fkPw" autocomplete="current-password"><button type="button" id="fkBtn">ログイン</button></div>' +
-        '<p class="hint">ここで1回入れると、このタブを閉じるまで、当番・バイトと休み・部員・馬匹管理・人員表・手入れの画面ではパスワードを聞きません。</p>' +
+        '<p class="hint">ここで1回入れると、この端末では<b>ログアウトするまで</b>、当番・バイトと休み・部員・馬匹管理・人員表・手入れの画面でもパスワードを聞きません。</p>' +
         (文 ? '<p class="me-msg">' + esc(文) + '</p>' : '');
       const 押す = async () => {
         const pw = $('fkPw').value;
         if (!pw) return 入っていない('副将パスワードを入れてください。');
         try {
-          const 鍵 = await Promise.all([呼ぶ(API.当番, 'login', [pw]), 呼ぶ(API.人員表, 'login', [pw])]);
-          鍵を置く(副将の鍵の名.当番, 鍵[0]);
-          鍵を置く(副将の鍵の名.人員表, 鍵[1]);
+          await パスワードで入る(pw);
           入っている();
         } catch (e) { 入っていない(e.message); }
       };
@@ -711,11 +725,20 @@
 
     const 当番の鍵 = 鍵を読む(副将の鍵の名.当番);
     const 人員表の鍵 = 鍵を読む(副将の鍵の名.人員表);
-    if (!当番の鍵 || !人員表の鍵) return 入っていない('');
+    const pw = 鍵を読む(副将の鍵の名.パスワード);
+    if (!pw && (!当番の鍵 || !人員表の鍵)) return 入っていない('');
     入っている();
-    // 鍵がまだ生きているかを裏で確かめる。切れていたら入れ直してもらう（通信の失敗では消さない）
+    // 鍵がまだ生きているかを裏で確かめる。切れていたら覚えたパスワードで入り直す（通信の失敗では消さない）
     Promise.all([呼ぶ(API.当番, 'adminShareUrl', [当番の鍵]), 呼ぶ(API.人員表, 'adminShareUrl', [人員表の鍵])])
-      .catch((e) => { if (!e.通信) { 鍵を消す(); 入っていない('ログインの有効期限が切れました。もう一度入れてください。'); } });
+      .catch((e) => {
+        if (e.通信) return;
+        if (!pw) { 鍵を消す(); return 入っていない('ログインの有効期限が切れました。もう一度入れてください。'); }
+        パスワードで入る(pw).then(() => 休みの知らせを出す(鍵を読む(副将の鍵の名.当番)), (err) => {
+          if (err.通信) return;
+          鍵を消す();
+          入っていない('副将パスワードが変わったようです。もう一度入れてください。');
+        });
+      });
   }
   try { 副将のログイン(); } catch (e) { /* 入口のほかの部分は動かす */ }
 

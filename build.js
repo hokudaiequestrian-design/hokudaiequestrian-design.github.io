@@ -223,9 +223,37 @@ const 新しいcall = (api) => `const API = '${api}';
  */
 const 閉じても届ける = ['submitResponse'];
 
+/*
+ * 副将の鍵が切れたら、この端末に覚えた副将パスワードで入り直して1回だけ送り直す（2026-10-21 ユーザーの指示：
+ * 副将の画面でパスワードを聞かない）。鍵は6時間で切れるので、入口で1回入れて覚えたパスワードで取り直す。
+ * 画面は古い鍵を持ったままなので、古い鍵 → 新しい鍵 の対を覚え、次からは送る前に差し替える。
+ */
+const 副将の鍵の場所 = API.slice(-6) === '/jinin' ? 'fukusho:jinin' : 'fukusho:touban';
+const 鍵の差し替え = {};
+const 覚えたパスワード = () => { try { return localStorage.getItem('fukusho:pw') || ''; } catch (e) { return ''; } };
+const 差し替える = (args) => args.map((a) => (typeof a === 'string' && 鍵の差し替え[a]) || a);
+
 function call(fn) {
   const args = Array.prototype.slice.call(arguments, 1);
   busy(true);
+  return 送って受ける(fn, 差し替える(args)).catch((e) => {
+    const 古い = 差し替える(args)[0];
+    const pw = 覚えたパスワード();
+    if (e.通信 || fn === 'login' || !pw || typeof 古い !== 'string' || !/有効期限/.test(e.message || '')) throw e;
+    return 送って受ける('login', [pw]).then((新) => {
+      鍵の差し替え[古い] = 新;
+      鍵の差し替え[args[0]] = 新;
+      try { localStorage.setItem(副将の鍵の場所, 新); } catch (err) { /* 置けなくてもこの画面では差し替えで動く */ }
+      return 送って受ける(fn, 差し替える(args));
+    }, (err) => {
+      // パスワードが変わっていた：覚えたものを消し、入口で入れ直してもらう
+      if (!err.通信) { try { localStorage.removeItem('fukusho:pw'); } catch (x) { /* 消せなくても次も断られるだけ */ } }
+      throw e;
+    });
+  }).finally(() => { busy(false); });
+}
+
+function 送って受ける(fn, args) {
   const 本文 = JSON.stringify({ fn: fn, args: args });
   const 送る = (keepalive) => fetch(API, {
     method: 'POST',
@@ -245,7 +273,7 @@ function call(fn) {
   }).then((r) => {
     if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
     return r.value;
-  }).finally(() => { busy(false); });
+  });
 }`;
 
 // ===== 2.2 Cloudflare の写しから読む =====

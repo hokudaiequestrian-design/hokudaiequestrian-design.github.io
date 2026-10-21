@@ -951,10 +951,18 @@ const 部品 = (() => {
     入口（副将用）が、当番・手入れと人員表の鍵をこのタブの sessionStorage に置く。タブを閉じると消える。
     副将の画面は、この鍵があれば開き、無い・切れたときはパスワードの欄を出さずに入口へ案内する。
   */
-  const 副将の鍵 = () => { try { return sessionStorage.getItem('fukusho:touban') || ''; } catch (e) { return ''; } };
-  const 副将の鍵を消す = () => { try { sessionStorage.removeItem('fukusho:touban'); sessionStorage.removeItem('fukusho:jinin'); } catch (e) { /* 消せなくても6時間で切れる */ } };
+  /*
+    2026-10-21 ユーザーの指示：副将の画面でパスワードを聞かない。入口で1回入れると、パスワードと鍵を
+    この端末の localStorage に覚える（ログアウトするまで消えない）。鍵が無い・切れたときは、画面の call() が
+    覚えたパスワードで入り直す（build.js）。パスワードを覚えているのに鍵が無いときは、仮の鍵を渡して入り直させる。
+  */
+  const 読む = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+  const 副将の鍵 = () => 読む('fukusho:touban') || (読む('fukusho:pw') ? 'a_入り直す' : '');
+  const 副将の鍵を消す = () => {
+    try { ['fukusho:touban', 'fukusho:jinin'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* 消せなくても6時間で切れる */ }
+  };
   const 入口へ = (文) => '<h2>副将のログインが要ります</h2><p style="margin:0;">' + 守る(文 || '') +
-    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。1回入れると、この端末ではログアウトするまで聞きません。</p>';
 
   return { アイコン: アイコン, アイコンボタン: アイコンボタン, 光らせる: 光らせる, 副将の鍵: 副将の鍵, 副将の鍵を消す: 副将の鍵を消す, 入口へ: 入口へ, 祝日: 祝日の表, バイトの印: バイトの印 };
 })();
@@ -1198,7 +1206,7 @@ a.donehome:hover { background: var(--accent-dark); }
       <ul class="uh-warns" id="uhWarns" hidden></ul>
       <div class="uh-board" id="uhBoard"></div>
       <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;">自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。名前の横の <b>‹</b> で鞍の順を1つ前へ、× で外します。「＋ 足す」でほかの馬から選ぶと、その馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。名前の横の <b>‹</b> で鞍の順を1つ前へ、× で外します。「＋ 足す」でほかの馬から選ぶと、その馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -1238,9 +1246,37 @@ const API = 'https://bajutsubu-api.hokudai-equestrian.workers.dev/touban';
  */
 const 閉じても届ける = ['submitResponse'];
 
+/*
+ * 副将の鍵が切れたら、この端末に覚えた副将パスワードで入り直して1回だけ送り直す（2026-10-21 ユーザーの指示：
+ * 副将の画面でパスワードを聞かない）。鍵は6時間で切れるので、入口で1回入れて覚えたパスワードで取り直す。
+ * 画面は古い鍵を持ったままなので、古い鍵 → 新しい鍵 の対を覚え、次からは送る前に差し替える。
+ */
+const 副将の鍵の場所 = API.slice(-6) === '/jinin' ? 'fukusho:jinin' : 'fukusho:touban';
+const 鍵の差し替え = {};
+const 覚えたパスワード = () => { try { return localStorage.getItem('fukusho:pw') || ''; } catch (e) { return ''; } };
+const 差し替える = (args) => args.map((a) => (typeof a === 'string' && 鍵の差し替え[a]) || a);
+
 function call(fn) {
   const args = Array.prototype.slice.call(arguments, 1);
   busy(true);
+  return 送って受ける(fn, 差し替える(args)).catch((e) => {
+    const 古い = 差し替える(args)[0];
+    const pw = 覚えたパスワード();
+    if (e.通信 || fn === 'login' || !pw || typeof 古い !== 'string' || !/有効期限/.test(e.message || '')) throw e;
+    return 送って受ける('login', [pw]).then((新) => {
+      鍵の差し替え[古い] = 新;
+      鍵の差し替え[args[0]] = 新;
+      try { localStorage.setItem(副将の鍵の場所, 新); } catch (err) { /* 置けなくてもこの画面では差し替えで動く */ }
+      return 送って受ける(fn, 差し替える(args));
+    }, (err) => {
+      // パスワードが変わっていた：覚えたものを消し、入口で入れ直してもらう
+      if (!err.通信) { try { localStorage.removeItem('fukusho:pw'); } catch (x) { /* 消せなくても次も断られるだけ */ } }
+      throw e;
+    });
+  }).finally(() => { busy(false); });
+}
+
+function 送って受ける(fn, args) {
   const 本文 = JSON.stringify({ fn: fn, args: args });
   const 送る = (keepalive) => fetch(API, {
     method: 'POST',
@@ -1260,7 +1296,7 @@ function call(fn) {
   }).then((r) => {
     if (!r.ok) throw new Error(r.error || '不明なエラーが起きました。');
     return r.value;
-  }).finally(() => { busy(false); });
+  });
 }
 function 知らせ(html, cls) {
   $('msg').innerHTML = html ? '<div class="msg ' + (cls || 'success') + '" role="status">' + html + '</div>' : '';
@@ -1550,7 +1586,9 @@ const 人の名 = (id) => { const m = U.members.filter((x) => x.id === id)[0]; r
 const 馬で = (id) => U.horses.filter((h) => h.id === id)[0];
 const 入っている = (a, x) => (a || []).indexOf(x) >= 0;
 // 乗れる人：当番に入れない人（4年以上）でも、休み・無断・乗らないでもない人
-const 乗れるか = (m) => !m.noDuty && !U.出られない[m.id] && !入っている(編.乗らない, m.id);
+// 無断の残りがある人（要注意）は、来ていても乗せない（2026-10-21 ユーザーの指示：乗せないことで残りを消化する）
+const 無断の残り = (id) => (U.無断の残り || {})[id] || 0;
+const 乗れるか = (m) => !m.noDuty && !U.出られない[m.id] && !無断の残り(m.id) && !入っている(編.乗らない, m.id);
 
 function 直した() {
   馬配を変えた = true;
@@ -1565,6 +1603,8 @@ function 注意を集める() {
   const 名々 = (ids) => ids.map(人の名).map(esc).join('・');
   const 休み = Object.keys(回数).filter((id) => U.出られない[id]);
   if (休み.length) 出.push('休み・無断の人が入っています：' + 休み.map((id) => esc(人の名(id)) + '（' + esc(U.出られない[id]) + '）').join('・'));
+  const 残り = Object.keys(回数).filter((id) => 無断の残り(id));
+  if (残り.length) 出.push('無断の残りがある人が入っています（乗せないことで消化する人）：' + 名々(残り));
   const 乗らない = Object.keys(回数).filter((id) => 入っている(編.乗らない, id));
   if (乗らない.length) 出.push('「乗らない」にした人が入っています：' + 名々(乗らない));
   const 二回 = Object.keys(回数).filter((id) => 回数[id] > 1);
@@ -1602,13 +1642,15 @@ function 馬配を描く() {
   $('uhDelete').hidden = !状態;
 
   // この日の一限・乗らない人
-  const 出られる = U.members.filter((m) => !m.noDuty && !U.出られない[m.id]);
+  const 出られる = U.members.filter((m) => !m.noDuty && !U.出られない[m.id] && !無断の残り(m.id));
   const 出られない = U.members.filter((m) => U.出られない[m.id]);
+  const 乗せない = U.members.filter((m) => !U.出られない[m.id] && 無断の残り(m.id));
   $('uhPeople').innerHTML = 出られる.map((m) =>
     '<div class="row"><span class="nm">' + esc(m.name) + '</span>' +
       '<label><input type="checkbox" data-uh-ichigen="' + esc(m.id) + '"' + (入っている(編.一限, m.id) ? ' checked' : '') + '> 一限</label>' +
       '<label><input type="checkbox" data-uh-noride="' + esc(m.id) + '"' + (入っている(編.乗らない, m.id) ? ' checked' : '') + '> 乗らない</label>' +
     '</div>').join('') +
+    乗せない.map((m) => '<div class="row out"><span class="nm">' + esc(m.name) + '</span>無断の残り' + 無断の残り(m.id) + '（乗せない）</div>').join('') +
     出られない.map((m) => '<div class="row out"><span class="nm">' + esc(m.name) + '</span>' + esc(U.出られない[m.id]) + '</div>').join('');
 
   // 注意
@@ -1633,7 +1675,7 @@ function 馬配を描く() {
     return '<option value="">＋ 足す</option>' +
       (まだ.length ? '<optgroup label="まだ入っていない人">' + まだ.map((m) => opt(m, 入っている(編.一限, m.id) ? '一限' : '')).join('') + '</optgroup>' : '') +
       (ほか.length ? '<optgroup label="ほかの馬から移す">' + ほか.map((m) => opt(m, (馬で(今の馬[m.id]) || {}).name)).join('') + '</optgroup>' : '') +
-      (残り.length ? '<optgroup label="休み・乗らない・4年以上">' + 残り.map((m) => opt(m, U.出られない[m.id] || (入っている(編.乗らない, m.id) ? '乗らない' : '4年以上'))).join('') + '</optgroup>' : '');
+      (残り.length ? '<optgroup label="休み・無断の残り・乗らない・4年以上">' + 残り.map((m) => opt(m, U.出られない[m.id] || (無断の残り(m.id) ? '無断の残り' + 無断の残り(m.id) : 入っている(編.乗らない, m.id) ? '乗らない' : '4年以上'))).join('') + '</optgroup>' : '');
   };
 
   const 回数 = {};
@@ -1641,7 +1683,7 @@ function 馬配を描く() {
   const 馬の箱 = (r, i) => {
     const h = 馬で(r.horseId) || { name: '（消された馬）', chief: '', chiefId: '' };
     const 乗る = r.人.map((id, n) => {
-      const 悪い = U.出られない[id] || 入っている(編.乗らない, id);
+      const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id);
       const 気を付ける = 回数[id] > 1 || (r.枠 === '後' && 入っている(編.一限, id));
       return '<span class="uh-rider' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + '">' +
         '<span class="n">' + (n + 1) + '</span><span class="nm">' + esc(人の名(id)) + '</span>' +
@@ -1649,6 +1691,7 @@ function 馬配を描く() {
         (入っている(編.一限, id) ? '<span class="uh-mark i" title="一限">一</span>' : '') +
         (入っている(U.大会[id], r.horseId) ? '<span class="uh-mark t" title="大会でこの馬に乗る">大</span>' : '') +
         (U.出られない[id] ? '<span class="uh-mark x">' + esc(U.出られない[id]) + '</span>' : '') +
+        (無断の残り(id) ? '<span class="uh-mark x" title="無断の残りがあるので乗せない">無断残' + 無断の残り(id) + '</span>' : '') +
         (n > 0 ? 部品.アイコンボタン('chev-left', 人の名(id) + ' を1つ前の鞍へ', { 'data-uh-up': i + ':' + n }) : '') +
         部品.アイコンボタン('x', 人の名(id) + ' を ' + h.name + ' から外す', { 'data-uh-del': i + ':' + n }) +
       '</span>';

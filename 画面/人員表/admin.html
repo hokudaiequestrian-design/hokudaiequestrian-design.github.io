@@ -379,8 +379,9 @@ function attendsOn(map, memberId, date) {
 
 const attendsAny = (map, memberId) => !!map[memberId] && Object.keys(map[memberId]).some((k) => map[memberId][k]);
 
-// 副将のログインは入口でだけ（2026-09-15）。入口（副将用）がこのタブに置いた人員表の鍵を使う。タブを閉じると消える
-const 入口の鍵 = () => { try { return sessionStorage.getItem('fukusho:jinin') || ''; } catch (e) { return ''; } };
+// 副将のログインは入口でだけ（2026-09-15）。入口（副将用）が置いた人員表の鍵を使う。
+// 2026-10-21 から鍵とパスワードはこの端末に覚え（localStorage）、切れたら call() が覚えたパスワードで入り直す（build.js）
+const 入口の鍵 = () => { try { return localStorage.getItem('fukusho:jinin') || (localStorage.getItem('fukusho:pw') ? '入り直す' : ''); } catch (e) { return ''; } };
 let TOKEN = 入口の鍵();
 try { localStorage.removeItem('adminToken'); } catch (e) { /* 前はここにずっと覚えていた */ }
 let ALL = { posts: [], maxGrade: 6, defaultJobs: [], choices: {}, jobColors: {}, academicYear: 0, members: [], horses: [], events: [], competitions: [], jobs: [] };
@@ -419,7 +420,7 @@ function handleError(el, e) {
 // パスワードは入口でだけ入れる。ここでは入口への案内を出すだけ
 function 入口へ案内する(文) {
   $('loginMsg').innerHTML = '<h1>副将のログインが要ります</h1><p style="margin:0;">' + esc(文 || '') +
-    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。入れたあとは、このタブを閉じるまでどの画面でも聞きません。</p>';
+    '副将パスワードは <a href="index.html?role=admlinks">副将のマイページ</a> で入れてください。1回入れると、この端末ではログアウトするまで聞きません。</p>';
 }
 
 /* 前回読んだ中身を覚えておき、開いた瞬間に出す（2026-09-13）。
@@ -451,7 +452,7 @@ function 大会の覚え(eventId, 中身) {
 // ログアウトは入口の鍵ごと消す（当番・手入れの画面でも入口から入り直しになる）
 function logout(文) {
   TOKEN = '';
-  try { sessionStorage.removeItem('fukusho:jinin'); sessionStorage.removeItem('fukusho:touban'); } catch (e) { /* 消せなくても6時間で切れる */ }
+  try { ['fukusho:jinin', 'fukusho:touban', 'fukusho:pw'].forEach((k) => localStorage.removeItem(k)); } catch (e) { /* 消せなくても6時間で切れる */ }
   管理の覚え.全部消す();
   $('appView').style.display = 'none';
   $('loginView').style.display = 'block';
