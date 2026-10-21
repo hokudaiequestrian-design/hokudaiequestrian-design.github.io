@@ -1840,6 +1840,7 @@ function 注意を集める() {
   const 後半でない = (編.掃除 || []).filter((id) => 後半.indexOf(id) < 0);
   if (後半でない.length) 出.push('後半に乗っていない人が掃除に入っています：' + 名々(後半でない));
   if (編.馬.length && 後半.length && !(編.掃除 || []).length) 出.push('掃除がだれも入っていません');
+  if ((編.掃除 || []).length && !String(編.掃除場所 || '').trim()) 出.push('掃除場所がまだ入っていません（掃除欄の左に打ち込むと、みんなのボードに出ます）');
   const まだ = U.members.filter((m) => 乗れるか(m) && !回数[m.id]);
   if (編.馬.length && まだ.length) 出.push('まだ入っていない人（' + まだ.length + '人）：' + 名々(まだ.map((m) => m.id)));
   return 出;
