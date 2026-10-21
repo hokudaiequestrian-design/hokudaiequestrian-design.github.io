@@ -1426,7 +1426,7 @@ a.donehome:hover { background: var(--accent-dark); }
         <summary>この日の一限・乗らない人</summary>
         <div class="fold-body">
           <div class="uh-people" id="uhPeople"></div>
-          <p class="hint" style="margin-bottom:0;">一限は部員がマイページで曜日ごとに入れたものが最初から付いています。この日だけ違うときはここで直します。「乗らない」にした人は自動で組むときに入れません（鞍なしなど）。休み・無断の人は上の欄のとおりで、ここでは選べません。</p>
+          <p class="hint" style="margin-bottom:0;">一限は部員がマイページで曜日ごとに入れたものが最初から付いています。この日だけ違うときはここで直します。「乗らない」（その日だけ）・「毎日乗らない」（ずっと。すぐ保存）にした人は自動で組むときに入れません（鞍なしなど）。休み・無断の人は上の欄のとおりで、ここでは選べません。</p>
         </div>
       </details>
       <ul class="uh-warns" id="uhWarns" hidden></ul>
@@ -1815,7 +1815,9 @@ const 入っている = (a, x) => (a || []).indexOf(x) >= 0;
 const 無断の残り = (id) => (U.無断の残り || {})[id] || 0;
 // 朝練に出る＝当番に入る人か、4年以上でも「いつも朝練に来る」にした人（2026-10-21。古い返りには無いので noDuty で見る）
 const 朝練に出る = (m) => (m.朝練に出る === undefined ? !m.noDuty : m.朝練に出る);
-const 乗れるか = (m) => 朝練に出る(m) && !U.出られない[m.id] && !無断の残り(m.id) && !入っている(編.乗らない, m.id);
+// 毎日乗らない人（2026-10-21）：ずっと覚えている印。自動では入れない
+const 毎日乗らない = (id) => !!(U.members.filter((m) => m.id === id)[0] || {}).毎日乗らない;
+const 乗れるか = (m) => 朝練に出る(m) && !U.出られない[m.id] && !無断の残り(m.id) && !入っている(編.乗らない, m.id) && !m.毎日乗らない;
 
 // その人が乗る馬の枠の並び（二頭乗りなら ['前','後']）
 function 馬配の鞍の枠(id) {
@@ -1850,8 +1852,8 @@ function 注意を集める() {
   if (休み.length) 出.push('休み・無断の人が入っています：' + 休み.map((id) => esc(人の名(id)) + '（' + esc(U.出られない[id]) + '）').join('・'));
   const 残り = Object.keys(回数).filter((id) => 無断の残り(id));
   if (残り.length) 出.push('無断の残りがある人が入っています（乗せないことで消化する人）：' + 名々(残り));
-  const 乗らない = Object.keys(回数).filter((id) => 入っている(編.乗らない, id));
-  if (乗らない.length) 出.push('「乗らない」にした人が入っています：' + 名々(乗らない));
+  const 乗らない = Object.keys(回数).filter((id) => 入っている(編.乗らない, id) || 毎日乗らない(id));
+  if (乗らない.length) 出.push('「乗らない」「毎日乗らない」にした人が入っています：' + 名々(乗らない));
   const 同じ時間 = 馬配の同じ時間に2頭();
   if (同じ時間.length) 出.push('同じ時間に2頭入っている人：' + 名々(同じ時間));
   const 二頭 = Object.keys(回数).filter((id) => 回数[id] > 1 && 同じ時間.indexOf(id) < 0);
@@ -1914,6 +1916,7 @@ function 馬配を描く() {
     '<div class="row"><span class="nm">' + esc(m.name) + '</span>' +
       '<label><input type="checkbox" data-uh-ichigen="' + esc(m.id) + '"' + (入っている(編.一限, m.id) ? ' checked' : '') + '> 一限</label>' +
       '<label><input type="checkbox" data-uh-noride="' + esc(m.id) + '"' + (入っている(編.乗らない, m.id) ? ' checked' : '') + '> 乗らない</label>' +
+      '<label title="ずっと覚えておく（すぐ保存）"><input type="checkbox" data-uh-daily="' + esc(m.id) + '"' + (m.毎日乗らない ? ' checked' : '') + '> 毎日乗らない</label>' +
     '</div>').join('') +
     乗せない.map((m) => '<div class="row out"><span class="nm">' + esc(m.name) + '</span>無断の残り' + 無断の残り(m.id) + '（乗せない）</div>').join('') +
     出られない.map((m) => '<div class="row out"><span class="nm">' + esc(m.name) + '</span>' + esc(U.出られない[m.id]) + '</div>').join('') +
@@ -1953,7 +1956,7 @@ function 馬配を描く() {
   // 人のマグネット。位置は「馬の並びの何番目:何鞍目」、まだの人は「tray:k」
   const 人の板 = (id, 位置, n, horseId, chiefId) => {
     const 馬の行 = /^(tray|souji)/.test(位置) ? null : 編.馬[Number(位置.split(':')[0])];
-    const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id);
+    const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id) || 毎日乗らない(id);
     const 二頭 = 回数[id] > 1;
     const 気を付ける = 同じ時間[id] || (馬の行 && 馬の行.枠 === '後' && 入っている(編.一限, id));
     const 選 = 選んだ人 === 位置;
@@ -2113,7 +2116,7 @@ function 足す欄の中身(i) {
   const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id] && !馬配の手入れだけ(m.id));
   const ほか = U.members.filter((m) => 今の馬[m.id] && 今の馬[m.id] !== r.horseId);
   const 残り = U.members.filter((m) => !乗れるか(m) && !今の馬[m.id] && !馬配の手入れだけ(m.id));
-  const 理由 = (m) => U.出られない[m.id] || (無断の残り(m.id) ? '無断の残り' + 無断の残り(m.id) : 入っている(編.乗らない, m.id) ? '乗らない' : '4年以上');
+  const 理由 = (m) => U.出られない[m.id] || (無断の残り(m.id) ? '無断の残り' + 無断の残り(m.id) : 入っている(編.乗らない, m.id) ? '乗らない' : m.毎日乗らない ? '毎日乗らない' : '4年以上');
   const 馬休の馬 = (id) => { const 手 = 編.馬休の人 || {}; return Object.keys(手).filter((k) => 手[k] === id).map((k) => (馬で(k) || {}).name).join('・'); };
   return {
     題: h.name + ' に乗る人を足す（' + (r.枠 === '前' ? '前半' : '後半') + '）',
@@ -2156,6 +2159,18 @@ function 手入れ欄の中身(h) {
 $('uhPeople').addEventListener('change', async (e) => {
   const c = e.target;
   // 4年以上の「いつも朝練に来る」（2026-10-21）。すぐ保存し、直している馬配はそのまま
+  // 毎日乗らない（2026-10-21）。すぐ保存し、入れたら今の馬配からも外す（直しとして残る）
+  if (c.dataset.uhDaily) {
+    const id = c.dataset.uhDaily;
+    try {
+      const r = await call('umahaiSetNoRideDaily', TOKEN, id, c.checked, D.date);
+      if (r.date === D.date) U = r;
+      if (c.checked && 編.馬.some((x) => x.人.indexOf(id) >= 0)) { 編.馬.forEach((x) => { x.人 = x.人.filter((y) => y !== id); }); 直した(); }
+      else 馬配を描く();
+      馬配の知らせ(esc(人の名(id)) + ' を' + (c.checked ? '毎日乗らない人にしました（自動で組むときに入れません。来ていればみんなのボードの「鞍なし」に出ます）。' : '毎日乗らない人から外しました。'));
+    } catch (err) { c.checked = !c.checked; 馬配の知らせ(エラー文(err), 'error'); }
+    return;
+  }
   if (c.dataset.uhSenior) {
     try {
       const r = await call('umahaiSetSenior', TOKEN, c.dataset.uhSenior, c.checked, D.date);
