@@ -269,7 +269,7 @@ header.appbar.asa { background: var(--ink); }
       </div>
       <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
       <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -690,7 +690,7 @@ function 馬配を描く() {
     $('uhRest').innerHTML = '';
     return;
   }
-  $('uhWb').classList.toggle('picking', !!選んだ人);
+  $('uhWb').classList.toggle('picking', !!選んだ人 && 選んだ人.indexOf('馬:') !== 0);
 
   // 足すときのプルダウン：まだ入っていない人 → ほかの馬の人（移す） → 休み・乗らない・4年以上
   const 今の馬 = {};
@@ -730,7 +730,7 @@ function 馬配を描く() {
     const 乗る = r.人.map((id, n) => '<span class="uh-mg">' + 人の板(id, i + ':' + n, n + 1, r.horseId, h.chiefId) +
       部品.アイコンボタン('x', 人の名(id) + ' を ' + h.name + ' から外す', { 'data-uh-del': i + ':' + n }) + '</span>').join('');
     return '<div class="uh-row">' +
-      '<button type="button" class="mg horse" data-uh-horse="' + i + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '"' +
+      '<button type="button" class="mg horse' + (選んだ人 === '馬:' + i ? ' sel' : '') + '" data-uh-horse="' + i + '" aria-pressed="' + (選んだ人 === '馬:' + i) + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '"' +
         ' title="' + esc(h.chief ? 'チーフ ' + h.chief : '') + '">' + esc(h.name) + '</button>' +
       '<span class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') + '</span>' +
       '<span class="uh-tools">' +
@@ -751,9 +751,9 @@ function 馬配を描く() {
   まだの人 = まだ.map((m) => m.id);
   $('uhTray').innerHTML = '<span class="wb-hand">まだ</span>' +
     (まだ.length ? まだ.map((m, k) => 人の板(m.id, 'tray:' + k, 0, '', '')).join('') : '<span class="uh-empty">みんな入っています</span>');
-  $('uhPick').textContent = 選んだ人
-    ? 人の名(位置の人(選んだ人)) + ' を選んでいます。入れ替える人か、移す先の馬を押してください（もう一度押すとやめます）。'
-    : '人を2回タップ（1人目→2人目）で入れ替え。';
+  $('uhPick').textContent = !選んだ人 ? '人を2回タップ（1人目→2人目）で入れ替え。馬を2回タップ（1頭目→2頭目）で乗る人ごと入れ替え。'
+    : 選んだ人.indexOf('馬:') === 0 ? ((馬で(編.馬[Number(選んだ人.slice(2))].horseId) || {}).name || '馬') + ' を選んでいます。入れ替える馬を押してください（もう一度押すとやめます）。'
+      : 人の名(位置の人(選んだ人)) + ' を選んでいます。入れ替える人か、移す先の馬を押してください（もう一度押すとやめます）。';
 
   // 休ませている馬
   const 休む = (編.休む馬 || []).map((id) => 馬で(id)).filter(Boolean);
@@ -816,19 +816,39 @@ function 馬配で入れ替える(a, b) {
   else { 編.馬[Number(pa[0])].人[Number(pa[1])] = 人b; 編.馬[Number(pb[0])].人[Number(pb[1])] = 人a; }
   return true;
 }
+// 馬の i 番目と j 番目を、乗る人ごと入れ替える。枠は場所のほうに残す（前半の馬と後半の馬なら入れ替わる）
+function 馬配で馬を入れ替える(i, j) {
+  const A = 編.馬[i], B = 編.馬[j];
+  const 枠 = A.枠; A.枠 = B.枠; B.枠 = 枠;
+  編.馬[i] = B; 編.馬[j] = A;
+}
 function タップ(e) {
   const 板 = e.target.closest('[data-uh-pick]');
   const 馬 = e.target.closest('[data-uh-horse]');
   if (板) {
     const 位置 = 板.dataset.uhPick;
-    if (!選んだ人 || 選んだ人 === 位置) { 選んだ人 = 選んだ人 === 位置 ? '' : 位置; 馬配を描く(); return true; }
+    if (!選んだ人 || 選んだ人 === 位置 || 選んだ人.indexOf('馬:') === 0) {
+      if (選んだ人.indexOf('馬:') === 0) 選んだ人 = '';   // 馬を選んでいて人を押したら、人を選び直す
+      選んだ人 = 選んだ人 === 位置 ? '' : 位置;
+      馬配を描く();
+      return true;
+    }
     const 前 = 選んだ人;
     選んだ人 = '';
     if (馬配で入れ替える(前, 位置)) 直した(); else { 選んだ人 = 位置; 馬配を描く(); }
     return true;
   }
   if (馬) {
-    if (!選んだ人) return true;
+    // 馬同士（2026-10-21 ユーザーの指示）：1頭目→2頭目で、乗る人ごと場所（前半・後半と並び）を入れ替える
+    const 馬の位置 = '馬:' + 馬.dataset.uhHorse;
+    if (!選んだ人 || 選んだ人 === 馬の位置) { 選んだ人 = 選んだ人 === 馬の位置 ? '' : 馬の位置; 馬配を描く(); return true; }
+    if (選んだ人.indexOf('馬:') === 0) {
+      const i = Number(選んだ人.slice(2)), j = Number(馬.dataset.uhHorse);
+      選んだ人 = '';
+      馬配で馬を入れ替える(i, j);
+      直した();
+      return true;
+    }
     const id = 位置の人(選んだ人);
     const p = 選んだ人.split(':');
     選んだ人 = '';
