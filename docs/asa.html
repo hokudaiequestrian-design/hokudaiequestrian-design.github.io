@@ -1034,6 +1034,11 @@ header.appbar.asa { background: var(--ink); }
 
 /* 直近の大会のエントリー（2026-10-16） */
 .asa-grid .full { grid-column: 1 / -1; }
+/* メモ（2026-10-21）。翌日以降も残る。副将だけが見る */
+#memo { min-height: 110px; }
+.memo-row { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; margin-top: var(--space-xs); }
+.memo-row .state { font-size: var(--text-sm); color: var(--muted); }
+.memo-row .state.dirty { color: var(--warning); font-weight: 700; }
 .ev-when { font-size: var(--text-sm); color: var(--muted); font-weight: 400; font-family: var(--font-num); }
 .ev-tag { font-size: var(--text-xs); font-weight: 700; color: #fff; background: var(--accent); border-radius: 4px; padding: 0 4px; }
 .entry-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: 0 var(--space-md); }
@@ -1408,6 +1413,16 @@ a.donehome:hover { background: var(--accent-dark); }
         <ul class="entry-list" id="entries"></ul>
         <p class="hint" style="margin-bottom:0;">人員表の「出場」に入っている人（選手として出る競技と馬）。終わった大会は出さず、次の大会に切り替わります。</p>
       </section>
+
+      <!-- メモ（2026-10-21 ユーザーの指示：翌日以降に残るメモを大会のエントリーの下に。ボードには出さない） -->
+      <section class="card full" id="memoCard">
+        <h2>メモ</h2>
+        <textarea id="memo" aria-label="メモ" maxlength="4000" placeholder="翌日以降もそのまま残るメモ（副将の画面だけ。みんなのボードには出ません）"></textarea>
+        <div class="memo-row">
+          <button type="button" id="memoSave">メモを保存</button>
+          <span class="state" id="memoState" aria-live="polite"></span>
+        </div>
+      </section>
     </div>
 
     <section class="card" id="umahaiCard">
@@ -1584,7 +1599,29 @@ $('todayBtn').addEventListener('click', () => 日を変える(今日()));
 $('dayPick').addEventListener('change', (e) => 日を変える(e.target.value));
 
 // ===== 描く =====
+// メモ（2026-10-21）。打っているあいだは、描き直しても中身を上書きしない
+let メモを直している = false;
+function メモを描く() {
+  const m = (D && D.メモ) || { 中身: '', at: 0 };
+  if (!メモを直している) $('memo').value = m.中身 || '';
+  const 時 = m.at ? new Date(m.at) : null;
+  $('memoState').className = 'state' + (メモを直している ? ' dirty' : '');
+  $('memoState').textContent = メモを直している ? '保存していません'
+    : 時 ? (時.getMonth() + 1) + '/' + 時.getDate() + ' ' + 時.getHours() + ':' + ('0' + 時.getMinutes()).slice(-2) + ' に保存' : '';
+}
+$('memo').addEventListener('input', () => { メモを直している = true; メモを描く(); });
+$('memoSave').addEventListener('click', async () => {
+  try {
+    D.メモ = await call('asaSaveMemo', TOKEN, $('memo').value);
+    メモを直している = false;
+    メモを描く();
+    部品.光らせる([$('memoCard')]);
+  } catch (e) { $('memoState').className = 'state dirty'; $('memoState').textContent = '保存できませんでした：' + エラー文(e); }
+});
+window.addEventListener('beforeunload', (e) => { if (メモを直している) { e.preventDefault(); e.returnValue = ''; } });
+
 function 描く() {
+  メモを描く();
   $('dayNow').innerHTML = esc(和風(D.date)) + (D.date === D.today ? ' <span class="tlabel">今日</span>' : '');
   $('dayPick').value = D.date;
 
