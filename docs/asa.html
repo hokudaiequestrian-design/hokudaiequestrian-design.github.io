@@ -1074,28 +1074,56 @@ header.appbar.asa { background: var(--ink); }
 .uh-tag.warn { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
 .uh-warns { list-style: none; margin: var(--space-sm) 0 0; padding: var(--space-xs) var(--space-sm); border-left: 4px solid var(--warning); background: var(--warning-soft); }
 .uh-warns li { padding: 2px 0; }
-.uh-board { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-top: var(--space-sm); }
-.uh-col h3 { margin: 0 0 var(--space-xs); font-family: var(--font-num); display: flex; align-items: baseline; gap: var(--space-xs); }
-.uh-col h3 .cnt { font-size: var(--text-sm); color: var(--muted); font-weight: 400; }
-.uh-horse { border: 2px solid var(--rule); border-radius: var(--radius-card); padding: var(--space-xs) var(--space-sm); margin-bottom: var(--space-xs); background: var(--paper); }
-.uh-horse .hd { display: flex; align-items: center; gap: var(--space-xs); flex-wrap: wrap; }
-.uh-horse .hn { font-weight: 700; font-size: var(--text-md); }
-.uh-horse .ch { font-size: var(--text-sm); color: var(--muted); }
-.uh-horse .hb { margin-left: auto; display: flex; gap: var(--space-2xs); }
-.uh-riders { display: flex; flex-wrap: wrap; gap: var(--space-2xs); align-items: center; margin-top: var(--space-2xs); }
-.uh-rider { display: inline-flex; align-items: center; gap: 2px; border: 2px solid var(--rule-strong); border-radius: var(--radius-pill); padding: 0 2px 0 var(--space-xs); background: var(--paper-2); min-height: 40px; }
-.uh-rider .n { font-family: var(--font-num); font-size: var(--text-xs); color: var(--muted); }
-.uh-rider .nm { font-weight: 700; }
-.uh-rider.bad { border-color: var(--danger); background: var(--danger-soft); }
-.uh-rider.warn { border-color: var(--warning); background: var(--warning-soft); }
-.uh-rider .icon-btn { width: 32px; height: 32px; min-height: 32px; }
-.uh-mark { font-size: var(--text-xs); font-weight: 700; border-radius: 4px; padding: 0 3px; border: 1px solid; }
+/*
+  2026-10-21 ユーザーの指示：副将の編集もマイページと同じホワイトボード風に。
+  人のマグネットを2回タップ（1人目→2人目）でその2人を入れ替える。1人目を選んでから馬のマグネットを押すとその馬の最後へ移す。
+  ボードの下の「まだ入っていない人」も同じマグネットで、ボードの人と入れ替えられる。
+*/
+.uh-wb {
+  --wb-ink: #1d1d1f; --wb-yellow: #f4e626;
+  margin-top: var(--space-sm); padding: 12px 18px 16px; background: #fbfbf7; color: var(--wb-ink);
+  border: 9px solid #a9adb1; border-top-color: #c3c6c9; border-bottom-color: #8d9195; border-radius: 4px;
+  box-shadow: inset 0 0 0 1px #7f8387, inset 0 2px 10px rgba(0, 0, 0, .06), 0 3px 10px rgba(0, 0, 0, .18);
+}
+.uh-wb .wb-hand { font-family: "Klee One", "Yu Gothic", var(--font-body); font-weight: 600; color: #222; }
+.uh-board { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-lg); }
+.uh-col h3 { margin: 2px 0 6px; font-size: 1.4rem; display: flex; align-items: baseline; gap: var(--space-xs); }
+.uh-col h3 .cnt { font-family: var(--font-body); font-size: var(--text-sm); color: #777; font-weight: 400; }
+.uh-row { display: flex; align-items: center; gap: 6px 8px; padding: 6px 0; flex-wrap: wrap; border-bottom: 1px dashed #e4e4de; }
+.uh-riders { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; flex: 1 1 auto; }
+.uh-tools { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.uh-tools button { min-height: 30px; padding: 0 8px; font-size: var(--text-xs); }
+.uh-add { width: auto; min-width: 6.5rem; max-width: 100%; min-height: 30px; padding: 0 6px; font-size: var(--text-xs); }
+.uh-empty { color: #999; }
+.uh-wb .uh-empty { font-size: var(--text-sm); }
+
+/* マグネット。押せる板（button） */
+.uh-wb .mg {
+  position: relative; display: inline-flex; align-items: center; gap: 3px; min-height: 30px; padding: 1px 8px; margin: 0;
+  background: #fff; color: #111; white-space: nowrap; cursor: pointer;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "Noto Serif JP", serif; font-weight: 600; font-size: var(--text-sm); line-height: 1.4;
+  border: 1px solid #333; border-bottom-width: 3px; border-radius: 1px;
+  box-shadow: 1px 2px 2px rgba(0, 0, 0, .22); transform: rotate(var(--tilt, 0deg));
+  transition: transform .12s, box-shadow .12s;
+}
+.uh-wb .mg:hover { box-shadow: 2px 4px 5px rgba(0, 0, 0, .28); }
+.uh-wb .mg.horse { min-width: 8.5em; justify-content: center; letter-spacing: .08em; font-size: var(--text-xs); }
+.uh-wb .mg.bad { background: #ffe1df; border-color: #c0261d; }
+.uh-wb .mg.warn { background: #fff1d6; border-color: #b46a00; }
+.uh-wb .mg.sel { background: var(--wb-yellow); transform: translateY(-3px) rotate(0deg) scale(1.06); box-shadow: 0 0 0 3px var(--accent), 2px 6px 8px rgba(0, 0, 0, .3); z-index: 1; }
+.uh-wb.picking .mg.horse { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.uh-wb .mg .n { font-family: var(--font-num); font-size: 10px; color: #777; }
+.uh-mg { display: inline-flex; align-items: center; }
+.uh-mg .icon-btn { width: 22px; height: 22px; min-height: 22px; margin-left: -2px; opacity: .55; }
+.uh-mg .icon-btn:hover { opacity: 1; }
+.uh-mark { font-family: var(--font-body); font-size: 10px; font-weight: 700; border-radius: 3px; padding: 0 2px; border: 1px solid; line-height: 1.3; }
 .uh-mark.c { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
 .uh-mark.i { color: var(--care-dark); border-color: var(--care); background: var(--care-soft); }
 .uh-mark.t { color: #fff; border-color: var(--accent); background: var(--accent); }
 .uh-mark.x { color: #fff; border-color: var(--danger); background: var(--danger); }
-.uh-add { width: auto; min-width: 9rem; max-width: 100%; }
-.uh-empty { color: var(--muted); }
+.uh-tray { margin-top: var(--space-sm); padding-top: var(--space-xs); border-top: 2px dashed #e0e0da; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.uh-tray .wb-hand { font-size: 1.15rem; margin-right: 4px; }
+.uh-pickmsg { margin: 6px 0 0; font-size: var(--text-sm); min-height: 1.4em; color: #444; }
 .uh-rest { margin-top: var(--space-sm); display: flex; flex-wrap: wrap; gap: var(--space-xs); align-items: center; }
 .uh-rest .lb { font-weight: 700; }
 .uh-chip { display: inline-flex; align-items: center; gap: var(--space-2xs); border: 1px dashed var(--rule-strong); border-radius: var(--radius-pill); padding: 2px var(--space-xs); }
@@ -1220,9 +1248,14 @@ a.donehome:hover { background: var(--accent-dark); }
         </div>
       </details>
       <ul class="uh-warns" id="uhWarns" hidden></ul>
-      <div class="uh-board" id="uhBoard"></div>
+      <div class="uh-wb" id="uhWb" hidden>
+        <div class="uh-board" id="uhBoard"></div>
+        <div class="uh-tray" id="uhTray"></div>
+        <p class="uh-pickmsg" id="uhPick" aria-live="polite"></p>
+      </div>
+      <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
       <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。名前の横の <b>‹</b> で鞍の順を1つ前へ、× で外します。「＋ 足す」でほかの馬から選ぶと、その馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -1614,6 +1647,7 @@ async function 馬配を読む(date, 直しを残す) {
     U = r;
     if (!直しを残す || !編) {
       編 = U.中身 ? 複製(U.中身) : { 馬: [], 休む馬: [], 一限: U.一限.slice(), 乗らない: [] };
+      選んだ人 = '';
       馬配を変えた = false;
     }
     馬配を描く();
@@ -1629,6 +1663,7 @@ const 無断の残り = (id) => (U.無断の残り || {})[id] || 0;
 const 乗れるか = (m) => !m.noDuty && !U.出られない[m.id] && !無断の残り(m.id) && !入っている(編.乗らない, m.id);
 
 function 直した() {
+  選んだ人 = '';   // 位置で覚えているので、並びが変わったら選び直し
   馬配を変えた = true;
   馬配の知らせ('');
   馬配を描く();
@@ -1696,11 +1731,17 @@ function 馬配を描く() {
   $('uhWarns').hidden = !注意.length;
   $('uhWarns').innerHTML = 注意.map((x) => '<li>' + x + '</li>').join('');
 
+  手書きの字を読む();
+  $('uhWb').hidden = !ある;
+  $('uhNone').hidden = ある;
   if (!ある) {
-    $('uhBoard').innerHTML = '<p class="uh-empty" style="grid-column:1/-1;">まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>';
+    選んだ人 = '';
+    $('uhBoard').innerHTML = '';
+    $('uhTray').innerHTML = '';
     $('uhRest').innerHTML = '';
     return;
   }
+  $('uhWb').classList.toggle('picking', !!選んだ人);
 
   // 足すときのプルダウン：まだ入っていない人 → ほかの馬の人（移す） → 休み・乗らない・4年以上
   const 今の馬 = {};
@@ -1718,40 +1759,54 @@ function 馬配を描く() {
 
   const 回数 = {};
   編.馬.forEach((r) => r.人.forEach((id) => { 回数[id] = (回数[id] || 0) + 1; }));
+  let 傾く = 0;
+  // 人のマグネット。位置は「馬の並びの何番目:何鞍目」、まだの人は「tray:k」
+  const 人の板 = (id, 位置, n, horseId, chiefId) => {
+    const 馬の行 = 位置.indexOf('tray') === 0 ? null : 編.馬[Number(位置.split(':')[0])];
+    const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id);
+    const 気を付ける = 回数[id] > 1 || (馬の行 && 馬の行.枠 === '後' && 入っている(編.一限, id));
+    const 選 = 選んだ人 === 位置;
+    return '<button type="button" class="mg' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + (選 ? ' sel' : '') + '" data-uh-pick="' + 位置 + '"' +
+      ' aria-pressed="' + 選 + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '" title="押してから、入れ替える相手を押す">' +
+      (n ? '<span class="n">' + n + '</span>' : '') + esc(人の名(id)) +
+      (id === chiefId ? '<span class="uh-mark c" title="チーフ">チ</span>' : '') +
+      (入っている(編.一限, id) ? '<span class="uh-mark i" title="一限">一</span>' : '') +
+      (horseId && 入っている(U.大会[id], horseId) ? '<span class="uh-mark t" title="大会でこの馬に乗る">大</span>' : '') +
+      (U.出られない[id] ? '<span class="uh-mark x">' + esc(U.出られない[id]) + '</span>' : '') +
+      (無断の残り(id) ? '<span class="uh-mark x" title="無断の残りがあるので乗せない">無断残' + 無断の残り(id) + '</span>' : '') +
+      '</button>';
+  };
   const 馬の箱 = (r, i) => {
     const h = 馬で(r.horseId) || { name: '（消された馬）', chief: '', chiefId: '' };
-    const 乗る = r.人.map((id, n) => {
-      const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id);
-      const 気を付ける = 回数[id] > 1 || (r.枠 === '後' && 入っている(編.一限, id));
-      return '<span class="uh-rider' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + '">' +
-        '<span class="n">' + (n + 1) + '</span><span class="nm">' + esc(人の名(id)) + '</span>' +
-        (id === h.chiefId ? '<span class="uh-mark c" title="チーフ">チ</span>' : '') +
-        (入っている(編.一限, id) ? '<span class="uh-mark i" title="一限">一</span>' : '') +
-        (入っている(U.大会[id], r.horseId) ? '<span class="uh-mark t" title="大会でこの馬に乗る">大</span>' : '') +
-        (U.出られない[id] ? '<span class="uh-mark x">' + esc(U.出られない[id]) + '</span>' : '') +
-        (無断の残り(id) ? '<span class="uh-mark x" title="無断の残りがあるので乗せない">無断残' + 無断の残り(id) + '</span>' : '') +
-        (n > 0 ? 部品.アイコンボタン('chev-left', 人の名(id) + ' を1つ前の鞍へ', { 'data-uh-up': i + ':' + n }) : '') +
-        部品.アイコンボタン('x', 人の名(id) + ' を ' + h.name + ' から外す', { 'data-uh-del': i + ':' + n }) +
-      '</span>';
-    }).join('');
-    return '<div class="uh-horse">' +
-      '<div class="hd"><span class="hn">' + esc(h.name) + '</span>' + (h.chief ? '<span class="ch">チーフ ' + esc(h.chief) + '</span>' : '') +
-        '<span class="hb">' +
-          '<button type="button" class="secondary small" data-uh-move="' + i + '">' + (r.枠 === '前' ? '後半へ' : '前半へ') + '</button>' +
-          '<button type="button" class="secondary small" data-uh-rest="' + i + '">この日は休ませる</button>' +
-        '</span></div>' +
-      '<div class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') +
-        '<select class="uh-add" data-uh-add="' + i + '" aria-label="' + esc(h.name) + ' に乗る人を足す">' + 足す候補(r) + '</select></div>' +
-    '</div>';
+    const 乗る = r.人.map((id, n) => '<span class="uh-mg">' + 人の板(id, i + ':' + n, n + 1, r.horseId, h.chiefId) +
+      部品.アイコンボタン('x', 人の名(id) + ' を ' + h.name + ' から外す', { 'data-uh-del': i + ':' + n }) + '</span>').join('');
+    return '<div class="uh-row">' +
+      '<button type="button" class="mg horse" data-uh-horse="' + i + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '"' +
+        ' title="' + esc(h.chief ? 'チーフ ' + h.chief : '') + '">' + esc(h.name) + '</button>' +
+      '<span class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') + '</span>' +
+      '<span class="uh-tools">' +
+        '<select class="uh-add" data-uh-add="' + i + '" aria-label="' + esc(h.name) + ' に乗る人を足す">' + 足す候補(r) + '</select>' +
+        '<button type="button" class="secondary small" data-uh-move="' + i + '">' + (r.枠 === '前' ? '後半へ' : '前半へ') + '</button>' +
+        '<button type="button" class="secondary small" data-uh-rest="' + i + '">休ませる</button>' +
+      '</span></div>';
   };
   $('uhBoard').innerHTML = ['前', '後'].map((枠) => {
     const 並び = 編.馬.map((r, i) => ({ r: r, i: i })).filter((x) => x.r.枠 === 枠);
     const 人数 = 並び.reduce((n, x) => n + x.r.人.length, 0);
-    return '<div class="uh-col"><h3>' + 枠の名(枠) + '<span class="cnt">' + 並び.length + '頭・' + 人数 + '鞍</span></h3>' +
+    return '<div class="uh-col"><h3><span class="wb-hand">' + 枠の名(枠) + '</span><span class="cnt">' + 並び.length + '頭・' + 人数 + '鞍</span></h3>' +
       (並び.map((x) => 馬の箱(x.r, x.i)).join('') || '<p class="uh-empty">馬がいません。</p>') + '</div>';
   }).join('');
 
-  // 休ませている馬・まだ入っていない人
+  // まだ入っていない人（乗れる人だけ）。ボードの人と入れ替えられる
+  const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id]);
+  まだの人 = まだ.map((m) => m.id);
+  $('uhTray').innerHTML = '<span class="wb-hand">まだ</span>' +
+    (まだ.length ? まだ.map((m, k) => 人の板(m.id, 'tray:' + k, 0, '', '')).join('') : '<span class="uh-empty">みんな入っています</span>');
+  $('uhPick').textContent = 選んだ人
+    ? 人の名(位置の人(選んだ人)) + ' を選んでいます。入れ替える人か、移す先の馬を押してください（もう一度押すとやめます）。'
+    : '人を2回タップ（1人目→2人目）で入れ替え。';
+
+  // 休ませている馬
   const 休む = (編.休む馬 || []).map((id) => 馬で(id)).filter(Boolean);
   const 使っている = {};
   編.馬.forEach((r) => { 使っている[r.horseId] = true; });
@@ -1783,16 +1838,68 @@ $('uhPeople').addEventListener('change', (e) => {
   直した();
 });
 
+/*
+  2回タップで入れ替える（2026-10-21 ユーザーの指示）。選んだ人 は位置（「馬の並びの何番目:何鞍目」か「tray:k」）。
+  ボード同士なら場所を入れ替え、片方が「まだ」なら交代（ボードの人がまだに戻る）。
+  選んでから馬のマグネットを押すと、その馬の最後へ移す（まだの人なら足す）。
+*/
+let 選んだ人 = '';
+let まだの人 = [];
+const 傾き = ['-1.2deg', '0.6deg', '-0.4deg', '1deg', '-0.8deg', '0.3deg', '1.3deg'];
+function 位置の人(位置) {
+  const p = 位置.split(':');
+  return p[0] === 'tray' ? まだの人[Number(p[1])] : 編.馬[Number(p[0])].人[Number(p[1])];
+}
+function 手書きの字を読む() {
+  if (document.getElementById('wbFont')) return;
+  const l = document.createElement('link');
+  l.id = 'wbFont';
+  l.rel = 'stylesheet';
+  l.href = 'https://fonts.googleapis.com/css2?family=Klee+One:wght@600&display=swap';
+  document.head.appendChild(l);
+}
+function 馬配で入れ替える(a, b) {
+  const pa = a.split(':'), pb = b.split(':');
+  const 人a = 位置の人(a), 人b = 位置の人(b);
+  if (pa[0] === 'tray' && pb[0] === 'tray') return false;   // まだ同士は選び直すだけ
+  if (pa[0] === 'tray') 編.馬[Number(pb[0])].人[Number(pb[1])] = 人a;
+  else if (pb[0] === 'tray') 編.馬[Number(pa[0])].人[Number(pa[1])] = 人b;
+  else { 編.馬[Number(pa[0])].人[Number(pa[1])] = 人b; 編.馬[Number(pb[0])].人[Number(pb[1])] = 人a; }
+  return true;
+}
+function タップ(e) {
+  const 板 = e.target.closest('[data-uh-pick]');
+  const 馬 = e.target.closest('[data-uh-horse]');
+  if (板) {
+    const 位置 = 板.dataset.uhPick;
+    if (!選んだ人 || 選んだ人 === 位置) { 選んだ人 = 選んだ人 === 位置 ? '' : 位置; 馬配を描く(); return true; }
+    const 前 = 選んだ人;
+    選んだ人 = '';
+    if (馬配で入れ替える(前, 位置)) 直した(); else { 選んだ人 = 位置; 馬配を描く(); }
+    return true;
+  }
+  if (馬) {
+    if (!選んだ人) return true;
+    const id = 位置の人(選んだ人);
+    const p = 選んだ人.split(':');
+    選んだ人 = '';
+    if (p[0] !== 'tray') 編.馬[Number(p[0])].人.splice(Number(p[1]), 1);
+    編.馬[Number(馬.dataset.uhHorse)].人.push(id);
+    直した();
+    return true;
+  }
+  return false;
+}
+$('uhTray').addEventListener('click', タップ);
+
 // 盤の上のボタン
 $('uhBoard').addEventListener('click', (e) => {
+  if (タップ(e)) return;
   const b = e.target.closest('button');
   if (!b) return;
   const 位置 = (s) => s.split(':').map(Number);
-  if (b.dataset.uhUp) {
-    const p = 位置(b.dataset.uhUp);
-    const 人 = 編.馬[p[0]].人;
-    const t = 人[p[1] - 1]; 人[p[1] - 1] = 人[p[1]]; 人[p[1]] = t;
-  } else if (b.dataset.uhDel) {
+  選んだ人 = '';   // 並びが変わるので選ぶのはやめる
+  if (b.dataset.uhDel) {
     const p = 位置(b.dataset.uhDel);
     編.馬[p[0]].人.splice(p[1], 1);
   } else if (b.dataset.uhMove) {
@@ -1833,6 +1940,7 @@ $('uhGen').addEventListener('click', async () => {
   try {
     U = await call('umahaiGenerate', TOKEN, D.date, { 一限: 編.一限, 乗らない: 編.乗らない, 休む馬: 編.休む馬, 枠: 枠 });
     編 = 複製(U.中身);
+    選んだ人 = '';
     馬配を変えた = false;
     馬配を描く();
     馬配の知らせ('組みました（下書き）。直してから「確定してみんなに出す」を押してください。');
