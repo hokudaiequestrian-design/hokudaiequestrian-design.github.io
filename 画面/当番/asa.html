@@ -732,7 +732,7 @@ function 馬配を描く() {
     const 選 = 選んだ人 === 位置;
     return '<button type="button" class="mg' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + (選 ? ' sel' : '') + '" data-uh-pick="' + 位置 + '" data-flip="' + esc(すべりの目印((位置.indexOf('souji') === 0 ? 's:' : 'p:') + id)) + '"' +
       ' aria-pressed="' + 選 + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '" title="押してから、入れ替える相手を押す">' +
-      (n ? '<span class="n">' + n + '</span>' : '') + esc(人の名(id)) +
+      esc(人の名(id)) +   // 鞍の番号は出さない（2026-10-21 ユーザーの指示。並びの順で分かる）
       (id === chiefId ? '<span class="uh-mark c" title="チーフ">チ</span>' : '') +
       (二頭 && 馬の行 ? '<span class="uh-mark w2" title="前半と後半で二頭乗る">2頭</span>' : '') +
       (入っている(編.一限, id) ? '<span class="uh-mark i" title="一限">一</span>' : '') +
