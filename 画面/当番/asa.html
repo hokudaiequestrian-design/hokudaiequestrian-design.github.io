@@ -152,6 +152,8 @@ header.appbar.asa { background: var(--ink); }
 .uh-souji .uh-sj-tools { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: var(--text-xs); }
 .uh-souji .uh-sj-tools select { width: auto; min-height: 30px; padding: 0 6px; font-size: var(--text-xs); }
 .uh-souji .uh-sj-tools button { min-height: 30px; padding: 0 8px; font-size: var(--text-xs); }
+/* 掃除場所（2026-10-21）。ボードにマーカーで書く感じ */
+.uh-souji .uh-sj-place { flex: 0 1 16rem; width: 16rem; min-height: 32px; padding: 2px 8px; font-family: "Klee One", "Yu Gothic", var(--font-body); font-weight: 600; font-size: 1.05rem; background: #fff; }
 .uh-sj-add { min-height: 30px; padding: 0 10px; border: 2px dashed #b9b9b2; border-radius: 3px; background: transparent; color: #666; font-size: var(--text-xs); cursor: pointer; }
 .uh-wb.picking .uh-sj-add { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-soft); }
 .uh-tray { margin-top: var(--space-sm); padding-top: var(--space-xs); border-top: 2px dashed #e0e0da; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
@@ -261,7 +263,7 @@ header.appbar.asa { background: var(--ink); }
       </div>
       <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
       <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;"><b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。左の欄に<b>掃除場所</b>を打ち込めます（新しく組むと前の日の場所が入っています）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -760,6 +762,7 @@ function 馬配を描く() {
   const 掃除 = 編.掃除 || (編.掃除 = []);
   const 後半の人 = 馬配の後半の人();
   $('uhSouji').innerHTML = '<span class="wb-hand">掃除</span>' +
+    '<input type="text" class="uh-sj-place" id="uhSjPlace" maxlength="60" placeholder="掃除場所（例：鞍庫 飼料庫）" aria-label="掃除場所" value="' + esc(編.掃除場所 || '') + '">' +
     掃除.map((id, k) => '<span class="uh-mg">' + 人の板(id, 'souji:' + k, 0, '', '') +
       部品.アイコンボタン('x', 人の名(id) + ' を掃除から外す', { 'data-uh-sj-del': String(k) }) + '</span>').join('') +
     '<button type="button" class="uh-sj-add" data-uh-sj-add="1">＋ここへ</button>' +
@@ -936,7 +939,13 @@ $('uhSouji').addEventListener('click', (e) => {
   } else return;
   直した();
 });
+$('uhSouji').addEventListener('input', (e) => {
+  if (e.target.id !== 'uhSjPlace') return;
+  編.掃除場所 = e.target.value;
+  馬配を変えた = true;
+});
 $('uhSouji').addEventListener('change', (e) => {
+  if (e.target.id === 'uhSjPlace') { 編.掃除場所 = e.target.value; 直した(); return; }
   if (e.target.id !== 'uhSjN') return;
   掃除の人数を選んだ = Number(e.target.value);
   // 減らしたら後ろから外す。増やすのは「後半から選び直す」で

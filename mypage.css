@@ -198,6 +198,7 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-uh .wb-bottom { margin-top: var(--space-sm); padding-top: var(--space-xs); border-top: 2px dashed #e0e0da; display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-xl); }
 .me-uh .wb-souji { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
 .me-uh .wb-names { font-size: 1.3rem; }
+.me-uh .wb-place { font-size: 1.3rem; padding: 0 6px; border-bottom: 2px solid #c9c9c2; }   /* 掃除場所（2026-10-21） */
 .me-uh .wb-names .me { background: var(--wb-yellow); padding: 0 4px; }
 
 /* マグネット：印字したラベルを貼った小さな板 */
