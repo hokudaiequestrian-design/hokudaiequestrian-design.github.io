@@ -211,6 +211,7 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-uh .mg.horse { min-width: 8.5em; padding: 1px 10px; letter-spacing: .08em; text-align: center; font-size: var(--text-xs); }
 .me-uh .mg.sm { font-size: var(--text-xs); padding: 0 5px; }
 .me-uh .mg.horse.sm { min-width: 0; }
+.me-uh .mg.ichigen { background: #fff6c8; }   /* 一限の人（2026-10-21）。自分の黄色より薄い */
 .me-uh .mg.mine { background: var(--wb-yellow); border-color: #111; font-weight: 800; }
 
 /* 一限がある曜日（2026-10-21）。押すと入れ外し */

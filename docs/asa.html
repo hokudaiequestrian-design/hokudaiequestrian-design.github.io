@@ -1093,6 +1093,8 @@ header.appbar.asa { background: var(--ink); }
 .uh-wb .mg:hover { box-shadow: 2px 4px 5px rgba(0, 0, 0, .28); }
 .uh-wb .mg.horse { min-width: 8.5em; justify-content: center; letter-spacing: .08em; font-size: var(--text-xs); }
 .uh-wb .mg.bad { background: #ffe1df; border-color: #c0261d; }
+/* 一限の人（2026-10-21 ユーザーの指示：若干黄色く）。選んだときの濃い黄色・注意の色のほうが勝つ */
+.uh-wb .mg.ichigen { background: #fff6c8; }
 .uh-wb .mg.warn { background: #fff1d6; border-color: #b46a00; }
 .uh-wb .mg.sel { background: var(--wb-yellow); transform: translateY(-3px) rotate(0deg) scale(1.06); box-shadow: 0 0 0 3px var(--accent), 2px 6px 8px rgba(0, 0, 0, .3); z-index: 1; }
 .uh-wb.picking .mg.horse { outline: 2px dashed var(--accent); outline-offset: 2px; }
@@ -1934,7 +1936,7 @@ function 馬配を描く() {
     const 二頭 = 回数[id] > 1;
     const 気を付ける = 同じ時間[id] || (馬の行 && 馬の行.枠 === '後' && 入っている(編.一限, id));
     const 選 = 選んだ人 === 位置;
-    return '<button type="button" class="mg' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + (選 ? ' sel' : '') + '" data-uh-pick="' + 位置 + '" data-flip="' + esc(すべりの目印((位置.indexOf('souji') === 0 ? 's:' : 'p:') + id)) + '"' +
+    return '<button type="button" class="mg' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + (入っている(編.一限, id) ? ' ichigen' : '') + (選 ? ' sel' : '') + '" data-uh-pick="' + 位置 + '" data-flip="' + esc(すべりの目印((位置.indexOf('souji') === 0 ? 's:' : 'p:') + id)) + '"' +
       ' aria-pressed="' + 選 + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '" title="押してから、入れ替える相手を押す">' +
       esc(人の名(id)) +   // 鞍の番号は出さない（2026-10-21 ユーザーの指示。並びの順で分かる）
       (id === chiefId ? '<span class="uh-mark c" title="チーフ">チ</span>' : '') +
