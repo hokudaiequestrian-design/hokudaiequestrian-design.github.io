@@ -185,9 +185,9 @@ header.appbar.asa { background: var(--ink); }
           <div style="flex:1 1 12rem;"><label for="mudanSel">来ていない人</label><select id="mudanSel"></select></div>
           <button type="button" id="mudanAdd">無断欠席に入れる</button>
           <button type="button" id="sickAdd">体調不良に入れる</button>
-          <button type="button" class="secondary" id="leaveAdd">休みを入れる</button>
+          <button type="button" id="paidAdd">有給を入れる</button>
         </div>
-        <p class="hint" style="margin-top:0;">「体調不良に入れる」は、この日1日の体調不良を<b>了承ずみ</b>で入れます（左の「休み」に出て、× で外せます）。有給・季節休みや何日かの休みは「休みを入れる」。選んだ人とこの日を入れた状態で、休みを入れる画面が開きます（入れたあと、そこから戻れます）。</p>
+        <p class="hint" style="margin-top:0;">「体調不良に入れる」「有給を入れる」は、この日1日のぶんを<b>了承ずみ</b>で入れます（左の「休み」に出て、× で外せます）。有給はその人の残りから1日減ります。季節休みや何日かの休みは、休みの欄の「決める」から入れてください。</p>
         <ul class="plist" id="mudan"></ul>
       </section>
 
@@ -260,11 +260,6 @@ const 種類クラス = { '有給休暇': 'k-yuukyuu', '季節休み': 'k-kisets
 const エラー文 = (e) => esc((e && e.message) || e);
 const URLの = (名) => { try { return new URLSearchParams(location.search).get(名) || ''; } catch (e) { return ''; } };
 
-// 休みを入れる画面へ（2026-10-10 ユーザーの指示）。プルダウンで選んだ人とこの日を渡す
-$('leaveAdd').addEventListener('click', () => {
-  const id = $('mudanSel').value;
-  location.href = 'yasumi-admin.html?from=asa&tab=add&day=' + encodeURIComponent(D.date) + (id ? '&member=' + encodeURIComponent(id) : '');
-});
 
 // ===== ログイン =====
 (async () => {
@@ -367,7 +362,7 @@ function 描く() {
       '<span class="nm">' + esc(l.name) + '</span>' +
       (l.state === '申請中' ? '<span class="waittag">了承待ち</span>' : '') +
       (l.reason ? '<span class="sub">' + esc(l.reason) + '</span>' : '') +
-      (l.kind === '体調不良' ? 部品.アイコンボタン('x', l.name + ' の体調不良を外す', { 'data-unsick': l.id }) : '') +
+      (l.kind === '体調不良' || (l.kind === '有給休暇' && l.朝に入れた) ? 部品.アイコンボタン('x', l.name + ' の' + l.kind + 'を外す', { 'data-unsick': l.id, 'data-kind': l.kind }) : '') +
       // その人の休みを決めるところへ（2026-10-10 ユーザーの指示）。休みをまとめる画面が ?member=&day= を見て、その人だけを出す
       '<a class="decide-link end' + (l.state === '申請中' ? ' wait' : '') + '" href="yasumi-admin.html?from=asa&member=' + encodeURIComponent(l.memberId) +
         '&day=' + encodeURIComponent(D.date) + '">' + (l.state === '申請中' ? '了承・却下を決める' : '決める') + '</a>' +
@@ -480,6 +475,18 @@ $('sickAdd').addEventListener('click', async () => {
     知らせ('<b>' + esc(m ? m.name : '') + '</b> さんを体調不良（了承ずみ）に入れました。');
   } catch (e) { 知らせ(エラー文(e), 'error'); }
 });
+// ===== 有給（2026-10-21 ユーザーの指示：「休みを入れる」を「有給を入れる」にして、ここから直にその日のぶんを入れる） =====
+$('paidAdd').addEventListener('click', async () => {
+  const id = $('mudanSel').value;
+  if (!id) return 知らせ('「来ていない人」で名前を選んでください。', 'warning');
+  try {
+    D = await call('asaAddPaid', TOKEN, D.date, id);
+    描く();
+    馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
+    const m = D.members.filter((x) => x.id === id)[0];
+    知らせ('<b>' + esc(m ? m.name : '') + '</b> さんにこの日の有給休暇（了承ずみ）を入れました。');
+  } catch (e) { 知らせ(エラー文(e), 'error'); }
+});
 $('leaves').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-unsick]');
   if (!b) return;
@@ -487,7 +494,7 @@ $('leaves').addEventListener('click', async (e) => {
     D = await call('asaRemoveSick', TOKEN, D.date, b.dataset.unsick);
     描く();
     馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
-    知らせ('体調不良を外しました。');
+    知らせ((b.dataset.kind || '体調不良') + 'を外しました。');
   } catch (err) { 知らせ(エラー文(err), 'error'); }
 });
 $('mudan').addEventListener('click', async (e) => {
