@@ -97,7 +97,7 @@ header.appbar.asa { background: var(--ink); }
 @media (max-width: 720px) { .asa-grid { grid-template-columns: 1fr; } }
 
 /*
-  朝練の馬配（2026-10-21 ユーザーの指示）。ホワイトボードと同じく 前半（6:00〜）と 後半（7:00〜）の2列に馬を並べ、
+  朝練の馬配（2026-10-21 ユーザーの指示）。ホワイトボードと同じく 前半（集合の30分後）と 後半（その1時間後）の2列に馬を並べ、
   馬ごとに乗る人を鞍の順に置く。自動で組んだあと手で直し、確定するとみんなのマイページのいちばん上に出る。
 */
 #umahaiCard { margin-top: var(--space-md); }
@@ -547,7 +547,8 @@ $('mudan').addEventListener('click', async (e) => {
 let U = null;
 let 編 = null;
 let 馬配を変えた = false;
-const 枠の名 = { 前: '前半 6:00〜', 後: '後半 7:00〜' };
+// 時刻はサーバが集合時間から出す（前半＝集合の30分後、後半＝その1時間後。2026-10-21）
+const 枠の名 = (枠) => (枠 === '前' ? '前半 ' : '後半 ') + esc(((U && U.時刻) || {})[枠] || '') + '〜';
 const 複製 = (x) => JSON.parse(JSON.stringify(x));
 
 function 馬配の知らせ(html, cls) {
@@ -695,7 +696,7 @@ function 馬配を描く() {
   $('uhBoard').innerHTML = ['前', '後'].map((枠) => {
     const 並び = 編.馬.map((r, i) => ({ r: r, i: i })).filter((x) => x.r.枠 === 枠);
     const 人数 = 並び.reduce((n, x) => n + x.r.人.length, 0);
-    return '<div class="uh-col"><h3>' + 枠の名[枠] + '<span class="cnt">' + 並び.length + '頭・' + 人数 + '鞍</span></h3>' +
+    return '<div class="uh-col"><h3>' + 枠の名(枠) + '<span class="cnt">' + 並び.length + '頭・' + 人数 + '鞍</span></h3>' +
       (並び.map((x) => 馬の箱(x.r, x.i)).join('') || '<p class="uh-empty">馬がいません。</p>') + '</div>';
   }).join('');
 
