@@ -60,7 +60,20 @@ header.appbar.asa { background: var(--ink); }
 .none { color: var(--muted); margin: 0; }
 
 .mudan-add { display: flex; gap: var(--space-xs); flex-wrap: wrap; align-items: flex-end; margin-bottom: var(--space-sm); }
-.mudan-add select { min-width: 12rem; flex: 1 1 12rem; }
+/* 来ていない人を学年ごとの4列から選ぶ（2026-10-21 ユーザーの指示：プルダウンをやめて横4列に） */
+.pick-label { margin: 0 0 var(--space-2xs); font-weight: 700; }
+.mudan-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.mudan-pick .col h3 { margin: 0 0 var(--space-2xs); font-size: var(--text-sm); color: var(--muted); font-family: var(--font-num); }
+.mudan-pick .col .list { display: flex; flex-direction: column; gap: 4px; }
+.mudan-pick label { display: flex; align-items: center; gap: 6px; min-height: 36px; margin: 0; padding: 2px var(--space-xs); font-size: var(--text-sm); font-weight: 400;
+  background: var(--paper-2); border: 1px solid var(--rule-strong); border-radius: var(--radius-input); cursor: pointer; }
+.mudan-pick label:hover { background: var(--paper-3); }
+.mudan-pick label input { width: 20px; height: 20px; margin: 0; flex: none; }
+.mudan-pick label.caution { border: 2px solid var(--danger); }
+.mudan-pick label .ct { margin-left: auto; font-size: var(--text-xs); color: var(--danger-dark); font-weight: 700; }
+.mudan-pick label.on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+.mudan-pick .none { font-size: var(--text-sm); }
+.mudan-add .picked { font-weight: 700; margin-right: auto; align-self: center; }
 .mudan-tag { font-size: var(--text-xs); font-weight: 700; color: #fff; background: var(--danger); border-radius: 4px; padding: 0 4px; }
 .left-n { font-family: var(--font-num); font-weight: 700; color: var(--danger-dark); white-space: nowrap; }
 .undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
@@ -179,10 +192,13 @@ header.appbar.asa { background: var(--ink); }
         <p class="hint" style="margin-bottom:0;">有給休暇・季節休み・体調不良（了承待ちも）。「決める」を押すと、<b>その人の休みを了承・却下するところ</b>（バイト・休みをまとめる）が開きます。</p>
       </section>
 
-      <section class="card">
+      <section class="card full">
         <h2>無断欠席・体調不良<span class="cnt" id="mudanCnt"></span></h2>
+        <p class="pick-label" id="mudanPickLabel">来ていない人にチェック（何人でも）</p>
+        <div class="mudan-pick" id="mudanPick" role="group" aria-labelledby="mudanPickLabel"></div>
         <div class="mudan-add">
-          <div style="flex:1 1 12rem;"><label for="mudanSel">来ていない人</label><select id="mudanSel"></select></div>
+          <span class="picked" id="mudanPicked">まだ選んでいません</span>
+          <button type="button" class="secondary small" id="pickClear">チェックを外す</button>
           <button type="button" id="mudanAdd">無断欠席に入れる</button>
           <button type="button" id="sickAdd">体調不良に入れる</button>
           <button type="button" id="paidAdd">有給を入れる</button>
@@ -393,15 +409,57 @@ function 描く() {
       '</li>').join('') : '<li><p class="none">まだエントリーがありません。</p></li>';
   }
 
-  // プルダウン：休み・もう無断の人は出さない。要注意の人を先に
+  // 来ていない人：学年ごとの横4列のチェックリスト（2026-10-21 ユーザーの指示）。休み・もう無断の人は出さない。4年以上は4列目。要注意は赤枠
   const 候補 = D.members.filter((m) => !無断の人[m.id] && !休む人[m.id]);
   const 注意 = {};
   D.要注意.forEach((x) => { 注意[x.memberId] = true; });
-  const opt = (m) => '<option value="' + esc(m.id) + '">' + esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</option>';
-  const 先 = 候補.filter((m) => 注意[m.id]);
-  const 後 = 候補.filter((m) => !注意[m.id]);
-  $('mudanSel').innerHTML = '<option value="">選んでください</option>' +
-    (先.length ? '<optgroup label="要注意の人">' + 先.map(opt).join('') + '</optgroup><optgroup label="ほかの人">' + 後.map(opt).join('') + '</optgroup>' : 後.map(opt).join(''));
+  Object.keys(チェック).forEach((id) => { if (!候補.some((m) => m.id === id)) delete チェック[id]; });
+  const 列 = [1, 2, 3, 4].map((g) => {
+    const 人 = 候補.filter((m) => (g === 4 ? (m.grade || 4) >= 4 : m.grade === g));
+    return '<div class="col"><h3>' + (g === 4 ? '4年以上' : g + '年') + '（' + 人.length + '）</h3><div class="list">' +
+      (人.map((m) => '<label class="' + (注意[m.id] ? 'caution' : '') + (チェック[m.id] ? ' on' : '') + '">' +
+        '<input type="checkbox" data-pick="' + esc(m.id) + '"' + (チェック[m.id] ? ' checked' : '') + '>' + esc(m.name) +
+        (注意[m.id] ? '<span class="ct">要注意</span>' : '') + '</label>').join('') || '<span class="none">いません</span>') +
+      '</div></div>';
+  });
+  $('mudanPick').innerHTML = 列.join('');
+  選んだ人を出す();
+}
+
+// チェックした人（部員ID → true）。日を変えても、まだ候補にいる人は残す
+const チェック = {};
+const チェックした人 = () => D.members.filter((m) => チェック[m.id]);
+function 選んだ人を出す() {
+  const 人 = チェックした人();
+  $('mudanPicked').textContent = 人.length ? '選んだ人（' + 人.length + '）：' + 人.map((m) => m.name).join('・') : 'まだ選んでいません';
+  $('pickClear').hidden = !人.length;
+}
+$('mudanPick').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-pick]');
+  if (!c) return;
+  if (c.checked) チェック[c.dataset.pick] = true; else delete チェック[c.dataset.pick];
+  c.closest('label').classList.toggle('on', c.checked);
+  選んだ人を出す();
+});
+$('pickClear').addEventListener('click', () => { Object.keys(チェック).forEach((k) => delete チェック[k]); 描く(); });
+
+// チェックした人みんなに、1人ずつ入れる。断られた人は理由を出し、チェックを残す
+async function まとめて入れる(入れる, 何に) {
+  const 人 = チェックした人();
+  if (!人.length) return 知らせ('来ていない人にチェックを入れてください。', 'warning');
+  const できた = [];
+  const だめ = [];
+  for (const m of 人) {
+    try {
+      D = await 入れる(m.id);
+      delete チェック[m.id];
+      できた.push(m.name);
+    } catch (e) { だめ.push(esc(m.name) + '：' + エラー文(e)); }
+  }
+  描く();
+  馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
+  知らせ((できた.length ? '<b>' + esc(できた.join('・')) + '</b> を' + 何に + '。' : '') + (だめ.length ? '<br>入れられなかった人：<br>' + だめ.join('<br>') : ''),
+    だめ.length ? (できた.length ? 'warning' : 'error') : 'success');
 }
 
 // ===== 掃除当番：押したら次の日の人と入れ替え =====
@@ -451,42 +509,14 @@ $('npWeek').addEventListener('change', (e) => {
 });
 
 // ===== 無断欠席 =====
-$('mudanAdd').addEventListener('click', async () => {
-  const id = $('mudanSel').value;
+$('mudanAdd').addEventListener('click', () => {
   if (D.朝練なし && D.朝練なし.この日) return 知らせ('この日は朝練なしの日なので、無断欠席は入れられません。朝練があった日なら、上の「朝練なし」を外してください。', 'warning');
-  if (!id) return 知らせ('「来ていない人」で名前を選んでください。', 'warning');
-  try {
-    D = await call('asaAddMudan', TOKEN, D.date, id);
-    描く();
-    馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
-    const m = D.members.filter((x) => x.id === id)[0];
-    知らせ('<b>' + esc(m ? m.name : '') + '</b> さんを無断欠席に入れました。');
-  } catch (e) { 知らせ(エラー文(e), 'error'); }
+  まとめて入れる((id) => call('asaAddMudan', TOKEN, D.date, id), '無断欠席に入れました');
 });
-// ===== 体調不良（2026-10-16 ユーザーの指示：無断と同じ感じで入れる） =====
-$('sickAdd').addEventListener('click', async () => {
-  const id = $('mudanSel').value;
-  if (!id) return 知らせ('「来ていない人」で名前を選んでください。', 'warning');
-  try {
-    D = await call('asaAddSick', TOKEN, D.date, id);
-    描く();
-    馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
-    const m = D.members.filter((x) => x.id === id)[0];
-    知らせ('<b>' + esc(m ? m.name : '') + '</b> さんを体調不良（了承ずみ）に入れました。');
-  } catch (e) { 知らせ(エラー文(e), 'error'); }
-});
-// ===== 有給（2026-10-21 ユーザーの指示：「休みを入れる」を「有給を入れる」にして、ここから直にその日のぶんを入れる） =====
-$('paidAdd').addEventListener('click', async () => {
-  const id = $('mudanSel').value;
-  if (!id) return 知らせ('「来ていない人」で名前を選んでください。', 'warning');
-  try {
-    D = await call('asaAddPaid', TOKEN, D.date, id);
-    描く();
-    馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
-    const m = D.members.filter((x) => x.id === id)[0];
-    知らせ('<b>' + esc(m ? m.name : '') + '</b> さんにこの日の有給休暇（了承ずみ）を入れました。');
-  } catch (e) { 知らせ(エラー文(e), 'error'); }
-});
+// 体調不良（2026-10-16 ユーザーの指示：無断と同じ感じで入れる）
+$('sickAdd').addEventListener('click', () => まとめて入れる((id) => call('asaAddSick', TOKEN, D.date, id), '体調不良（了承ずみ）に入れました'));
+// 有給（2026-10-21 ユーザーの指示：「休みを入れる」を「有給を入れる」にして、ここから直にその日のぶんを入れる）
+$('paidAdd').addEventListener('click', () => まとめて入れる((id) => call('asaAddPaid', TOKEN, D.date, id), 'この日の有給休暇（了承ずみ）にしました'));
 $('leaves').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-unsick]');
   if (!b) return;
