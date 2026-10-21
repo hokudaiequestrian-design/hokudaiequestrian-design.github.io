@@ -464,7 +464,7 @@
       const 行 = (x[k[0]] || []).map((r) => {
         const 乗る = 名 && r.人.indexOf(名) >= 0;
         const 人 = r.人.map((p, i) => {
-          if (名 && p === 名 && !私) 私 = r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';
+          if (名 && p === 名) 私 += (私 ? ' と ' : '') + r.馬 + ' の ' + (i + 1) + '鞍目（' + k[1] + '）';   // 二頭乗りなら2頭とも（2026-10-21）
           return マグネット(p, 名 && p === 名 ? 'mine' : '', n++);
         }).join('');
         return '<div class="wb-row">' + マグネット(r.馬, 'horse' + (乗る ? ' mine' : ''), n++) + '<span class="wb-riders">' + 人 + '</span></div>';
