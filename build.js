@@ -592,6 +592,15 @@ document.getElementById('hub-groups').innerHTML = 中身.groups.map((g) => (
   return html;
 }
 
+// ===== 動き（2026-10-21 ユーザーの指示：全般にアニメーションをふんだんに） =====
+// 動き.css を </head> の手前、動き.js を </body> の手前に入れる。出番表・会計の写しには入れない（別の道具）
+function 動きを差す(html) {
+  if (html.indexOf('</head>') < 0 || html.lastIndexOf('</body>') < 0) throw new Error('動き：</head> か </body> が見つからない');
+  html = html.replace('</head>', '<style>' + NL + 読む(path.join(__dirname, '動き.css')) + NL + '</style>' + NL + '</head>');
+  const i = html.lastIndexOf('</body>');
+  return html.slice(0, i) + '<script>' + NL + 読む(path.join(__dirname, '動き.js')) + NL + '<' + '/script>' + NL + html.slice(i);
+}
+
 // ===== 組み立てる =====
 fs.mkdirSync(出す先, { recursive: true });
 
@@ -605,6 +614,7 @@ let 件 = 0;
   if (p.api) html = callを差し替える(html, p.api);   // 読むだけのページ（使い方）は call() を持たない
   if (p.写し) html = 写しを足す(html, API.写し);
   html = 戻るを足す(html);
+  html = 動きを差す(html);
   if (html.indexOf('google.script.run') >= 0) {
     throw new Error(p.出す + ' に google.script.run が残っている');
   }
@@ -651,7 +661,7 @@ p.lead { max-width: 1100px; margin: 12px auto 0; padding: 0 16px; color: #555; f
 }
 出番表を写す();
 
-fs.writeFileSync(path.join(出す先, 'index.html'), 入口を作る(), 'utf8');
+fs.writeFileSync(path.join(出す先, 'index.html'), 動きを差す(入口を作る()), 'utf8');
 console.log('  index.html  ← 当番/hub.html（?role=chieflinks / admlinks で切り替え）');
 件++;
 

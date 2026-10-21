@@ -554,9 +554,9 @@ fieldset.rule input[type="number"], fieldset.rule input[type="text"] { backgroun
 .saving-bar.on { display: flex; }
 
 /* ===== 動き =====
-   2つだけ。press（押している間 1px 沈む）と nudge（入口の行で印が少し寄る）。
-   出てくる演出は置いていない。道具の画面で毎回待たされる動きは邪魔にしかならないため。
-   press は button・.chip・.mk に、nudge は入口ページの中に書いてある。 */
+   もとは press と nudge の2つだけで、出てくる演出は置いていなかった。
+   2026-10-21 ユーザーの指示（「アニメーションをふんだんに」）で、馬術部サイトの 動き.css・動き.js を
+   build.js が全ページに足すようになった（出てくる・波紋・すべり・数え上げなど）。動きを足すときはそちらに書く。 */
 a.hub-link {
   transition: background-color var(--dur-short) var(--ease-out), border-color var(--dur-short) var(--ease-out);
 }

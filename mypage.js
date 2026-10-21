@@ -501,7 +501,8 @@
     const 今日 = 文字に(new Date());
     const html = (並び || []).filter((x) => x.date >= 今日).map((x) => 馬配の見た目(x, 名, 今日)).join('');
     if (html) 手書きの字を読む();
-    if (箱.innerHTML !== html) 箱.innerHTML = html;
+    // 前に描いた文字と比べる（中身の innerHTML は 動き.js が付けるクラスで変わるので比べない。2026-10-21）
+    if (箱.dataset.html !== html) { 箱.innerHTML = html; 箱.dataset.html = html; }
   }
 
   /*

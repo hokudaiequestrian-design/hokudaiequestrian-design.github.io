@@ -676,7 +676,7 @@ function 馬配を描く() {
     const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id);
     const 気を付ける = 回数[id] > 1 || (馬の行 && 馬の行.枠 === '後' && 入っている(編.一限, id));
     const 選 = 選んだ人 === 位置;
-    return '<button type="button" class="mg' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + (選 ? ' sel' : '') + '" data-uh-pick="' + 位置 + '"' +
+    return '<button type="button" class="mg' + (悪い ? ' bad' : 気を付ける ? ' warn' : '') + (選 ? ' sel' : '') + '" data-uh-pick="' + 位置 + '" data-flip="' + (位置.indexOf('souji') === 0 ? 's:' : 'p:') + esc(id) + '"' +
       ' aria-pressed="' + 選 + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '" title="押してから、入れ替える相手を押す">' +
       (n ? '<span class="n">' + n + '</span>' : '') + esc(人の名(id)) +
       (id === chiefId ? '<span class="uh-mark c" title="チーフ">チ</span>' : '') +
@@ -690,7 +690,7 @@ function 馬配を描く() {
     const h = 馬で(r.horseId) || { name: '（消された馬）', chief: '', chiefId: '' };
     const 乗る = r.人.map((id, n) => '<span class="uh-mg">' + 人の板(id, i + ':' + n, n + 1, r.horseId, h.chiefId) +
       部品.アイコンボタン('x', 人の名(id) + ' を ' + h.name + ' から外す', { 'data-uh-del': i + ':' + n }) + '</span>').join('');
-    return '<div class="uh-row">' +
+    return '<div class="uh-row" data-flip="r:' + esc(r.horseId) + '">' +   // 動き.js が入れ替えをすべらせる目印
       '<button type="button" class="mg horse' + (選んだ人 === '馬:' + i ? ' sel' : '') + '" data-uh-horse="' + i + '" aria-pressed="' + (選んだ人 === '馬:' + i) + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '"' +
         ' title="' + esc(h.chief ? 'チーフ ' + h.chief : '') + '">' + esc(h.name) + '</button>' +
       '<span class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') + '</span>' +
