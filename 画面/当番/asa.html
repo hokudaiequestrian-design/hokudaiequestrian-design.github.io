@@ -6,10 +6,10 @@
 <style>
 /*
   朝の欠席確認（2026-10-04 ユーザーの指示）。副将だけの画面。
-  その日の 掃除当番・有給休暇・季節休み・体調不良 を1枚に並べ、無断欠席・体調不良をプルダウンで入れる（体調不良は 2026-10-16）。
+  その日の 有給休暇・季節休み・体調不良 を1枚に並べ、無断欠席・体調不良をプルダウンで入れる（体調不良は 2026-10-16）。
   下に直近の大会のエントリー（人員表の出場。終わった大会は出さない。2026-10-16）。
   無断が続いている人（前の日までの「無断の続き」が1以上）を「要注意」に出す。数え方はサーバの 無断の続き()。
-  掃除当番は名前を押すと次の日の同じ枠の人と入れ替える（掃除当番の画面と同じ soujiSkip）。
+  掃除当番（名簿順・来なかったら次の日と入れ替え）は 2026-10-21 に撤廃。掃除は下の馬配で後半鞍の人から選ぶ。
   スマホでも PC の幅で見るので（2026-10-04）、4つの欄を2列に並べて1画面に収める。
 */
 header.appbar.asa { background: var(--ink); }
@@ -23,22 +23,6 @@ header.appbar.asa { background: var(--ink); }
 .asa-grid .card { margin: 0; }
 .asa-grid h2 { margin-top: 0; display: flex; align-items: baseline; gap: var(--space-xs); }
 .asa-grid h2 .cnt { font-size: var(--text-sm); color: var(--muted); font-weight: 400; font-family: var(--font-num); }
-
-/* 掃除当番 */
-.slots { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
-.slot-btn {
-  min-height: var(--tap); padding: 0 var(--space-sm); border-radius: var(--radius-pill);
-  border: 2px solid var(--rule-strong); background: var(--paper-2); color: var(--ink);
-  font: inherit; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: var(--space-2xs);
-}
-.slot-btn:hover { background: var(--paper-3); }
-.slot-btn .n { font-family: var(--font-num); font-size: var(--text-xs); color: var(--muted); }
-.slot-btn.off { border-style: dashed; border-color: var(--warning); background: var(--warning-soft); }
-.slot-btn .offtag { font-size: var(--text-xs); color: var(--warning); border: 1px solid var(--warning); border-radius: 4px; padding: 0 3px; }
-.slot-empty { min-height: var(--tap); display: inline-flex; align-items: center; padding: 0 var(--space-sm); border: 2px dashed var(--rule); border-radius: var(--radius-pill); color: var(--muted); }
-.slot-btn.moved { animation: moved var(--dur-long) var(--ease-out); }
-@keyframes moved { from { box-shadow: 0 0 0 6px var(--focus-inner); } to { box-shadow: 0 0 0 0 transparent; } }
-@media (prefers-reduced-motion: reduce) { .slot-btn.moved { animation: none; outline: 3px solid var(--focus-inner); } }
 
 /* 休み・無断・要注意の一覧 */
 .plist { list-style: none; margin: 0; padding: 0; }
@@ -157,6 +141,14 @@ header.appbar.asa { background: var(--ink); }
 .uh-mark.i { color: var(--care-dark); border-color: var(--care); background: var(--care-soft); }
 .uh-mark.t { color: #fff; border-color: var(--accent); background: var(--accent); }
 .uh-mark.x { color: #fff; border-color: var(--danger); background: var(--danger); }
+/* 掃除（2026-10-21：掃除当番をやめて馬配に。後半鞍の人から。馬からは降ろさない） */
+.uh-souji { margin-top: var(--space-sm); padding: 8px 10px; border: 2px solid #d9d9d4; border-radius: 3px; background: #f6f6f1; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.uh-souji .wb-hand { font-size: 1.25rem; margin-right: 4px; }
+.uh-souji .uh-sj-tools { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-size: var(--text-xs); }
+.uh-souji .uh-sj-tools select { width: auto; min-height: 30px; padding: 0 6px; font-size: var(--text-xs); }
+.uh-souji .uh-sj-tools button { min-height: 30px; padding: 0 8px; font-size: var(--text-xs); }
+.uh-sj-add { min-height: 30px; padding: 0 10px; border: 2px dashed #b9b9b2; border-radius: 3px; background: transparent; color: #666; font-size: var(--text-xs); cursor: pointer; }
+.uh-wb.picking .uh-sj-add { border-color: var(--accent); color: var(--accent-dark); background: var(--accent-soft); }
 .uh-tray { margin-top: var(--space-sm); padding-top: var(--space-xs); border-top: 2px dashed #e0e0da; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
 .uh-tray .wb-hand { font-size: 1.15rem; margin-right: 4px; }
 .uh-pickmsg { margin: 6px 0 0; font-size: var(--text-sm); min-height: 1.4em; color: #444; }
@@ -202,12 +194,6 @@ header.appbar.asa { background: var(--ink); }
     </div>
 
     <div class="asa-grid">
-      <section class="card">
-        <h2>掃除当番</h2>
-        <div class="slots" id="slots"></div>
-        <p class="hint" style="margin-bottom:0;">来なかった人の名前を押すと、<b>次の日の同じ枠の人と入れ替わります</b>（もう一度押すと戻ります）。点線は休みを出している人。組むのは「掃除当番」の画面から。</p>
-      </section>
-
       <section class="card">
         <h2>要注意（無断が続いている人）<span class="cnt" id="cautionCnt"></span></h2>
         <ul class="plist" id="caution"></ul>
@@ -264,12 +250,13 @@ header.appbar.asa { background: var(--ink); }
       <ul class="uh-warns" id="uhWarns" hidden></ul>
       <div class="uh-wb" id="uhWb" hidden>
         <div class="uh-board" id="uhBoard"></div>
+        <div class="uh-souji" id="uhSouji"></div>
         <div class="uh-tray" id="uhTray"></div>
         <p class="uh-pickmsg" id="uhPick" aria-live="polite"></p>
       </div>
       <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
       <div id="uhRest"></div>
-      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
+      <p class="hint" style="margin-bottom:0;"><b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -280,7 +267,6 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'
 
 let TOKEN = '';
 let D = null;           // asaLoad の返り
-let 光らせる枠 = 0;      // 入れ替えたあとに光らせる枠（1〜3）
 let busyCount = 0;
 
 function busy(on) {
@@ -379,17 +365,6 @@ function 描く() {
     '<span class="hint" style="margin:0;">' + (集.次の日を決めてある ? '決めてあります。' : 'まだ決めていないので前の日と同じです。') +
       '体調不良はその15分前まで部員が申し込めます。</span>';
   $('npWeek').innerHTML = 曜.map((w) => '<label><input type="checkbox" data-npw="' + w + '"' + (なし.曜日.indexOf(w) >= 0 ? ' checked' : '') + '> ' + w + '曜</label>').join('');
-
-  // 掃除当番
-  $('slots').innerHTML = D.掃除.map((s, i) => {
-    if (!s.memberId) return '<span class="slot-empty">' + (i + 1) + '　空き</span>';
-    return '<button type="button" class="slot-btn' + (s.休み ? ' off' : '') + (光らせる枠 === i + 1 ? ' moved' : '') + '" data-slot="' + (i + 1) + '" ' +
-      'aria-label="' + esc(s.name) + '（' + (i + 1) + '人目）。押すと次の日の人と入れ替える"' +
-      (s.休み ? ' title="この日は「' + esc(s.休み) + '」を出しています"' : '') + '>' +
-      '<span class="n">' + (i + 1) + '</span>' + esc(s.name) + (s.休み ? '<span class="offtag">休</span>' : '') + '</button>';
-  }).join('') || '<p class="none">まだ組まれていません。</p>';
-  if (D.掃除.every((s) => !s.memberId)) $('slots').innerHTML = '<p class="none">この日はまだ組まれていません（「掃除当番」の画面で組みます）。</p>';
-  光らせる枠 = 0;
 
   // 要注意
   const 無断の人 = {};
@@ -495,25 +470,6 @@ async function まとめて入れる(入れる, 何に) {
     だめ.length ? (できた.length ? 'warning' : 'error') : 'success');
 }
 
-// ===== 掃除当番：押したら次の日の人と入れ替え =====
-async function 入れ替える(slot, 戻す) {
-  try {
-    const r = await call('soujiSkip', TOKEN, D.date, slot, { from: D.date, to: D.date });
-    D.掃除 = r.days[0].slots;
-    光らせる枠 = slot;
-    描く();
-    const x = r.入れ替え || {};
-    if (戻す) return 知らせ('元に戻しました。');
-    知らせ('<span class="undo-row"><span><b>' + esc(x.来なかった) + '</b> さんを ' + esc(和風(x.明日)) + ' に回し、<b>' + esc(x.出てきた) + '</b> さんを入れました。</span>' +
-      '<button type="button" class="secondary small" id="undoBtn">' + 部品.アイコン('undo') + '元に戻す</button></span>');
-    $('undoBtn').addEventListener('click', () => 入れ替える(slot, true), { once: true });
-  } catch (e) { 知らせ(エラー文(e), 'error'); }
-}
-$('slots').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-slot]');
-  if (b) 入れ替える(Number(b.dataset.slot));
-});
-
 // ===== 朝練なし =====
 async function 朝練なしを決める(キー, on) {
   try {
@@ -595,8 +551,9 @@ async function 馬配を読む(date, 直しを残す) {
     if (r.date !== D.date) return;   // 読んでいるあいだに日を変えた
     U = r;
     if (!直しを残す || !編) {
-      編 = U.中身 ? 複製(U.中身) : { 馬: [], 休む馬: [], 一限: U.一限.slice(), 乗らない: [] };
+      編 = U.中身 ? 複製(U.中身) : { 馬: [], 休む馬: [], 一限: U.一限.slice(), 乗らない: [], 掃除: [] };
       選んだ人 = '';
+      掃除の人数を選んだ = 0;
       馬配を変えた = false;
     }
     馬配を描く();
@@ -640,6 +597,10 @@ function 注意を集める() {
     if (h && h.chiefId && r.人.length && r.人[0] !== h.chiefId && 入っている(r.人, h.chiefId)) チーフ.push(h.name);
   });
   if (チーフ.length) 出.push('チーフが1鞍目でない馬：' + チーフ.map(esc).join('・'));
+  const 後半 = 馬配の後半の人();
+  const 後半でない = (編.掃除 || []).filter((id) => 後半.indexOf(id) < 0);
+  if (後半でない.length) 出.push('後半に乗っていない人が掃除に入っています：' + 名々(後半でない));
+  if (編.馬.length && 後半.length && !(編.掃除 || []).length) 出.push('掃除がだれも入っていません');
   const まだ = U.members.filter((m) => 乗れるか(m) && !回数[m.id]);
   if (編.馬.length && まだ.length) 出.push('まだ入っていない人（' + まだ.length + '人）：' + 名々(まだ.map((m) => m.id)));
   return 出;
@@ -711,7 +672,7 @@ function 馬配を描く() {
   let 傾く = 0;
   // 人のマグネット。位置は「馬の並びの何番目:何鞍目」、まだの人は「tray:k」
   const 人の板 = (id, 位置, n, horseId, chiefId) => {
-    const 馬の行 = 位置.indexOf('tray') === 0 ? null : 編.馬[Number(位置.split(':')[0])];
+    const 馬の行 = /^(tray|souji)/.test(位置) ? null : 編.馬[Number(位置.split(':')[0])];
     const 悪い = U.出られない[id] || 無断の残り(id) || 入っている(編.乗らない, id);
     const 気を付ける = 回数[id] > 1 || (馬の行 && 馬の行.枠 === '後' && 入っている(編.一限, id));
     const 選 = 選んだ人 === 位置;
@@ -745,6 +706,18 @@ function 馬配を描く() {
     return '<div class="uh-col"><h3><span class="wb-hand">' + 枠の名(枠) + '</span><span class="cnt">' + 並び.length + '頭・' + 人数 + '鞍</span></h3>' +
       (並び.map((x) => 馬の箱(x.r, x.i)).join('') || '<p class="uh-empty">馬がいません。</p>') + '</div>';
   }).join('');
+
+  // 掃除（2026-10-21）。後半鞍の人から。馬には乗ったまま
+  const 掃除 = 編.掃除 || (編.掃除 = []);
+  const 後半の人 = 馬配の後半の人();
+  $('uhSouji').innerHTML = '<span class="wb-hand">掃除</span>' +
+    掃除.map((id, k) => '<span class="uh-mg">' + 人の板(id, 'souji:' + k, 0, '', '') +
+      部品.アイコンボタン('x', 人の名(id) + ' を掃除から外す', { 'data-uh-sj-del': String(k) }) + '</span>').join('') +
+    '<button type="button" class="uh-sj-add" data-uh-sj-add="1">＋ここへ</button>' +
+    '<span class="uh-sj-tools"><label for="uhSjN" style="margin:0;">人数</label>' +
+      '<select id="uhSjN">' + [1, 2, 3, 4, 5, 6].map((n) => '<option' + (n === 掃除の人数() ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
+      '<button type="button" class="secondary small" data-uh-sj-auto="1">後半から選び直す</button></span>';
+  if (!後半の人.length && !掃除.length) $('uhSouji').insertAdjacentHTML('beforeend', '<span class="uh-empty">後半に乗る人がいません</span>');
 
   // まだ入っていない人（乗れる人だけ）。ボードの人と入れ替えられる
   const まだ = U.members.filter((m) => 乗れるか(m) && !今の馬[m.id]);
@@ -797,6 +770,7 @@ let まだの人 = [];
 const 傾き = ['-1.2deg', '0.6deg', '-0.4deg', '1deg', '-0.8deg', '0.3deg', '1.3deg'];
 function 位置の人(位置) {
   const p = 位置.split(':');
+  if (p[0] === 'souji') return (編.掃除 || [])[Number(p[1])];
   return p[0] === 'tray' ? まだの人[Number(p[1])] : 編.馬[Number(p[0])].人[Number(p[1])];
 }
 function 手書きの字を読む() {
@@ -810,6 +784,17 @@ function 手書きの字を読む() {
 function 馬配で入れ替える(a, b) {
   const pa = a.split(':'), pb = b.split(':');
   const 人a = 位置の人(a), 人b = 位置の人(b);
+  // 掃除の人と交代（2026-10-21）。馬のほうは動かさない。相手もすでに掃除なら並びを入れ替えるだけ
+  if (pa[0] === 'souji' || pb[0] === 'souji') {
+    const 掃除 = 編.掃除;
+    if (pa[0] === 'souji' && pb[0] === 'souji') { 掃除[Number(pa[1])] = 人b; 掃除[Number(pb[1])] = 人a; return true; }
+    const k = Number(pa[0] === 'souji' ? pa[1] : pb[1]);
+    const 入る = pa[0] === 'souji' ? 人b : 人a;
+    const 前から = 掃除.indexOf(入る);
+    if (前から >= 0) { 掃除[前から] = 掃除[k]; }
+    掃除[k] = 入る;
+    return true;
+  }
   if (pa[0] === 'tray' && pb[0] === 'tray') return false;   // まだ同士は選び直すだけ
   if (pa[0] === 'tray') 編.馬[Number(pb[0])].人[Number(pb[1])] = 人a;
   else if (pb[0] === 'tray') 編.馬[Number(pa[0])].人[Number(pa[1])] = 人b;
@@ -841,6 +826,7 @@ function タップ(e) {
   if (馬) {
     // 馬同士（2026-10-21 ユーザーの指示）：1頭目→2頭目で、乗る人ごと場所（前半・後半と並び）を入れ替える
     const 馬の位置 = '馬:' + 馬.dataset.uhHorse;
+    if (選んだ人.indexOf('souji:') === 0) 選んだ人 = '';   // 掃除の人を選んでいて馬を押したら、馬を選び直す
     if (!選んだ人 || 選んだ人 === 馬の位置) { 選んだ人 = 選んだ人 === 馬の位置 ? '' : 馬の位置; 馬配を描く(); return true; }
     if (選んだ人.indexOf('馬:') === 0) {
       const i = Number(選んだ人.slice(2)), j = Number(馬.dataset.uhHorse);
@@ -860,6 +846,43 @@ function タップ(e) {
   return false;
 }
 $('uhTray').addEventListener('click', タップ);
+
+// 掃除（2026-10-21）。後半鞍に乗る人（並びの順、重なりなし）
+function 馬配の後半の人() {
+  const 人 = [];
+  (編 ? 編.馬 : []).filter((r) => r.枠 === '後').forEach((r) => r.人.forEach((id) => { if (人.indexOf(id) < 0) 人.push(id); }));
+  return 人;
+}
+let 掃除の人数を選んだ = 0;
+function 掃除の人数() { return 掃除の人数を選んだ || ((編 && 編.掃除 && 編.掃除.length) || (U && U.掃除の人数) || 3); }
+// サーバの 掃除を選ぶ() と同じ：最近の掃除が少ない人から、同じならくじ
+function 馬配で掃除を選ぶ() {
+  const 回数 = (U && U.掃除回数) || {};
+  return 馬配の後半の人().map((id) => ({ id: id, n: 回数[id] || 0, r: Math.random() }))
+    .sort((a, b) => a.n - b.n || a.r - b.r).slice(0, 掃除の人数()).map((x) => x.id);
+}
+$('uhSouji').addEventListener('click', (e) => {
+  if (e.target.closest('[data-uh-pick]')) { タップ(e); return; }
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.uhSjAdd) {
+    if (!選んだ人 || 選んだ人.indexOf('馬:') === 0 || 選んだ人.indexOf('souji:') === 0) { 馬配の知らせ('先に掃除に入れる人のマグネットを押してから「＋ここへ」を押してください。', 'warning'); return; }
+    const id = 位置の人(選んだ人);
+    編.掃除 = 編.掃除 || [];
+    if (編.掃除.indexOf(id) < 0) 編.掃除.push(id);
+  } else if (b.dataset.uhSjDel) {
+    編.掃除.splice(Number(b.dataset.uhSjDel), 1);
+  } else if (b.dataset.uhSjAuto) {
+    編.掃除 = 馬配で掃除を選ぶ();
+  } else return;
+  直した();
+});
+$('uhSouji').addEventListener('change', (e) => {
+  if (e.target.id !== 'uhSjN') return;
+  掃除の人数を選んだ = Number(e.target.value);
+  // 減らしたら後ろから外す。増やすのは「後半から選び直す」で
+  if (編.掃除 && 編.掃除.length > 掃除の人数を選んだ) { 編.掃除 = 編.掃除.slice(0, 掃除の人数を選んだ); 直した(); }
+});
 
 // 盤の上のボタン
 $('uhBoard').addEventListener('click', (e) => {
@@ -907,7 +930,7 @@ $('uhGen').addEventListener('click', async () => {
   const 枠 = {};
   編.馬.forEach((r) => { 枠[r.horseId] = r.枠; });
   try {
-    U = await call('umahaiGenerate', TOKEN, D.date, { 一限: 編.一限, 乗らない: 編.乗らない, 休む馬: 編.休む馬, 枠: 枠 });
+    U = await call('umahaiGenerate', TOKEN, D.date, { 一限: 編.一限, 乗らない: 編.乗らない, 休む馬: 編.休む馬, 枠: 枠, 掃除の人数: 掃除の人数() });
     編 = 複製(U.中身);
     選んだ人 = '';
     馬配を変えた = false;
