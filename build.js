@@ -32,7 +32,7 @@ const 読む = (p) => fs.readFileSync(p, 'utf8').split(String.fromCharCode(13) +
 */
 const 当番 = path.join(__dirname, '画面', '当番');
 const 人員表 = path.join(__dirname, '画面', '人員表');
-const 当番のコード = 'C:/Users/minuu/Documents/馬術部API/src/touban.gs';
+const 当番のコード = path.join(__dirname, '..', '馬術部API', 'src', 'touban.gs');   // 隣のフォルダ（どのPCでも同じ並び。2026-10-22）
 const 出す先 = path.join(__dirname, 'docs');
 
 /*
@@ -76,6 +76,8 @@ const ページ = [
   { 出す: 'tsukaikata.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方', 立場: ['buin'] },
   { 出す: 'tsukaikata-chief.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方（チーフ）', 立場: ['buin', 'chief'] },
   { 出す: 'tsukaikata-admin.html', 元: 当番 + '/tsukaikata.html', api: null, 題: '使い方（副将）', 立場: ['buin', 'chief', 'fukusho'] },
+  // ホーム画面に置く方法（2026-10-22 ユーザーの指示）。iPhone・Android の手順。読むだけ
+  { 出す: 'homegamen.html', 元: 当番 + '/homegamen.html', api: null, 題: 'ホーム画面に置く' },
 ];
 
 // ===== 1. include('style') を差し替える =====
@@ -493,6 +495,15 @@ function 入口を作る() {
         </span>
         <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
       </a>
+      <!-- ホーム画面に置く方法（2026-10-22 ユーザーの指示）。どの立場も同じページ -->
+      <a class="hub-link" href="homegamen.html">
+        <span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#i-homegamen"/></svg></span>
+        <span class="body">
+          <span class="t">ホーム画面に置く</span>
+          <span class="d">iPhone・Android で、このページをアプリのようにアイコンから開けるようにする。</span>
+        </span>
+        <span class="go"><svg viewBox="0 0 10 16" aria-hidden="true" focusable="false"><use href="#i-go"/></svg></span>
+      </a>
     </div>
   </section>
 
@@ -630,8 +641,8 @@ let 件 = 0;
   node build.js（向こう）→ node build.js（こちら）。サーバは呼ばない（api なし）。
 */
 const 運営ツール = [
-  { 原本: 'C:/Users/minuu/Documents/出番表システム/dist/出番表作成.html', 出す: 'debanhyo.html', 題: '出番表作成' },
-  { 原本: 'C:/Users/minuu/Documents/出番表システム/dist/会計.html', 出す: 'kaikei.html', 題: '会計：エントリー料' },
+  { 原本: path.join(__dirname, '..', '出番表システム', 'dist', '出番表作成.html'), 出す: 'debanhyo.html', 題: '出番表作成' },
+  { 原本: path.join(__dirname, '..', '出番表システム', 'dist', '会計.html'), 出す: 'kaikei.html', 題: '会計：エントリー料' },
 ];
 function 出番表を写す() { 運営ツール.forEach(運営ツールを写す); }
 function 運営ツールを写す(道具) {

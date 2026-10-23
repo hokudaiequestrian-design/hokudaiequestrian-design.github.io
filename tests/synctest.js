@@ -1,7 +1,7 @@
 // 人員表システムとの同期の検査。Nodeの模擬環境で コード.gs の関数をそのまま動かす。
 const fs = require('fs');
 const NL = String.fromCharCode(10);
-const DIR = 'C:/Users/minuu/Documents/当番・手入れシステム_GAS';
+const DIR = require('path').join(__dirname, '..', '..', '当番・手入れシステム_GAS');
 const src = fs.readFileSync(DIR + '/コード.gs', 'utf8');
 const lines = src.split(NL);
 

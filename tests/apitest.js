@@ -6,8 +6,8 @@ const NL = String.fromCharCode(10);
 // 2026-09-13 Cloudflare に移すときから、画面の原本はこのリポジトリの 画面/、サーバの原本は 馬術部API/src/ にある
 const サイト = __dirname.split(String.fromCharCode(92)).join('/').replace(/[/]tests$/, '');
 const プロジェクト = [
-  { 名: '当番・手入れ', dir: サイト + '/画面/当番', code: 'C:/Users/minuu/Documents/馬術部API/src/touban.gs' },
-  { 名: '人員表', dir: サイト + '/画面/人員表', code: 'C:/Users/minuu/Documents/馬術部API/src/jinin.gs' },
+  { 名: '当番・手入れ', dir: サイト + '/画面/当番', code: サイト + '/../馬術部API/src/touban.gs' },
+  { 名: '人員表', dir: サイト + '/画面/人員表', code: サイト + '/../馬術部API/src/jinin.gs' },
 ];
 
 // 入口（マイページ）はGASプロジェクトの外、馬術部サイトの mypage.js にあって、

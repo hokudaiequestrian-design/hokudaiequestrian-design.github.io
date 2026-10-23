@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  ホーム画面に置く方法（2026-10-22 ユーザーの指示）。iPhone と Android の手順。
+  サーバは呼ばない読むだけのページ。Claude へのサインインなしで配れるよう、サイトの中に置いた。
+  中の URL は書かない（2026-10-22 ユーザーの指示）。立場ごとの URL は部で配る。
+*/
+.use-sec h3 { margin: var(--space-lg) 0 var(--space-2xs); font-size: var(--text-base); }
+.use-sec h3:first-of-type { margin-top: var(--space-xs); }
+.use-sec ol, .use-sec ul { margin: 0 0 var(--space-xs); padding-left: 1.4em; }
+.use-sec li { line-height: 1.9; margin-bottom: var(--space-3xs); }
+.use-sec .warn { border-left: 4px solid var(--warning); background: var(--warning-soft); padding: var(--space-xs) var(--space-sm); border-radius: 0 var(--radius-input) var(--radius-input) 0; margin: var(--space-xs) 0; }
+.use-sec table { width: 100%; border-collapse: collapse; margin-bottom: var(--space-xs); }
+.use-sec th, .use-sec td { border: 1px solid var(--rule); padding: var(--space-2xs); text-align: left; font-size: var(--text-sm); vertical-align: top; }
+.use-sec th { background: var(--paper-3); white-space: nowrap; }
+</style>
+</head>
+<body>
+<header class="appbar"><span>ホーム画面に置く</span></header>
+
+<main class="wide">
+  <section class="card use-sec">
+    <h2>はじめに：自分の立場のページを開く</h2>
+    <p>馬術部アプリは、ホーム画面に置くとほかのアプリと同じようにアイコンから開けます。インストールは要らず、1分で終わります。</p>
+    <div class="warn">
+      ホーム画面のアイコンは、<b>追加したときに開いていたページ</b>を覚えます。<b>このページではなく、マイページ（名前を選ぶページ）を開いてから</b>追加してください。
+      チーフ・副将の人は、自分用のマイページを開いてから追加します。部員用から追加すると、アイコンも部員用になります。
+    </div>
+    <table>
+      <tr><th>立場</th><th>アイコンの名前</th></tr>
+      <tr><td>部員</td><td>馬術部</td></tr>
+      <tr><td>チーフ</td><td>馬術部チーフ</td></tr>
+      <tr><td>副将</td><td>馬術部副将</td></tr>
+    </table>
+    <p class="hint">チーフ・副将の人は、部員用とあわせて2つ置いてもかまいません。名前が違うので見分けられます。</p>
+  </section>
+
+  <section class="card use-sec">
+    <h2>iPhone・iPad</h2>
+    <p><b>Safari</b> で開いてください。Chrome などでもできることがありますが、Safari がいちばん確実です。</p>
+    <ol>
+      <li>Safari で、部で配られた自分の立場のURL（マイページ）を開く</li>
+      <li>画面の下にある<b>共有ボタン</b>（四角から上向きの矢印が出ているマーク）を押す<br>
+        <span class="hint">共有ボタンが見当たらないときは、右下の「…」を押すと中にあります</span></li>
+      <li>出てきた一覧を下に滑らせて、<b>「ホーム画面に追加」</b>を押す</li>
+      <li>「Webアプリとして開く」が出ていればオンのままにする</li>
+      <li>右上の<b>「追加」</b>を押す</li>
+    </ol>
+    <p>ホーム画面に馬のアイコンができます。そこから開くと、Safari のアドレスバーがないアプリの画面で開きます。</p>
+  </section>
+
+  <section class="card use-sec">
+    <h2>Android</h2>
+    <p><b>Chrome</b> で開いてください。</p>
+    <ol>
+      <li>Chrome で、部で配られた自分の立場のURL（マイページ）を開く</li>
+      <li>右上の<b>「⋮」</b>（縦に点が3つ）を押す</li>
+      <li><b>「ホーム画面に追加」</b>を押す<br>
+        <span class="hint">機種によっては<b>「アプリをインストール」</b>という名前です。どちらでも同じです</span></li>
+      <li>「インストール」と「ショートカットを作成」を選べるときは、<b>「インストール」</b>を選ぶ</li>
+      <li>確認が出たら<b>「インストール」</b>（または「追加」）を押す</li>
+    </ol>
+    <p>ホーム画面とアプリ一覧に馬のアイコンができます。ホーム画面に出てこないときは、アプリ一覧から長押ししてホーム画面に置いてください。</p>
+  </section>
+
+  <section class="card use-sec">
+    <h2>うまくいかないとき</h2>
+    <table>
+      <tr><th>こまったこと</th><th>どうするか</th></tr>
+      <tr><td>「ホーム画面に追加」がどこにもない</td><td>LINEやInstagramの中で開いています。右上のメニューから「ブラウザで開く」を押して、Safari（iPhone）かChrome（Android）で開き直してください</td></tr>
+      <tr><td>チーフ・副将なのに部員用の画面が開く</td><td>部員用のページから追加しています。アイコンを削除して、自分用のURLを開き直してから追加してください</td></tr>
+      <tr><td>アイコンから開くとこのページが出る</td><td>このページを開いたまま追加しています。アイコンを削除して、マイページを開いてから追加し直してください</td></tr>
+      <tr><td>開くのに数秒かかる</td><td>故障ではありません。中身を毎回読みに行くためです</td></tr>
+      <tr><td>アプリの中身が新しくならない</td><td>一度閉じて開き直してください。アイコンを作り直す必要はありません</td></tr>
+      <tr><td>アイコンを消したい</td><td>ほかのアプリと同じように長押しして削除できます</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>
