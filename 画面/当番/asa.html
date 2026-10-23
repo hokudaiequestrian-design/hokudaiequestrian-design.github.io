@@ -207,6 +207,15 @@ header.appbar.asa { background: var(--ink); }
 .uh-people .row .nm { font-weight: 700; min-width: 5rem; }
 .uh-people label { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-weight: 400; }
 .uh-people .out { color: var(--muted); }
+/* 組む前に決める馬休と上限（2026-10-23） */
+.uh-pre { margin-top: var(--space-sm); padding: var(--space-sm) var(--space-md); border: 1px solid var(--rule-strong); border-radius: 6px; background: var(--paper-2); }
+.uh-pre .ttl { margin: 0 0 var(--space-2xs); font-weight: 700; }
+.uh-pre .uh-people .row .nm { min-width: 9rem; }
+.uh-prev { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--space-sm); margin: 0 0 var(--space-xs); font-size: var(--text-sm); color: var(--muted); }
+.uh-kyu .uh-prev { flex-basis: 100%; margin: 0; font-size: var(--text-xs); }
+.uh-prev button { min-height: 30px; padding: 0 8px; font-size: var(--text-xs); }
+select.uh-cap { min-height: 30px; width: auto; padding: 0 4px; font-size: var(--text-xs); }
+.uh-over { color: var(--warning); font-weight: 700; font-size: var(--text-xs); }
 @media (max-width: 720px) { .uh-board { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -290,6 +299,7 @@ header.appbar.asa { background: var(--ink); }
         <h2>朝練の馬配 <span id="uhState"></span></h2>
         <div class="uh-actions">
           <button type="button" id="uhGen">自動で組む</button>
+          <button type="button" class="secondary" id="uhUndo" hidden>組み直す前に戻す</button>
           <button type="button" class="secondary" id="uhSave">下書き保存</button>
           <button type="button" id="uhConfirm">確定してみんなに出す</button>
           <button type="button" class="secondary" id="uhUnconfirm">確定を外す</button>
@@ -313,7 +323,8 @@ header.appbar.asa { background: var(--ink); }
         <p class="uh-pickmsg" id="uhPick" aria-live="polite"></p>
       </div>
       <p class="uh-empty" id="uhNone" hidden>まだ組んでいません。「自動で組む」を押すと、上の欠席を外して組みます。</p>
-      <p class="hint" style="margin-bottom:0;"><b>馬休</b>の馬は下の「馬休」に並び、手入れの人は自動でその馬のチーフ（ほかの馬には乗せない＝鞍なし。足りないときだけ乗る）。手入れの人のマグネットを押すと選び直せます。<b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。左の欄に<b>掃除場所</b>を打ち込めます（新しく組むと前の日の場所が入っています）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
+      <div class="uh-pre" id="uhPre" hidden></div>
+      <p class="hint" style="margin-bottom:0;">組む前に<b>馬休の馬</b>と<b>馬ごとの上限</b>（その日乗れる人数。前の日の上限を引き継ぎます）を決められます。上限を超えて自動では入れません（入る馬が無い人は「まだ」に残ります）。間違えて組み直したら「組み直す前に戻す」で戻せます。<b>馬休</b>の馬は下の「馬休」に並び、手入れの人は自動でその馬のチーフ（ほかの馬には乗せない＝鞍なし。足りないときだけ乗る）。手入れの人のマグネットを押すと選び直せます。<b>人が足りなくてだれも乗らない馬が残るときは、もう片方の時間の人が二頭目に入ります</b>（チーフ → 最近の二頭乗りが少ない人。一限の人は後半にしない）。手で入れるときは「＋ 足す」の「二頭目として足す」。<b>無断の残りがある人（要注意）は、来ていても乗せません</b>（来た日に残りが1つ減ります）。自動で組むときは、<b>チーフ → 自分の馬の1鞍目</b>、<b>チーフがいない馬 → できるだけ学年が高い人が1鞍目</b>、<b>直近の大会にエントリーしている人 → その馬</b>、<b>一限の人 → 前半の馬</b>、残りの人は乗る人の少ない馬から均等に入れます。<b>人のマグネットを2回タップすると、その2人が入れ替わります</b>（同じ馬の中なら鞍の順が入れ替わる・下の「まだ」の人とならその人と交代）。1人選んでから<b>馬のマグネット</b>を押すと、その馬の最後へ移ります。<b>馬のマグネットを2回タップすると、乗る人ごと2頭の場所が入れ替わります</b>（前半と後半の馬なら枠も入れ替わる）。<b>掃除</b>は自動で組むと後半鞍の人から最近の掃除が少ない順に入ります（馬からは降ろしません）。左の欄に<b>掃除場所</b>を打ち込めます（新しく組むと前の日の場所が入っています）。人を選んで「＋ここへ」で足す、掃除の人とほかの人を2回タップで交代、× で外す。もう一度押すと選ぶのをやめます。× で外す、「＋ 足す」でほかの馬から選ぶとその馬から移ります。</p>
     </section>
   </div>
 </main>
@@ -615,6 +626,8 @@ $('mudan').addEventListener('click', async (e) => {
 let U = null;
 let 編 = null;
 let 馬配を変えた = false;
+// 組み直す前の控え（2026-10-23 ユーザーの指示：間違えて組み直したら戻せるように）。新しいものが後ろ。日を変えたら捨てる
+let 組み直す前 = [];
 // 時刻はサーバが集合時間から出す（前半＝集合の30分後、後半＝その1時間後。2026-10-21）
 const 枠の名 = (枠) => (枠 === '前' ? '前半 ' : '後半 ') + esc(((U && U.時刻) || {})[枠] || '') + '〜';
 const 複製 = (x) => JSON.parse(JSON.stringify(x));
@@ -630,7 +643,8 @@ async function 馬配を読む(date, 直しを残す) {
     if (r.date !== D.date) return;   // 読んでいるあいだに日を変えた
     U = r;
     if (!直しを残す || !編) {
-      編 = U.中身 ? 複製(U.中身) : { 馬: [], 休む馬: [], 馬休の人: {}, 一限: U.一限.slice(), 乗らない: [], 掃除: [] };
+      編 = U.中身 ? 複製(U.中身) : 新しい編();
+      組み直す前 = [];
       選んだ人 = '';
       掃除の人数を選んだ = 0;
       馬配を変えた = false;
@@ -639,6 +653,10 @@ async function 馬配を読む(date, 直しを残す) {
   } catch (e) { 馬配の知らせ('馬配を読めませんでした：' + エラー文(e), 'error'); }
 }
 
+// まだ組んでいない日の中身。上限は前の日のものを引き継ぐ（2026-10-23）
+function 新しい編() {
+  return { 馬: [], 休む馬: [], 馬休の人: {}, 上限: 複製((U && U.前の上限) || {}), 一限: U.一限.slice(), 乗らない: [], 掃除: [] };
+}
 const 人の名 = (id) => { const m = U.members.filter((x) => x.id === id)[0]; return m ? m.name : '（消された部員）'; };
 const 馬で = (id) => U.horses.filter((h) => h.id === id)[0];
 const 入っている = (a, x) => (a || []).indexOf(x) >= 0;
@@ -665,6 +683,33 @@ function 馬配の同じ時間に2頭() {
     見[k] = true;
   }));
   return 出;
+}
+
+// その日の馬の上限（2026-10-23）。0 は上限なし
+const 上限 = (horseId) => Number(((編 && 編.上限) || {})[horseId]) || 0;
+function 上限の選ぶ欄(h) {
+  const n = 上限(h.id);
+  return '<select class="uh-cap" data-uh-cap="' + esc(h.id) + '" aria-label="' + esc(h.name) + ' に乗る人数の上限">' +
+    '<option value=""' + (n ? '' : ' selected') + '>上限なし</option>' +
+    [1, 2, 3, 4, 5, 6].map((k) => '<option value="' + k + '"' + (n === k ? ' selected' : '') + '>上限' + k + '人</option>').join('') + '</select>';
+}
+function 上限を変える(h, v) {
+  編.上限 = 編.上限 || {};
+  if (Number(v)) 編.上限[h] = Number(v); else delete 編.上限[h];
+}
+// 前の日の馬休（2026-10-23 ユーザーの指示：組む前に見る）。昨日なら「昨日」
+function 前の馬休の文() {
+  const p = U && U.前の馬休;
+  if (!p) return '';
+  const d = 日から(D.date); d.setDate(d.getDate() - 1);
+  const 昨日 = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const 馬たち = (p.馬 || []).map((id) => {
+    const h = 馬で(id);
+    if (!h) return '';
+    const c = (p.人 || {})[id];
+    return esc(h.name) + (c ? '（手入れ ' + esc(人の名(c)) + '）' : '');
+  }).filter(Boolean);
+  return (p.date === 昨日 ? '昨日' : '前の馬配 ' + 和風(p.date)) + 'の馬休：' + (馬たち.length ? 馬たち.join('・') : 'なし');
 }
 
 function 直した() {
@@ -712,6 +757,9 @@ function 注意を集める() {
   if (後半でない.length) 出.push('後半に乗っていない人が掃除に入っています：' + 名々(後半でない));
   if (編.馬.length && 後半.length && !(編.掃除 || []).length) 出.push('掃除がだれも入っていません');
   if ((編.掃除 || []).length && !String(編.掃除場所 || '').trim()) 出.push('掃除場所がまだ入っていません（掃除欄の左に打ち込むと、みんなのボードに出ます）');
+  const 超え = 編.馬.filter((r) => 上限(r.horseId) && r.人.length > 上限(r.horseId))
+    .map((r) => esc((馬で(r.horseId) || {}).name || '') + '（' + r.人.length + '人／上限' + 上限(r.horseId) + '）');
+  if (超え.length) 出.push('上限より多く入っている馬：' + 超え.join('・'));
   const 手入れなし = (編.休む馬 || []).filter((h) => !(編.馬休の人 || {})[h]).map((h) => (馬で(h) || {}).name).filter(Boolean);
   if (手入れなし.length) 出.push('手入れの人がいない馬休の馬：' + 手入れなし.map(esc).join('・'));
   const 手入れが休み = Object.keys(編.馬休の人 || {}).map((h) => 編.馬休の人[h]).filter((id) => U.出られない[id]);
@@ -738,6 +786,7 @@ function 馬配を描く() {
   $('uhConfirm').textContent = 状態 === '確定' ? '直したぶんで確定し直す' : '確定してみんなに出す';
   $('uhUnconfirm').hidden = 状態 !== '確定' || 馬配を変えた;
   $('uhDelete').hidden = !状態;
+  $('uhUndo').hidden = !組み直す前.length;
 
   // この日の一限・乗らない人
   const 出られる = U.members.filter((m) => 朝練に出る(m) && !U.出られない[m.id] && !無断の残り(m.id));
@@ -765,6 +814,9 @@ function 馬配を描く() {
   手書きの字を読む();
   $('uhWb').hidden = !ある;
   $('uhNone').hidden = ある;
+  $('uhPre').hidden = ある;
+  if (!ある) 組む前の欄を描く();
+  else $('uhPre').innerHTML = '';
   if (!ある) {
     選んだ人 = '';
     $('uhBoard').innerHTML = '';
@@ -810,8 +862,9 @@ function 馬配を描く() {
     return '<div class="uh-row" data-flip="r:' + esc(r.horseId) + '">' +   // 動き.js が入れ替えをすべらせる目印
       '<button type="button" class="mg horse' + (選んだ人 === '馬:' + i ? ' sel' : '') + '" data-uh-horse="' + i + '" aria-pressed="' + (選んだ人 === '馬:' + i) + '" style="--tilt:' + 傾き[傾く++ % 傾き.length] + '"' +
         ' title="' + esc(h.chief ? 'チーフ ' + h.chief : '') + '">' + esc(h.name) + '</button>' +
-      '<span class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') + '</span>' +
-      '<span class="uh-tools">' +
+      '<span class="uh-riders">' + (乗る || '<span class="uh-empty">だれもいません</span>') +
+        (上限(r.horseId) && r.人.length > 上限(r.horseId) ? '<span class="uh-over">上限' + 上限(r.horseId) + '人を超えています</span>' : '') + '</span>' +
+      '<span class="uh-tools">' + 上限の選ぶ欄(h.id ? h : { id: r.horseId, name: '' }) +
         '<button type="button" class="secondary small uh-add" data-uh-add="' + i + '" aria-haspopup="dialog" aria-label="' + esc(h.name) + ' に乗る人を足す">＋ 足す</button>' +
         '<button type="button" class="secondary small" data-uh-move="' + i + '">' + (r.枠 === '前' ? '後半へ' : '前半へ') + '</button>' +
         '<button type="button" class="secondary small" data-uh-rest="' + i + '">馬休にする</button>' +
@@ -864,8 +917,55 @@ function 馬配を描く() {
         '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>';
     }).join('') +
     新しい馬.map((h) => '<span class="kr"><span class="mg horse" style="--tilt:0deg">' + esc(h.name) + '</span><span class="uh-empty">（新しく足された馬）</span>' +
-      '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>').join('');
+      '<button type="button" class="secondary small" data-uh-back="' + esc(h.id) + '">前半に入れる</button></span>').join('') +
+    (前の馬休の文() ? '<p class="uh-prev">' + 前の馬休の文() + '</p>' : '');
 }
+
+// 組む前に決める馬休と上限（2026-10-23 ユーザーの指示）。組んだあとはボードの「馬休にする」・上限の欄で直す
+function 組む前の欄を描く() {
+  const 前 = 前の馬休の文();
+  const 休む = 編.休む馬 || (編.休む馬 = []);
+  const 手入れ = 編.馬休の人 || (編.馬休の人 = {});
+  $('uhPre').innerHTML = '<p class="ttl">組む前に：馬休の馬と上限</p>' +
+    (前 ? '<p class="uh-prev"><span>' + 前 + '</span>' +
+      ((U.前の馬休.馬 || []).some((id) => 馬で(id)) ? '<button type="button" class="secondary small" data-uh-pre-same="1">同じ馬を馬休にする</button>' : '') + '</p>'
+      : '<p class="uh-prev">前の日の馬配はありません。</p>') +
+    '<div class="uh-people">' + U.horses.map((h) => {
+      const 休 = 入っている(休む, h.id);
+      const c = 手入れ[h.id];
+      return '<div class="row"><span class="nm">' + esc(h.name) + '</span>' +
+        '<label><input type="checkbox" data-uh-pre-rest="' + esc(h.id) + '"' + (休 ? ' checked' : '') + '> 馬休</label>' +
+        (休 ? '<span class="hint" style="margin:0;">' + (c ? '手入れ ' + esc(人の名(c)) : '手入れの人なし') + '</span>' : 上限の選ぶ欄(h)) +
+        '</div>';
+    }).join('') + '</div>' +
+    '<p class="hint" style="margin:var(--space-xs) 0 0;">馬休の馬の手入れの人は、来ていればその馬のチーフ（組んだあとに下の「馬休」で選び直せます）。上限は前の日のものが入っています。</p>';
+}
+// 馬休にする・やめる（組む前）。手入れの人は来ていればチーフ
+function 組む前に馬休を切り替える(h, on, 人) {
+  編.休む馬 = (編.休む馬 || []).filter((x) => x !== h);
+  編.馬休の人 = 編.馬休の人 || {};
+  delete 編.馬休の人[h];
+  if (!on) return;
+  編.休む馬.push(h);
+  const c = 人 && !U.出られない[人] ? 人 : (馬で(h) || {}).chiefId;
+  if (c && !U.出られない[c]) 編.馬休の人[h] = c;
+}
+$('uhPre').addEventListener('change', (e) => {
+  const c = e.target;
+  if (c.dataset.uhPreRest) 組む前に馬休を切り替える(c.dataset.uhPreRest, c.checked);
+  else if (c.dataset.uhCap) 上限を変える(c.dataset.uhCap, c.value);
+  else return;
+  馬配を描く();
+});
+$('uhPre').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-uh-pre-same]')) return;
+  const p = U.前の馬休 || { 馬: [], 人: {} };
+  編.休む馬 = [];
+  編.馬休の人 = {};
+  (p.馬 || []).filter((id) => 馬で(id)).forEach((id) => 組む前に馬休を切り替える(id, true, (p.人 || {})[id]));
+  馬配を描く();
+  馬配の知らせ('前の日と同じ馬を馬休にしました。「自動で組む」を押すと、この馬休で組みます。');
+});
 
 // 馬休の手入れだけで、どの馬にも乗っていない人（鞍なし。2026-10-21）
 function 馬配の手入れだけ(id) {
@@ -1186,6 +1286,11 @@ $('uhBoard').addEventListener('click', (e) => {
   } else return;
   直した();
 });
+$('uhBoard').addEventListener('change', (e) => {
+  if (!e.target.dataset.uhCap) return;
+  上限を変える(e.target.dataset.uhCap, e.target.value);
+  直した();
+});
 $('uhKyu').addEventListener('click', (e) => {
   const k = e.target.closest('[data-uh-kyu]');
   if (k) {
@@ -1212,13 +1317,36 @@ $('uhGen').addEventListener('click', async () => {
       !confirm('いまの馬配を捨てて組み直します（' + (U.状態 === '確定' ? '確定も外れて下書きになります' : '手で直したところも消えます') + '）。よいですか？')) return;
   const 枠 = {};
   編.馬.forEach((r) => { 枠[r.horseId] = r.枠; });
+  // 組み直す前の控え（保存してあったものと、画面で直していたもの）。組んでいなかった日は控えない
+  const 控え = 編.馬.length ? { 中身: U.中身 ? 複製(U.中身) : null, 状態: U.状態, 編: 複製(編), 変えた: 馬配を変えた, 掃除の人数: 掃除の人数を選んだ } : null;
   try {
-    U = await call('umahaiGenerate', TOKEN, D.date, { 一限: 編.一限, 乗らない: 編.乗らない, 休む馬: 編.休む馬, 枠: 枠, 掃除の人数: 掃除の人数() });
+    U = await call('umahaiGenerate', TOKEN, D.date, { 一限: 編.一限, 乗らない: 編.乗らない, 休む馬: 編.休む馬, 馬休の人: 編.馬休の人 || {}, 上限: 編.上限 || {}, 枠: 枠, 掃除の人数: 掃除の人数() });
     編 = 複製(U.中身);
+    if (控え) 組み直す前.push(控え);
     選んだ人 = '';
     馬配を変えた = false;
     馬配を描く();
-    馬配の知らせ('組みました（下書き）。直してから「確定してみんなに出す」を押してください。');
+    馬配の知らせ(控え ? '組み直しました（下書き）。間違えたときは「組み直す前に戻す」で戻せます。'
+      : '組みました（下書き）。直してから「確定してみんなに出す」を押してください。');
+  } catch (err) { 馬配の知らせ(エラー文(err), 'error'); }
+});
+
+// 組み直す前に戻す（2026-10-23）。保存してあったもの（確定なら確定のまま）をサーバに戻し、画面で直していたところも戻す
+$('uhUndo').addEventListener('click', async () => {
+  const 控え = 組み直す前[組み直す前.length - 1];
+  if (!控え) return;
+  if (馬配を変えた && !confirm('組み直したあとに手で直したところは消えます。組み直す前に戻しますか？')) return;
+  try {
+    const r = 控え.状態 ? await call('umahaiSave', TOKEN, D.date, 控え.中身, 控え.状態 === '確定') : await call('umahaiDelete', TOKEN, D.date);
+    if (r.date !== D.date) return;
+    U = r;
+    組み直す前.pop();
+    編 = 控え.編;
+    掃除の人数を選んだ = 控え.掃除の人数;
+    選んだ人 = '';
+    馬配を変えた = 控え.変えた;
+    馬配を描く();
+    馬配の知らせ('組み直す前に戻しました' + (控え.状態 === '確定' ? '（確定のまま）' : '') + (控え.変えた ? '。保存していなかった直しも戻っています（まだ保存していません）' : '') + '。');
   } catch (err) { 馬配の知らせ(エラー文(err), 'error'); }
 });
 
@@ -1242,7 +1370,8 @@ $('uhDelete').addEventListener('click', async () => {
   if (!confirm(和風(D.date) + ' の馬配を消します。よいですか？')) return;
   try {
     U = await call('umahaiDelete', TOKEN, D.date);
-    編 = { 馬: [], 休む馬: [], 一限: U.一限.slice(), 乗らない: [] };
+    編 = 新しい編();
+    組み直す前 = [];
     馬配を変えた = false;
     馬配を描く();
     馬配の知らせ('消しました。');

@@ -15,7 +15,7 @@ const vm = require('vm');
 const path = require('path');
 
 // 2026-09-13 Cloudflare に移すときから、サーバの原本は 馬術部API/src にある
-const 人員表 = path.join('C:', 'Users', 'minuu', 'Documents', '馬術部API', 'src', 'jinin.gs');
+const 人員表 = path.join(__dirname, '..', '..', '馬術部API', 'src', 'jinin.gs');
 const 入口 = path.join(__dirname, '..', 'mypage.js');
 
 // ===================== 模擬スプレッドシート =====================
@@ -656,7 +656,7 @@ delete 覚え箱['mypage:出したところ'];
 見出し('組み立てたページ：マイページに戻る');
 const docs = path.join(__dirname, '..', 'docs');
 const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
-確かめる('中のページが17ある（掃除当番は 2026-10-21 に撤廃）', 中のページ.length === 17, 中のページ.join(','));
+確かめる('中のページが18ある（掃除当番は 2026-10-21 に撤廃・ホーム画面の案内を足した）', 中のページ.length === 18, 中のページ.join(','));
 中のページ.forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];

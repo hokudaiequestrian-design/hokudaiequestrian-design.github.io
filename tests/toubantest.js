@@ -9,7 +9,7 @@ const vm = require('vm');
 const path = require('path');
 
 // 2026-09-13 Cloudflare に移すときから、サーバの原本は 馬術部API/src にある
-const SRC = path.join('C:', 'Users', 'minuu', 'Documents', '馬術部API', 'src', 'touban.gs');
+const SRC = path.join(__dirname, '..', '..', '馬術部API', 'src', 'touban.gs');
 
 // ===================== 模擬スプレッドシート =====================
 
