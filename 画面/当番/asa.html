@@ -58,6 +58,17 @@ header.appbar.asa { background: var(--ink); }
 .mudan-pick label.on { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
 .mudan-pick .none { font-size: var(--text-sm); }
 .mudan-add .picked { font-weight: 700; margin-right: auto; align-self: center; }
+/* 名前の横の印と、4年以上・遅刻の人の操作（2026-11-04 ユーザーの指示：チェック欄に一限・乗らない・固定馬などをまとめる） */
+.mudan-pick label { flex-wrap: wrap; }
+.mudan-pick .mk { font-size: var(--text-xs); font-weight: 700; border: 1px solid var(--rule-strong); border-radius: 4px; padding: 0 4px; color: var(--muted); background: var(--paper); }
+.mudan-pick .mk.ichi { color: var(--warning); border-color: var(--warning); background: var(--warning-soft); }
+.mudan-pick .mk.late { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
+.mudan-pick .mk.horse { color: var(--accent-dark); border-color: var(--accent); }
+.mudan-pick .pk-ctl { display: flex; align-items: center; flex-wrap: wrap; gap: 4px var(--space-sm); padding: 2px var(--space-xs) 0; font-size: var(--text-xs); }
+.mudan-pick .pk-ctl label { min-height: 28px; padding: 0; background: none; border: 0; }
+.mudan-pick .pk-ctl label input { width: 16px; height: 16px; }
+.mudan-pick .pk-ctl select { width: auto; max-width: 9rem; font-size: var(--text-xs); }
+.mudan-act { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-bottom: var(--space-sm); }
 .mudan-tag { font-size: var(--text-xs); font-weight: 700; color: #fff; background: var(--danger); border-radius: 4px; padding: 0 4px; }
 .left-n { font-family: var(--font-num); font-weight: 700; color: var(--danger-dark); white-space: nowrap; }
 .undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
@@ -264,7 +275,7 @@ select.uh-cap { min-height: 30px; width: auto; padding: 0 4px; font-size: var(--
 
       <section class="card full">
         <h2>無断欠席・体調不良<span class="cnt" id="mudanCnt"></span></h2>
-        <p class="pick-label" id="mudanPickLabel">来ていない人にチェック（何人でも）</p>
+        <p class="pick-label" id="mudanPickLabel">来ていない人・一限・乗らない人にチェック（何人でも）</p>
         <div class="mudan-pick" id="mudanPick" role="group" aria-labelledby="mudanPickLabel"></div>
         <div class="mudan-add">
           <span class="picked" id="mudanPicked">まだ選んでいません</span>
@@ -272,7 +283,16 @@ select.uh-cap { min-height: 30px; width: auto; padding: 0 4px; font-size: var(--
           <button type="button" id="mudanAdd">無断欠席に入れる</button>
           <button type="button" id="sickAdd">体調不良に入れる</button>
           <button type="button" id="paidAdd">有給を入れる</button>
+          <button type="button" id="lateAdd">遅刻に入れる</button>
         </div>
+        <!-- （2026-11-04 ユーザーの指示：馬配カードの「この日の一限・乗らない人」をここに統合） -->
+        <div class="mudan-act">
+          <button type="button" class="secondary" id="ichiAdd">一限にする</button>
+          <button type="button" class="secondary" id="noRideAdd">乗らないにする</button>
+          <button type="button" class="secondary" id="dailyAdd">毎日乗らないにする</button>
+          <button type="button" class="secondary" id="ichiClear">一限・乗らないを外す</button>
+        </div>
+        <p class="hint" style="margin-top:0;">一限は部員がマイページで曜日ごとに入れたものが最初から付いています。「一限にする」「乗らないにする」は<b>この日だけ</b>の直しです（馬配の「保存」で残ります）。「毎日乗らないにする」はずっと覚えます（すぐ保存）。「遅刻に入れる」は無断欠席の続きには数えません。</p>
         <p class="hint" style="margin-top:0;">「体調不良に入れる」「有給を入れる」は、この日1日のぶんを<b>了承ずみ</b>で入れます（左の「休み」に出て、× で外せます）。有給はその人の残りから1日減ります。季節休みや何日かの休みは、休みの欄の「決める」から入れてください。</p>
         <ul class="plist" id="mudan"></ul>
       </section>
@@ -307,13 +327,6 @@ select.uh-cap { min-height: 30px; width: auto; padding: 0 4px; font-size: var(--
         </div>
       </div>
       <div id="uhMsg" aria-live="polite"></div>
-      <details class="fold" id="uhPeopleFold">
-        <summary>この日の一限・乗らない人</summary>
-        <div class="fold-body">
-          <div class="uh-people" id="uhPeople"></div>
-          <p class="hint" style="margin-bottom:0;">一限は部員がマイページで曜日ごとに入れたものが最初から付いています。この日だけ違うときはここで直します。「乗らない」（その日だけ）・「毎日乗らない」（ずっと。すぐ保存）にした人は自動で組むときに入れません（鞍なしなど）。休み・無断の人は上の欄のとおりで、ここでは選べません。</p>
-        </div>
-      </details>
       <ul class="uh-warns" id="uhWarns" hidden></ul>
       <div class="uh-wb" id="uhWb" hidden>
         <div class="uh-board" id="uhBoard"></div>
@@ -507,17 +520,50 @@ function 描く() {
       '</li>').join('') : '<li><p class="none">まだエントリーがありません。</p></li>';
   }
 
-  // 来ていない人：学年ごとの横4列のチェックリスト（2026-10-21 ユーザーの指示）。休み・もう無断の人は出さない。4年以上は4列目。要注意は赤枠
+  チェック欄を描く();
+}
+
+// 来ていない人・一限・乗らない人：学年ごとの横4列のチェックリスト（2026-10-21 ユーザーの指示）。休み・もう無断の人は出さない。4年以上は4列目。要注意は赤枠
+// （2026-11-04 ユーザーの指示：一限・乗らない・毎日乗らない・遅刻・4年以上の「朝練に来る」・固定馬もここに出す）。
+// 印や固定馬は馬配の返り U から読むので、U・編 が変わったとき（馬配を描く）にも描き直す
+function チェック欄を描く() {
+  const 馬配あり = !!(U && 編 && U.date === D.date);
+  const 無断の人 = {};
+  D.無断.forEach((x) => { 無断の人[x.memberId] = true; });
+  const 休む人 = {};
+  (D.休んでいる人 || []).forEach((id) => { 休む人[id] = true; });
+  const 遅刻の人 = {};
+  (D.遅刻 || []).forEach((x) => { 遅刻の人[x.memberId] = true; });
   const 候補 = D.members.filter((m) => !無断の人[m.id] && !休む人[m.id]);
   const 注意 = {};
   D.要注意.forEach((x) => { 注意[x.memberId] = true; });
   Object.keys(チェック).forEach((id) => { if (!候補.some((m) => m.id === id)) delete チェック[id]; });
+  const 馬配の部員 = {};
+  if (馬配あり) U.members.forEach((m) => { 馬配の部員[m.id] = m; });
+  const 使う馬 = 馬配あり ? U.horses.filter((h) => h.active !== false) : [];
   const 列 = [1, 2, 3, 4].map((g) => {
     const 人 = 候補.filter((m) => (g === 4 ? (m.grade || 4) >= 4 : m.grade === g));
     return '<div class="col"><h3>' + (g === 4 ? '4年以上' : g + '年') + '（' + 人.length + '）</h3><div class="list">' +
-      (人.map((m) => '<label class="' + (注意[m.id] ? 'caution' : '') + (チェック[m.id] ? ' on' : '') + '">' +
-        '<input type="checkbox" data-pick="' + esc(m.id) + '"' + (チェック[m.id] ? ' checked' : '') + '>' + esc(m.name) +
-        (注意[m.id] ? '<span class="ct">要注意</span>' : '') + '</label>').join('') || '<span class="none">いません</span>') +
+      (人.map((m) => {
+        const u = 馬配の部員[m.id];
+        const 固定 = u && u.固定馬 ? (馬で(u.固定馬) || {}).name : '';
+        const 印 = (馬配あり && 入っている(編.一限, m.id) ? '<span class="mk ichi">一限</span>' : '') +
+          (馬配あり && 入っている(編.乗らない, m.id) ? '<span class="mk">乗らない</span>' : '') +
+          (u && u.毎日乗らない ? '<span class="mk">毎日乗らない</span>' : '') +
+          (遅刻の人[m.id] ? '<span class="mk late">遅刻</span>' : '') +
+          (u && u.noDuty && 朝練に出る(u) ? '<span class="mk">朝練に来る</span>' : '') +
+          (固定 ? '<span class="mk horse">' + esc(固定) + '</span>' : '');
+        // 4年以上：いつも朝練に来る（umahaiSetSenior）と固定馬（umahaiSetFixedHorse）。遅刻の人には外す × を出す
+        const 操作 = (遅刻の人[m.id] ? 部品.アイコンボタン('x', m.name + ' を遅刻から外す', { 'data-unlate': m.id }) : '') +
+          (u && u.noDuty ? '<label title="毎日の馬配に入れる（すぐ保存。当番には入りません）"><input type="checkbox" data-senior="' + esc(m.id) + '"' + (朝練に出る(u) ? ' checked' : '') + '> いつも朝練に来る</label>' +
+            '<select data-fixed="' + esc(m.id) + '" aria-label="' + esc(m.name) + ' の固定馬"><option value="">固定馬なし</option>' +
+              使う馬.concat(u.固定馬 && !使う馬.some((h) => h.id === u.固定馬) && 馬で(u.固定馬) ? [馬で(u.固定馬)] : [])
+                .map((h) => '<option value="' + esc(h.id) + '"' + (u.固定馬 === h.id ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') + '</select>' : '');
+        return '<div class="pk"><label class="' + (注意[m.id] ? 'caution' : '') + (チェック[m.id] ? ' on' : '') + '">' +
+          '<input type="checkbox" data-pick="' + esc(m.id) + '"' + (チェック[m.id] ? ' checked' : '') + '>' + esc(m.name) + 印 +
+          (注意[m.id] ? '<span class="ct">要注意</span>' : '') + '</label>' +
+          (操作 ? '<div class="pk-ctl">' + 操作 + '</div>' : '') + '</div>';
+      }).join('') || '<span class="none">いません</span>') +
       '</div></div>';
   });
   $('mudanPick').innerHTML = 列.join('');
@@ -667,7 +713,7 @@ const 無断の残り = (id) => (U.無断の残り || {})[id] || 0;
 const 朝練に出る = (m) => (m.朝練に出る === undefined ? !m.noDuty : m.朝練に出る);
 // 毎日乗らない人（2026-10-21）：ずっと覚えている印。自動では入れない
 const 毎日乗らない = (id) => !!(U.members.filter((m) => m.id === id)[0] || {}).毎日乗らない;
-const 乗れるか = (m) => 朝練に出る(m) && !U.出られない[m.id] && !無断の残り(m.id) && !入っている(編.乗らない, m.id) && !m.毎日乗らない;
+const 乗れるか = (m) => 朝練に出る(m) && !U.出られない[m.id] && !無断の残り(m.id) && !入っている(編.乗らない, m.id) && !m.毎日乗らない && !(U.遅刻 || {})[m.id];   // 遅刻の人は鞍なし（2026-11-04 ユーザーの指示）
 
 // その人が乗る馬の枠の並び（二頭乗りなら ['前','後']）
 function 馬配の鞍の枠(id) {
@@ -788,23 +834,8 @@ function 馬配を描く() {
   $('uhDelete').hidden = !状態;
   $('uhUndo').hidden = !組み直す前.length;
 
-  // この日の一限・乗らない人
-  const 出られる = U.members.filter((m) => 朝練に出る(m) && !U.出られない[m.id] && !無断の残り(m.id));
-  const 上級生 = U.members.filter((m) => m.noDuty);
-  const 出られない = U.members.filter((m) => U.出られない[m.id]);
-  const 乗せない = U.members.filter((m) => !U.出られない[m.id] && 無断の残り(m.id));
-  $('uhPeople').innerHTML = 出られる.map((m) =>
-    '<div class="row"><span class="nm">' + esc(m.name) + '</span>' +
-      '<label><input type="checkbox" data-uh-ichigen="' + esc(m.id) + '"' + (入っている(編.一限, m.id) ? ' checked' : '') + '> 一限</label>' +
-      '<label><input type="checkbox" data-uh-noride="' + esc(m.id) + '"' + (入っている(編.乗らない, m.id) ? ' checked' : '') + '> 乗らない</label>' +
-      '<label title="ずっと覚えておく（すぐ保存）"><input type="checkbox" data-uh-daily="' + esc(m.id) + '"' + (m.毎日乗らない ? ' checked' : '') + '> 毎日乗らない</label>' +
-    '</div>').join('') +
-    乗せない.map((m) => '<div class="row out"><span class="nm">' + esc(m.name) + '</span>無断の残り' + 無断の残り(m.id) + '（乗せない）</div>').join('') +
-    出られない.map((m) => '<div class="row out"><span class="nm">' + esc(m.name) + '</span>' + esc(U.出られない[m.id]) + '</div>').join('') +
-    (上級生.length ? '<div class="senior"><p class="ttl" style="margin:0;">4年以上（当番には入らない人）：いつも朝練に来る人にチェック</p>' +
-      '<div class="list">' + 上級生.map((m) => '<label><input type="checkbox" data-uh-senior="' + esc(m.id) + '"' + (朝練に出る(m) ? ' checked' : '') + '> ' +
-        esc(m.name) + (m.grade ? '（' + m.grade + '年）' : '') + '</label>').join('') + '</div>' +
-      '<p class="hint" style="margin:0;">チェックした人は毎日の馬配に入ります（すぐ保存。当番には入りません）。</p></div>' : '');
+  // 来ていない人・一限・乗らない人のチェック欄（上のカード）も、U・編 に合わせて描き直す
+  チェック欄を描く();
 
   // 注意
   const 注意 = ある ? 注意を集める() : [];
@@ -1087,44 +1118,101 @@ function 手入れ欄の中身(h) {
   };
 }
 
-// 一限・乗らない
-$('uhPeople').addEventListener('change', async (e) => {
-  const c = e.target;
-  // 4年以上の「いつも朝練に来る」（2026-10-21）。すぐ保存し、直している馬配はそのまま
-  // 毎日乗らない（2026-10-21）。すぐ保存し、入れたら今の馬配からも外す（直しとして残る）
-  if (c.dataset.uhDaily) {
-    const id = c.dataset.uhDaily;
+// 一限・乗らない・毎日乗らない・4年以上の朝練・固定馬・遅刻（2026-11-04 ユーザーの指示：来ていない人のチェック欄にまとめた）
+const 馬配が読めているか = () => !!(U && 編 && U.date === D.date);
+function 馬配を待つ() {
+  if (馬配が読めているか()) return true;
+  知らせ('馬配をまだ読み込んでいます。少し待ってからもう一度押してください。', 'warning');
+  return false;
+}
+// チェックした人に、その日だけの 一限／乗らない を付ける・外す（保存は馬配の「保存」）。付けたら直した()
+function その日だけ直す(何, 付ける, 文) {
+  if (!馬配を待つ()) return;
+  const 人 = チェックした人();
+  if (!人.length) return 知らせ('人にチェックを入れてください。', 'warning');
+  人.forEach((m) => {
+    const a = 編[何] || (編[何] = []);
+    if (付ける && a.indexOf(m.id) < 0) a.push(m.id);
+    // 乗らないにした人は、入っている馬から外す
+    if (付ける && 何 === '乗らない') 編.馬.forEach((r) => { r.人 = r.人.filter((id) => id !== m.id); });
+    delete チェック[m.id];
+  });
+  直した();
+  知らせ('<b>' + esc(人.map((m) => m.name).join('・')) + '</b> ' + 文);
+}
+$('ichiAdd').addEventListener('click', () => その日だけ直す('一限', true, 'を一限にしました（この日だけ。馬配を保存すると残ります）。'));
+$('noRideAdd').addEventListener('click', () => その日だけ直す('乗らない', true, 'を乗らないにしました（この日だけ。入っていた馬から外しました）。'));
+// 毎日乗らない：すぐ保存し、入れたら今の馬配からも外す（直しとして残る）
+$('dailyAdd').addEventListener('click', async () => {
+  if (!馬配を待つ()) return;
+  const 人 = チェックした人();
+  if (!人.length) return 知らせ('人にチェックを入れてください。', 'warning');
+  const できた = [];
+  const だめ = [];
+  let 外した = false;
+  for (const m of 人) {
     try {
-      const r = await call('umahaiSetNoRideDaily', TOKEN, id, c.checked, D.date);
+      const r = await call('umahaiSetNoRideDaily', TOKEN, m.id, true, D.date);
       if (r.date === D.date) U = r;
-      if (c.checked && 編.馬.some((x) => x.人.indexOf(id) >= 0)) { 編.馬.forEach((x) => { x.人 = x.人.filter((y) => y !== id); }); 直した(); }
-      else 馬配を描く();
-      馬配の知らせ(esc(人の名(id)) + ' を' + (c.checked ? '毎日乗らない人にしました（自動で組むときに入れません。みんなのボードにも出しません）。' : '毎日乗らない人から外しました。'));
-    } catch (err) { c.checked = !c.checked; 馬配の知らせ(エラー文(err), 'error'); }
-    return;
+      if (編.馬.some((x) => x.人.indexOf(m.id) >= 0)) { 編.馬.forEach((x) => { x.人 = x.人.filter((y) => y !== m.id); }); 外した = true; }
+      delete チェック[m.id];
+      できた.push(m.name);
+    } catch (err) { だめ.push(esc(m.name) + '：' + エラー文(err)); }
   }
-  if (c.dataset.uhSenior) {
+  if (外した) 直した(); else 馬配を描く();
+  知らせ((できた.length ? '<b>' + esc(できた.join('・')) + '</b> を毎日乗らない人にしました（自動で組むときに入れません。みんなのボードにも出しません）。' : '') +
+    (だめ.length ? '<br>できなかった人：<br>' + だめ.join('<br>') : ''), だめ.length ? (できた.length ? 'warning' : 'error') : 'success');
+});
+// 一限・乗らないを外す：その日だけの印を外し、毎日乗らないの人は保存ずみの印も外す
+$('ichiClear').addEventListener('click', async () => {
+  if (!馬配を待つ()) return;
+  const 人 = チェックした人();
+  if (!人.length) return 知らせ('人にチェックを入れてください。', 'warning');
+  const だめ = [];
+  人.forEach((m) => { 編.一限 = (編.一限 || []).filter((id) => id !== m.id); 編.乗らない = (編.乗らない || []).filter((id) => id !== m.id); });
+  for (const m of 人) {
+    if (!毎日乗らない(m.id)) { delete チェック[m.id]; continue; }
     try {
-      const r = await call('umahaiSetSenior', TOKEN, c.dataset.uhSenior, c.checked, D.date);
+      const r = await call('umahaiSetNoRideDaily', TOKEN, m.id, false, D.date);
+      if (r.date === D.date) U = r;
+      delete チェック[m.id];
+    } catch (err) { だめ.push(esc(m.name) + '：' + エラー文(err)); }
+  }
+  直した();
+  知らせ(だめ.length ? '外せなかった人：<br>' + だめ.join('<br>') : '<b>' + esc(人.map((m) => m.name).join('・')) + '</b> の一限・乗らない（毎日乗らないも）を外しました。', だめ.length ? 'warning' : 'success');
+});
+// 遅刻に入れる・外す
+$('lateAdd').addEventListener('click', () => まとめて入れる((id) => call('asaAddLate', TOKEN, D.date, id), '遅刻に入れました'));
+$('mudanPick').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-unlate]');
+  if (!b) return;
+  try {
+    D = await call('asaRemoveLate', TOKEN, D.date, b.dataset.unlate);
+    描く();
+    馬配を読む(D.date, true);   // 遅刻が変わったので、馬配の「まだ」と注意を出し直す
+    知らせ('遅刻から外しました。');
+  } catch (err) { 知らせ(エラー文(err), 'error'); }
+});
+// 4年以上の「いつも朝練に来る」と固定馬。どちらもすぐ保存し、直している馬配はそのまま
+$('mudanPick').addEventListener('change', async (e) => {
+  const c = e.target;
+  if (c.dataset.senior) {
+    if (!馬配を待つ()) { c.checked = !c.checked; return; }
+    try {
+      const r = await call('umahaiSetSenior', TOKEN, c.dataset.senior, c.checked, D.date);
       if (r.date === D.date) U = r;
       馬配を描く();
-      馬配の知らせ(esc(人の名(c.dataset.uhSenior)) + ' を' + (c.checked ? 'いつも朝練に来る人にしました。「自動で組み直す」か「＋ 足す」で馬に入れてください。' : 'いつも朝練に来る人から外しました。'));
-    } catch (err) { c.checked = !c.checked; 馬配の知らせ(エラー文(err), 'error'); }
-    return;
+      知らせ(esc(人の名(c.dataset.senior)) + ' を' + (c.checked ? 'いつも朝練に来る人にしました。「自動で組み直す」か「＋ 足す」で馬に入れてください。' : 'いつも朝練に来る人から外しました。'));
+    } catch (err) { c.checked = !c.checked; 知らせ(エラー文(err), 'error'); }
+  } else if (c.dataset.fixed) {
+    if (!馬配を待つ()) { 描く(); return; }
+    try {
+      const r = await call('umahaiSetFixedHorse', TOKEN, c.dataset.fixed, c.value, D.date);
+      if (r.date === D.date) U = r;
+      馬配を描く();
+      知らせ(esc(人の名(c.dataset.fixed)) + ' の固定馬を' + (c.value ? '<b>' + esc((馬で(c.value) || {}).name || '') + '</b> にしました。' : 'なしにしました。'));
+    } catch (err) { 知らせ(エラー文(err), 'error'); 馬配を描く(); }
   }
-  const 切り替える = (名, id) => {
-    const a = 編[名] || (編[名] = []);
-    const k = a.indexOf(id);
-    if (c.checked && k < 0) a.push(id);
-    if (!c.checked && k >= 0) a.splice(k, 1);
-  };
-  if (c.dataset.uhIchigen) 切り替える('一限', c.dataset.uhIchigen);
-  else if (c.dataset.uhNoride) {
-    切り替える('乗らない', c.dataset.uhNoride);
-    // 乗らないにした人は、入っている馬から外す
-    if (c.checked) 編.馬.forEach((r) => { r.人 = r.人.filter((id) => id !== c.dataset.uhNoride); });
-  } else return;
-  直した();
 });
 
 /*
