@@ -189,7 +189,7 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-uh .wb-main { display: grid; grid-template-columns: 1fr 1fr minmax(15em, .9fr); gap: 0 var(--space-lg); margin-top: 6px; }
 .me-uh .wb-time { font-size: 1.4rem; margin: 4px 0 8px; }
 .me-uh .wb-none { margin: 0; color: #999; }
-.me-uh .wb-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; flex-wrap: wrap; }
+.me-uh .wb-row { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 0; margin: 0 0 16px; }   /* 馬と乗る人を近づけ、馬のかたまり同士は離す（2026-11-05 ユーザーの指示） */
 .me-uh .wb-riders { display: flex; flex-wrap: wrap; gap: 6px 10px; }
 .me-uh .wb-side { border-left: 2px solid #d9d9d4; padding-left: var(--space-md); }
 .me-uh .wb-srow { display: flex; align-items: center; gap: 8px; min-height: 2.2em; flex-wrap: wrap; }

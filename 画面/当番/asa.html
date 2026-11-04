@@ -69,6 +69,8 @@ header.appbar.asa { background: var(--ink); }
 .mudan-pick .pk-ctl label input { width: 16px; height: 16px; }
 .mudan-pick .pk-ctl select { width: auto; max-width: 9rem; font-size: var(--text-xs); }
 .mudan-act { display: flex; gap: var(--space-xs); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+/* ボタン幅を一律に（2026-11-05 ユーザーの指示） */
+.mudan-add button, .mudan-act button { width: 17em; max-width: 100%; text-align: center; }
 .mudan-tag { font-size: var(--text-xs); font-weight: 700; color: #fff; background: var(--danger); border-radius: 4px; padding: 0 4px; }
 .left-n { font-family: var(--font-num); font-weight: 700; color: var(--danger-dark); white-space: nowrap; }
 .undo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
