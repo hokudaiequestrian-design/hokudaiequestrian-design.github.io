@@ -1802,19 +1802,23 @@ $('mudanPick').addEventListener('change', (e) => {
 $('pickClear').addEventListener('click', () => { Object.keys(チェック).forEach((k) => delete チェック[k]); 描く(); });
 
 // チェックした人みんなに、1人ずつ入れる。断られた人は理由を出し、チェックを残す
-async function まとめて入れる(入れる, 何に) {
+// 入れたあと(ids) … 入れられた人の部員IDで、馬配を読み直す前に呼ぶ（遅刻で使う）
+async function まとめて入れる(入れる, 何に, 入れたあと) {
   const 人 = チェックした人();
   if (!人.length) return 知らせ('来ていない人にチェックを入れてください。', 'warning');
   const できた = [];
+  const できたID = [];
   const だめ = [];
   for (const m of 人) {
     try {
       D = await 入れる(m.id);
       delete チェック[m.id];
       できた.push(m.name);
+      できたID.push(m.id);
     } catch (e) { だめ.push(esc(m.name) + '：' + エラー文(e)); }
   }
   描く();
+  if (入れたあと && できたID.length) 入れたあと(できたID);
   馬配を読む(D.date, true);   // 休み・無断が変わったので、馬配の注意を出し直す
   知らせ((できた.length ? '<b>' + esc(できた.join('・')) + '</b> を' + 何に + '。' : '') + (だめ.length ? '<br>入れられなかった人：<br>' + だめ.join('<br>') : ''),
     だめ.length ? (できた.length ? 'warning' : 'error') : 'success');
@@ -1914,10 +1918,11 @@ async function 馬配を読む(date, 直しを残す) {
 }
 
 // まだ組んでいない日の中身。上限は前の日のものを引き継ぐ（2026-10-23）
-// （2026-11-04 ユーザーの指示：上限は変えたらすぐ保存）その日に保存した上限があればそれ、無ければ前の日の上限から始める
+// （2026-11-04 ユーザーの指示：上限は変えたらすぐ保存）その日に保存した上限があればそれ（空で保存した日は空＝上限なし）、
+// 無ければ（この日の上限が null）前の日の上限から始める（最終レビュー R2）
 function 新しい編() {
-  const この日 = (U && U.この日の上限) || {};
-  const 上限 = Object.keys(この日).length ? この日 : ((U && U.前の上限) || {});
+  const この日 = U ? U.この日の上限 : null;
+  const 上限 = (この日 !== null && この日 !== undefined) ? この日 : ((U && U.前の上限) || {});
   return { 馬: [], 休む馬: [], 馬休の人: {}, 上限: 複製(上限), 一限: U.一限.slice(), 乗らない: [], 掃除: [] };
 }
 const 人の名 = (id) => { const m = U.members.filter((x) => x.id === id)[0]; return m ? m.name : '（消された部員）'; };
@@ -1957,6 +1962,7 @@ function 上限の選ぶ欄(h) {
     [1, 2, 3, 4, 5, 6].map((k) => '<option value="' + k + '"' + (n === k ? ' selected' : '') + '>上限' + k + '人</option>').join('') + '</select>';
 }
 function 上限を変える(h, v) {
+  if (!編 || !U || !D || U.date !== D.date) return;   // 見ている日の馬配が読めていないときは何もしない（最終レビュー R4）
   編.上限 = 編.上限 || {};
   if (Number(v)) 編.上限[h] = Number(v); else delete 編.上限[h];
   上限を保存する();
@@ -1965,8 +1971,9 @@ function 上限を変える(h, v) {
 // 続けて変えたときに備えて、最後に変えてから 600ms 待って1回だけ呼ぶ。日ごとに待つので、日を変えても前の日の分は送る
 const 上限の保存待ち = {};
 function 上限を保存する() {
-  if (!D || !編) return;
-  const 日 = D.date;
+  // 編 は U の日のもの。見ている日（D.date）の馬配が読めていなければ送らない（最終レビュー R4：別の日に書かないように）
+  if (!D || !編 || !U || U.date !== D.date) return;
+  const 日 = U.date;
   const 上限 = 複製(編.上限 || {});
   clearTimeout(上限の保存待ち[日]);
   上限の保存待ち[日] = setTimeout(async () => {
@@ -2543,7 +2550,18 @@ $('ichiClear').addEventListener('click', async () => {
   知らせ(だめ.length ? '外せなかった人：<br>' + だめ.join('<br>') : '<b>' + esc(人.map((m) => m.name).join('・')) + '</b> の一限・乗らない（毎日乗らないも）を外しました。', だめ.length ? 'warning' : 'success');
 });
 // 遅刻に入れる・外す
-$('lateAdd').addEventListener('click', () => まとめて入れる((id) => call('asaAddLate', TOKEN, D.date, id), '遅刻に入れました'));
+// 遅刻にした人は、サーバが保存ずみの馬配の鞍から外す。直している中身（編）からも外して、画面と保存を合わせる
+// （でないと次の「保存」「確定」で古い 編 が送られ、遅刻の人が鞍に戻る。最終レビュー M1）
+$('lateAdd').addEventListener('click', () => まとめて入れる((id) => call('asaAddLate', TOKEN, D.date, id), '遅刻に入れました', (ids) => {
+  if (!編 || !U || U.date !== D.date) return;
+  let 外した = false;
+  編.馬.forEach((r) => {
+    const 前 = r.人.length;
+    r.人 = r.人.filter((id) => ids.indexOf(id) < 0);
+    if (r.人.length !== 前) 外した = true;
+  });
+  if (外した) 直した();
+}));
 $('mudanPick').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-unlate]');
   if (!b) return;
