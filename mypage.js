@@ -598,6 +598,50 @@
     if (t) 馬配を出す(t.馬配, 名);
   }
 
+  /*
+    馬配がなおったら、開いている画面にもすぐ出す（2026-11-05 ユーザーの指示）。
+    サーバーの /live に WebSocket でつないでおくと、馬配を保存・直した瞬間に知らせが来る。
+    知らせが来たら馬配だけ読み直す（版が同じなら「同じ」とだけ返るので、通信も描き直しもほぼゼロ）。
+    切れたら少しずつ間をあけてつなぎ直す。つなぎ直したとき・画面に戻ったときも読み直す（見逃し防止）。
+  */
+  async function 馬配を読み直す() {
+    const 名 = 今の.名 || 覚えた名前();
+    const 前 = 名 ? 取り出す(鍵(名)) : null;
+    const r = await 呼ぶ(API.当番, 'getMyPage', [名, 前 ? 前.版t : null]);
+    if (!r || r.同じ) return;
+    if (前) { 前.t = r; 前.版t = r.版; 保存する(鍵(名), 前); }
+    if (名) 今の = { 名: 名, t: r };
+    馬配を出す(r.馬配, 名);
+  }
+
+  function 馬配の知らせを受ける() {
+    if (typeof WebSocket !== 'function') return;
+    const 住所 = String(API.当番).replace(/^http/, 'ws').replace(/\/touban$/, '/live');
+    let 待ち = 1000, ping = null, 読み中 = false, また = false;
+    const 読む = async () => {
+      if (読み中) { また = true; return; }   // 読んでいる最中に知らせが来たら、終わってからもう一度
+      読み中 = true;
+      try { do { また = false; await 馬配を読み直す(); } while (また); } catch (e) { /* 通信できなければ、次の知らせかつなぎ直しで読む */ } finally { 読み中 = false; }
+    };
+    const つなぐ = () => {
+      let ws;
+      try { ws = new WebSocket(住所); } catch (e) { return; }
+      ws.onopen = () => {
+        待ち = 1000;
+        読む();
+        clearInterval(ping);
+        ping = setInterval(() => { try { ws.send('ping'); } catch (e) { /* 切れたら onclose が来る */ } }, 30000);
+      };
+      ws.onmessage = (e) => {
+        if (e.data === 'pong') return;
+        try { if (JSON.parse(e.data).更新 === '馬配') 読む(); } catch (x) { /* 読めない知らせは無視 */ }
+      };
+      ws.onclose = () => { clearInterval(ping); setTimeout(つなぐ, 待ち); 待ち = Math.min(待ち * 2, 30000); };
+    };
+    つなぐ();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) 読む(); });
+  }
+
   /**
    * 開いたときの流れ。**待つ回数を減らすのが肝**（2026-09-13）。
    *   ・名簿だけを取る往復をやめた。当番側の getMyPage は名前を渡しても名簿を一緒に返すので、
@@ -607,6 +651,7 @@
   async function 始める() {
     const sel = $('meSelect');
     if (!sel) return;
+    馬配の知らせを受ける();
     sel.addEventListener('change', () => 出す(sel.value));
     一限を押せるようにする();
     送り待ちを送る();   // 出欠の画面で、届く前に閉じられたぶん
