@@ -1914,6 +1914,7 @@ async function 馬配を読む(date, 直しを残す) {
       選んだ人 = '';
       掃除の人数を選んだ = 0;
       馬配を変えた = false;
+      if (チーフの馬休を入れる()) 馬配を変えた = true;
     }
     馬配を描く();
   } catch (e) { 馬配の知らせ('馬配を読めませんでした：' + エラー文(e), 'error'); }
@@ -2263,7 +2264,7 @@ $('uhPre').addEventListener('click', (e) => {
 function 馬休申請の欄() {
   const 申請 = (U && U.馬休申請) || [];
   if (!申請.length) return '';
-  const 状態の印 = (s) => s === '承認' ? '<span class="uh-tag ok">承認（馬休にしました）</span>'
+  const 状態の印 = (s) => s === '承認' ? '<span class="uh-tag ok">チーフが決めた（馬休）</span>'
     : s === '却下' ? '<span class="uh-tag">断りました</span>' : '<span class="uh-tag warn">' + esc(s || '申請中') + '</span>';
   return '<p class="ttl">チーフから馬休の申請' +
       '<button type="button" class="secondary small" data-uh-req-reload="1">読み直す</button></p>' +
@@ -2279,6 +2280,17 @@ function 馬休申請の欄() {
         (r.state === '承認' && h && !もう休み ? '<span class="uh-over">いまの馬配では馬休になっていません</span>' : '') +
         '</div>';
     }).join('');
+}
+// チーフが決めた馬休（2026-11-07 ユーザーの指示：申請ではなく、チーフの決定で馬休が決まる）。
+// その日の承認済み（チーフが決めた印）を、馬休に入れておく。外すのは副将が直す。入れたら true
+function チーフの馬休を入れる() {
+  let 入れた = false;
+  (U.馬休申請 || []).forEach((r) => {
+    if (r.state !== '承認' || !馬で(r.horseId) || 入っている(編.休む馬, r.horseId)) return;
+    申請の馬を馬休にする(r.horseId);
+    入れた = true;
+  });
+  return 入れた;
 }
 // 申請の馬を 編.休む馬 に入れる（組んだあとはボードの「馬休にする」、組む前は「馬休」のチェックと同じ動き）。
 // 人が入っている馬かどうかの確かめは呼ぶ前に済ませる。すでに馬休なら何もしない

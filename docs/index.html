@@ -1155,6 +1155,42 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-cal a:hover { background: var(--accent-soft); }
 .me-cal .d { font-weight: 400; font-size: var(--text-sm); color: var(--muted); margin-top: 2px; }
 
+/* ===== チーフの馬休の申請（2026-11-07）。カレンダーより上。チーフ用の入口だけ =====
+   月曜は青い地、大会の日は緑の地。色だけに頼らず、字（基本馬休・大会・申請中など）も必ず添える。 */
+.me-kyu .hint { margin: 0 0 var(--space-sm); }
+.me-kyu .kyu-top { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); }
+.me-kyu .kyu-one { margin: 0; font-weight: 700; font-size: var(--text-base); }
+.me-kyu .kyu-horse { display: flex; align-items: center; gap: var(--space-xs); font-weight: 700; }
+.me-kyu .kyu-horse select { min-height: 44px; font-size: 1rem; }
+.me-kyu .kyu-month { display: flex; align-items: center; gap: var(--space-xs); }
+.me-kyu .kyu-month b { min-width: 7.5em; text-align: center; font-family: var(--font-num); }
+.me-kyu .kyu-month button { min-width: 44px; min-height: 44px; font-size: 1.1rem; }
+.me-kyu .kyu-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.me-kyu .kyu-head { text-align: center; font-size: var(--text-xs); color: var(--muted); padding: 2px 0; }
+.me-kyu .kyu-blank { min-height: 4.5rem; }
+.me-kyu .kyu-d {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
+  min-height: 4.5rem; padding: 6px 2px 4px; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--card); cursor: pointer; text-align: center;
+}
+.me-kyu .kyu-d input { width: 20px; height: 20px; margin: 0; }
+.me-kyu .kyu-n { font-family: var(--font-num); font-size: var(--text-base); font-weight: 700; }
+.me-kyu .kyu-t { font-size: 11px; line-height: 1.25; color: var(--muted); word-break: break-all; }
+.me-kyu .kyu-mon { background: var(--accent-soft); }
+.me-kyu .kyu-taikai { background: var(--care-soft); }
+.me-kyu .kyu-past { opacity: 0.45; cursor: default; }
+.me-kyu .kyu-req { color: var(--accent-dark); font-weight: 700; }
+.me-kyu .kyu-ok { color: var(--care-dark); font-weight: 700; }
+.me-kyu .kyu-no { color: var(--danger); font-weight: 700; }
+.me-kyu .kyu-taikai-list { margin: var(--space-sm) 0 0; padding-left: 1.2em; font-size: var(--text-sm); }
+.me-kyu .kyu-note { display: block; margin-top: var(--space-sm); font-weight: 700; }
+.me-kyu .kyu-note input { display: block; width: 100%; max-width: 32rem; min-height: 44px; font-size: 1rem; margin-top: var(--space-2xs); }
+.me-kyu .kyu-act { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+.me-kyu .kyu-act button { min-height: 44px; }
+.me-kyu .kyu-login { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.me-kyu .kyu-login input { min-height: 44px; font-size: 1rem; max-width: 20rem; flex: 1 1 12rem; }
+.me-kyu .kyu-login button { min-height: 44px; }
+
 /*
   了承待ちの休みの知らせ（2026-09-21）。副将がログインしているあいだだけ、いちばん上に出る。
   ここだけは**塗りつぶした赤の帯**にして、ほかの節（白地に罫線）から浮かせる。
@@ -2261,6 +2297,8 @@ const API = {
     }
     章.push({ id: 'meFacts', html: 事実.length ? '<div class="me-facts">' + 事実.join('') + '</div>' : '' });
 
+    // チーフの馬休の申請（2026-11-07）。カレンダーより上。チーフ用の入口だけ
+    if (馬休の入る口() && t && t.me) 章.push({ id: 'meKyu', html: 馬休の枠 });
     章.push({ id: 'meCal', html: カレンダーの節 });
     return 章;
   }
@@ -2299,6 +2337,8 @@ const API = {
       if (本体.children[i] !== el) 本体.insertBefore(el, 本体.children[i] || null);
     });
     Object.keys(残り).forEach((k) => { 残り[k].remove(); delete 描いた[k]; });
+    // チーフの馬休の枠を描いたら、その中身を出す（読んだものは覚えてあるので、枠を描き直しても出せる）
+    if (欲しい.some((x) => x.id === 'meKyu')) 馬休を出す(覚えた名前());
   }
 
   /*
@@ -2526,6 +2566,7 @@ const API = {
     馬配の知らせを受ける();
     sel.addEventListener('change', () => 出す(sel.value));
     一限を押せるようにする();
+    馬休を押せるようにする();
     送り待ちを送る();   // 出欠の画面で、届く前に閉じられたぶん
 
     const 名 = 覚えた名前();
@@ -2704,6 +2745,290 @@ const API = {
         });
       });
   }
+  /*
+    チーフの馬休（2026-11-07 ユーザーの指示）。チーフ用の入口（?role=chieflinks）のマイページだけに出す。
+    カレンダーより上に、自分が担当する馬の馬休を、月ごとのチェックリストで決める。
+    ・チェックを入れた日が馬休になる。申請ではなくチーフの決定なので、副将の承認は要らない
+    ・すぐ付け外しできる。外すと、その日の馬休は取り消される
+    ・月曜は基本馬休と書くが、チェックは最初から入れない
+    ・大会の日は背景を緑にする。最初はチェックを入れない（入れること自体はできる）
+    ・過ぎた日は変えられない
+    ・チーフのパスワードは副将と同じく端末で覚える（6時間で切れたら覚えたもので入り直す）
+    読むのは chiefLoadAll・chiefLoadUmaKyu と getCalendarData（大会の日）。決めるのは chiefSetUmaKyu。
+  */
+  const 馬休の入る口 = () => typeof 立場 !== 'undefined' && 立場 === 'chieflinks';
+  const 馬休の枠 = '<section class="me-sec me-kyu" aria-label="馬休"><h2>馬休</h2>' +
+    '<div id="kyuBody"><p class="me-msg">読み込んでいます…</p></div></section>';
+  const 馬休の状態 = {
+    名: '', 馬: null, 月: '', 申請: [], 大会: {}, 選んだ: '',
+    知らせ: '', 困った: '', 鍵が要る: false, 読んでいる: '',
+  };
+  const 馬休の色 = { '承認': 'kyu-ok', '申請中': 'kyu-req', '却下': 'kyu-no' };
+  const 馬休の字 = { '承認': '馬休', '申請中': '申請中', '却下': '却下' };
+
+  // ----- チーフの鍵。この端末で覚える（6時間で切れるので、切れる前に取り直す） -----
+  const 鍵の長さ = 5.5 * 60 * 60 * 1000;
+  function チーフの鍵を読む() {
+    try {
+      const t = localStorage.getItem('chief:tok') || '';
+      return t && Date.now() - Number(localStorage.getItem('chief:tokAt') || 0) < 鍵の長さ ? t : '';
+    } catch (e) { return ''; }
+  }
+  function チーフの鍵を置く(t, pw) {
+    try {
+      localStorage.setItem('chief:tok', t);
+      localStorage.setItem('chief:tokAt', String(Date.now()));
+      localStorage.setItem('chief:pw', pw);
+    } catch (e) { /* 置けなければ、開くたびに入れてもらう */ }
+  }
+  function チーフの鍵を消す() {
+    try {
+      localStorage.removeItem('chief:tok');
+      localStorage.removeItem('chief:tokAt');
+      localStorage.removeItem('chief:pw');
+    } catch (e) { /* 消せなくても6時間で切れる */ }
+  }
+  // 覚えたパスワード。無ければ null（空で覚えていれば ''）
+  function 覚えたパスワード() {
+    try { return localStorage.getItem('chief:pw'); } catch (e) { return null; }
+  }
+  function 鍵が要る(文) {
+    const e = new Error(文 || '');
+    e.鍵が要る = true;
+    return e;
+  }
+  async function チーフでログイン(pw) {
+    const t = await 呼ぶ(API.当番, 'loginChief', [pw]);
+    チーフの鍵を置く(t, pw);
+    return t;
+  }
+  // 同時に何度頼まれても、入りは1回だけ走らせる（読み込みが並ぶと、入り直しが二重に走るため）
+  let 入りの途中 = null;
+  function チーフの鍵をもらう() {
+    if (!入りの途中) 入りの途中 = チーフの鍵を入り直す().finally(() => { 入りの途中 = null; });
+    return 入りの途中;
+  }
+  // 鍵が無い・切れたとき。覚えたパスワードで入り直す。覚えていなければ、パスワード無しで試す（設けていなければ通る）
+  async function チーフの鍵を入り直す() {
+    const pw = 覚えたパスワード();
+    try {
+      return await チーフでログイン(pw === null ? '' : pw);
+    } catch (e) {
+      if (e.通信) throw e;
+      if (pw !== null) チーフの鍵を消す();
+      throw 鍵が要る(pw === null ? '' : e.message);
+    }
+  }
+  // チーフの処理を呼ぶ。引数は鍵の後ろに並ぶ
+  async function チーフへ(fn, 引数) {
+    const 手元 = チーフの鍵を読む();
+    const t = 手元 || (await チーフの鍵をもらう());
+    try {
+      return await 呼ぶ(API.当番, fn, [t].concat(引数));
+    } catch (e) {
+      if (e.通信 || !/有効期限/.test(e.message)) throw e;
+      return 呼ぶ(API.当番, fn, [await チーフの鍵をもらう()].concat(引数));
+    }
+  }
+
+  // ----- 読む -----
+  async function 大会を読む(月) {
+    if (馬休の状態.大会[月]) return;
+    const r = await 呼ぶ(API.当番, 'getCalendarData', [月]);
+    const 日 = {};
+    (r.大会 || []).forEach((ev) => {
+      (ev.日 || []).forEach((d) => { 日[d] = 日[d] ? 日[d] + '・' + ev.name : ev.name; });
+    });
+    馬休の状態.大会[月] = 日;
+  }
+
+  // 担当の馬（チーフの名前が自分の名前の、使用中の馬）と、決まっている馬休と、今月の大会の日を読む
+  async function 馬休を読む(名) {
+    const s = 馬休の状態;
+    s.読んでいる = 名;
+    s.困った = '';
+    try {
+      const [全部, 一覧] = await Promise.all([チーフへ('chiefLoadAll', []), チーフへ('chiefLoadUmaKyu', [])]);
+      s.馬 = (全部.horses || []).filter((h) => h.active && String(h.chief || '').trim() === 名).map((h) => ({ id: h.id, name: h.name }));
+      s.申請 = 一覧 || [];
+      s.名 = 名;
+      s.鍵が要る = false;
+      if (!s.月) s.月 = 文字に(new Date()).slice(0, 7);
+      try { await 大会を読む(s.月); } catch (e) { s.知らせ = '大会の日を読めませんでした（馬休は決められます）。'; }
+    } catch (e) {
+      if (e.鍵が要る) { s.鍵が要る = true; s.知らせ = e.message; }
+      else s.困った = e.message;
+    } finally {
+      s.読んでいる = '';
+    }
+    馬休を描く();
+  }
+
+  // ----- 見る -----
+  function 選んだ馬() {
+    const s = 馬休の状態;
+    const 並び = (s.馬 || []).map((h) => h.id);
+    return 並び.indexOf(s.選んだ) >= 0 ? s.選んだ : (並び[0] || '');
+  }
+  // 1日の見方：決まっている馬休・大会・曜日・チェックが入っているか・過ぎた日か
+  function 日の見方(馬ID, key, 今日) {
+    const s = 馬休の状態;
+    const r = s.申請.filter((x) => x.horseId === 馬ID && x.date === key)[0];
+    const 状態 = r ? r.state : '';
+    const 大会名 = (s.大会[s.月] || {})[key] || '';
+    return {
+      状態: 状態,
+      大会名: 大会名,
+      曜: 日付に(key).getDay(),
+      過ぎた: key < 今日,
+      チェック: !!状態 && 状態 !== '却下',
+    };
+  }
+  function その月の日(月) {
+    const 初め = 日付に(月 + '-01');
+    const 日数 = new Date(初め.getFullYear(), 初め.getMonth() + 1, 0).getDate();
+    const 並び = [];
+    for (let d = 1; d <= 日数; d++) 並び.push(月 + '-' + (d < 10 ? '0' + d : '' + d));
+    return 並び;
+  }
+  function 馬休のログインを作る() {
+    return '<p class="hint">馬休を決めるには、チーフのパスワードが要ります。この端末では、ログアウトするまで聞きません。</p>' +
+      '<div class="kyu-login"><input type="password" id="kyuPw" autocomplete="current-password" aria-label="チーフのパスワード">' +
+      '<button type="button" data-kyu-act="login">入る</button></div>' +
+      (馬休の状態.知らせ ? '<p class="me-msg" role="status">' + esc(馬休の状態.知らせ) + '</p>' : '');
+  }
+  function 馬休のカレンダーを作る() {
+    const s = 馬休の状態;
+    const 馬ID = 選んだ馬();
+    const 今日 = 文字に(new Date());
+    const 初め = 日付に(s.月 + '-01');
+    let 枠 = 曜日名.map((w) => '<div class="kyu-head">' + w + '</div>').join('');
+    for (let i = 0; i < 初め.getDay(); i++) 枠 += '<div class="kyu-blank" aria-hidden="true"></div>';
+    const 大会の一覧 = [];
+    その月の日(s.月).forEach((key) => {
+      const v = 日の見方(馬ID, key, 今日);
+      const d = Number(key.slice(8));
+      if (v.大会名) 大会の一覧.push(Number(key.slice(5, 7)) + '/' + d + '（' + 曜日名[v.曜] + '）' + v.大会名);
+      const 印 = v.状態 ? (馬休の字[v.状態] || v.状態) : (v.大会名 ? '大会' : v.曜 === 1 ? '基本馬休' : '');
+      const 色 = [v.曜 === 1 ? 'kyu-mon' : '', v.大会名 ? 'kyu-taikai' : '', v.過ぎた ? 'kyu-past' : ''].filter(Boolean).join(' ');
+      枠 += '<label class="kyu-d ' + 色 + '"' + (v.大会名 ? ' title="' + esc(v.大会名) + '"' : '') + '>' +
+        '<input type="checkbox" data-kyu-day="' + key + '"' + (v.チェック ? ' checked' : '') + (v.過ぎた ? ' disabled' : '') +
+        ' aria-label="' + d + '日（' + 曜日名[v.曜] + '）馬休">' +
+        '<span class="kyu-n">' + d + '</span>' +
+        '<span class="kyu-t ' + (馬休の色[v.状態] || '') + '">' + esc(印) + '</span></label>';
+    });
+    const 選ぶ = s.馬.length > 1
+      ? '<label class="kyu-horse">馬<select data-kyu-act="horse">' +
+        s.馬.map((h) => '<option value="' + esc(h.id) + '"' + (h.id === 馬ID ? ' selected' : '') + '>' + esc(h.name) + '</option>').join('') +
+        '</select></label>'
+      : '<p class="kyu-one">' + esc(s.馬[0].name) + '</p>';
+    return '<div class="kyu-top">' + 選ぶ +
+      '<div class="kyu-month"><button type="button" data-kyu-act="prev" aria-label="前の月">‹</button>' +
+      '<b>' + s.月.replace('-', '年') + '月</b>' +
+      '<button type="button" data-kyu-act="next" aria-label="次の月">›</button></div></div>' +
+      '<p class="hint">馬休にする日にチェックを入れてください。チーフの決定なので、副将の承認は要りません。外せばすぐ取り消せます。<b>月曜は基本馬休</b>ですが、チェックは最初から入っていません。<b>大会の日</b>は背景が緑です。過ぎた日は変えられません。</p>' +
+      '<div class="kyu-grid">' + 枠 + '</div>' +
+      (大会の一覧.length ? '<ul class="kyu-taikai-list">' + 大会の一覧.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
+      '<div class="kyu-act"><button type="button" class="secondary" data-kyu-act="logout">ログアウト</button></div>' +
+      (s.知らせ ? '<p class="me-msg" role="status">' + esc(s.知らせ) + '</p>' : '');
+  }
+  function 馬休を描く() {
+    const 箱 = $('kyuBody');
+    if (!箱) return;
+    const s = 馬休の状態;
+    if (s.鍵が要る) 箱.innerHTML = 馬休のログインを作る();
+    else if (s.困った) 箱.innerHTML = '<p class="me-msg">' + esc(s.困った) + '</p>';
+    else if (!s.馬) 箱.innerHTML = '<p class="me-msg">読み込んでいます…</p>';
+    else if (!s.馬.length) 箱.innerHTML = '<p class="me-msg">担当している馬がありません。副将に確認してください。</p>';
+    else 箱.innerHTML = 馬休のカレンダーを作る();
+  }
+  // 枠が描かれたとき。中身を読めていれば描き直すだけ（読み直さない）。読めていなければ読む
+  function 馬休を出す(名) {
+    const s = 馬休の状態;
+    if (!馬休の入る口() || !$('kyuBody') || !名) return;
+    if (s.読んでいる === 名) return;
+    if (s.名 === 名 && s.馬) return 馬休を描く();
+    馬休を読む(名);
+  }
+
+  // ----- 押したとき -----
+  // 決めは1つずつ順に送る（速く押しても、返りの順が入れ替わらないように）。送り中の数で、返りを使うか決める
+  let 送る列 = Promise.resolve();
+  let 送り中 = 0;
+  function 決めを送る(送る) {
+    送り中++;
+    送る列 = 送る列.then(async () => {
+      try {
+        const 一覧 = await 送る();
+        if (送り中 === 1) 馬休の状態.申請 = 一覧;   // 最後の1つの返りだけを、画面の中身にする
+      } catch (e) {
+        if (e.鍵が要る) { 馬休の状態.鍵が要る = true; 馬休の状態.知らせ = 'パスワードを入れ直してください。'; }
+        else 馬休の状態.知らせ = 'うまく決められませんでした：' + e.message;
+        // 送れなかったぶんを戻すため、いまの一覧を読み直す（読めなくても画面はそのまま）
+        try { if (送り中 === 1) 馬休の状態.申請 = await チーフへ('chiefLoadUmaKyu', []); } catch (e2) { /* そのまま */ }
+      } finally {
+        送り中--;
+      }
+      馬休を描く();
+    });
+  }
+  function 日を押す(key, on) {
+    const s = 馬休の状態;
+    const 馬ID = 選んだ馬();
+    s.申請 = s.申請.filter((x) => !(x.horseId === 馬ID && x.date === key));
+    if (on) s.申請.push({ horseId: 馬ID, date: key, state: '承認' });
+    s.知らせ = '';
+    馬休を描く();
+    決めを送る(() => チーフへ('chiefSetUmaKyu', [馬ID, [key], on]));
+  }
+  async function 月を送る(d) {
+    const s = 馬休の状態;
+    const 初め = 日付に(s.月 + '-01');
+    const 次 = new Date(初め.getFullYear(), 初め.getMonth() + d, 1);
+    s.月 = 次.getFullYear() + '-' + String(次.getMonth() + 1).padStart(2, '0');
+    s.知らせ = '';
+    try { await 大会を読む(s.月); } catch (e) { s.知らせ = '大会の日を読めませんでした。'; }
+    馬休を描く();
+  }
+  async function 馬休のログインを押す() {
+    const 入れた = $('kyuPw');
+    const pw = 入れた ? 入れた.value : '';
+    馬休の状態.知らせ = '';
+    try {
+      await チーフでログイン(pw);
+    } catch (e) {
+      馬休の状態.知らせ = e.message;
+      馬休を描く();
+      return;
+    }
+    馬休の状態.鍵が要る = false;
+    await 馬休を読む(覚えた名前());
+  }
+  function 馬休のログアウト() {
+    チーフの鍵を消す();
+    Object.assign(馬休の状態, { 名: '', 馬: null, 申請: [], 知らせ: '', 困った: '', 鍵が要る: true });
+    馬休を描く();
+  }
+  // 馬休の枠の中の押し物。枠は描き直されるので、付けるのは #meBody（いつもある所）
+  function 馬休を押せるようにする() {
+    const 本体 = $('meBody');
+    if (!本体) return;
+    本体.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-kyu-act]');
+      if (!b) return;
+      const 行 = b.getAttribute('data-kyu-act');
+      if (行 === 'login') 馬休のログインを押す();
+      else if (行 === 'prev') 月を送る(-1);
+      else if (行 === 'next') 月を送る(1);
+      else if (行 === 'logout') 馬休のログアウト();
+    });
+    本体.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t.matches('input[data-kyu-day]')) 日を押す(t.getAttribute('data-kyu-day'), t.checked);
+      else if (t.matches('select[data-kyu-act="horse"]')) { 馬休の状態.選んだ = t.value; 馬休を描く(); }
+    });
+  }
+
   try { 副将のログイン(); } catch (e) { /* 入口のほかの部分は動かす */ }
 
   始める();

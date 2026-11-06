@@ -120,6 +120,42 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-cal a:hover { background: var(--accent-soft); }
 .me-cal .d { font-weight: 400; font-size: var(--text-sm); color: var(--muted); margin-top: 2px; }
 
+/* ===== チーフの馬休の申請（2026-11-07）。カレンダーより上。チーフ用の入口だけ =====
+   月曜は青い地、大会の日は緑の地。色だけに頼らず、字（基本馬休・大会・申請中など）も必ず添える。 */
+.me-kyu .hint { margin: 0 0 var(--space-sm); }
+.me-kyu .kyu-top { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); }
+.me-kyu .kyu-one { margin: 0; font-weight: 700; font-size: var(--text-base); }
+.me-kyu .kyu-horse { display: flex; align-items: center; gap: var(--space-xs); font-weight: 700; }
+.me-kyu .kyu-horse select { min-height: 44px; font-size: 1rem; }
+.me-kyu .kyu-month { display: flex; align-items: center; gap: var(--space-xs); }
+.me-kyu .kyu-month b { min-width: 7.5em; text-align: center; font-family: var(--font-num); }
+.me-kyu .kyu-month button { min-width: 44px; min-height: 44px; font-size: 1.1rem; }
+.me-kyu .kyu-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.me-kyu .kyu-head { text-align: center; font-size: var(--text-xs); color: var(--muted); padding: 2px 0; }
+.me-kyu .kyu-blank { min-height: 4.5rem; }
+.me-kyu .kyu-d {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
+  min-height: 4.5rem; padding: 6px 2px 4px; border: 1px solid var(--rule); border-radius: 8px;
+  background: var(--card); cursor: pointer; text-align: center;
+}
+.me-kyu .kyu-d input { width: 20px; height: 20px; margin: 0; }
+.me-kyu .kyu-n { font-family: var(--font-num); font-size: var(--text-base); font-weight: 700; }
+.me-kyu .kyu-t { font-size: 11px; line-height: 1.25; color: var(--muted); word-break: break-all; }
+.me-kyu .kyu-mon { background: var(--accent-soft); }
+.me-kyu .kyu-taikai { background: var(--care-soft); }
+.me-kyu .kyu-past { opacity: 0.45; cursor: default; }
+.me-kyu .kyu-req { color: var(--accent-dark); font-weight: 700; }
+.me-kyu .kyu-ok { color: var(--care-dark); font-weight: 700; }
+.me-kyu .kyu-no { color: var(--danger); font-weight: 700; }
+.me-kyu .kyu-taikai-list { margin: var(--space-sm) 0 0; padding-left: 1.2em; font-size: var(--text-sm); }
+.me-kyu .kyu-note { display: block; margin-top: var(--space-sm); font-weight: 700; }
+.me-kyu .kyu-note input { display: block; width: 100%; max-width: 32rem; min-height: 44px; font-size: 1rem; margin-top: var(--space-2xs); }
+.me-kyu .kyu-act { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+.me-kyu .kyu-act button { min-height: 44px; }
+.me-kyu .kyu-login { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.me-kyu .kyu-login input { min-height: 44px; font-size: 1rem; max-width: 20rem; flex: 1 1 12rem; }
+.me-kyu .kyu-login button { min-height: 44px; }
+
 /*
   了承待ちの休みの知らせ（2026-09-21）。副将がログインしているあいだだけ、いちばん上に出る。
   ここだけは**塗りつぶした赤の帯**にして、ほかの節（白地に罫線）から浮かせる。
