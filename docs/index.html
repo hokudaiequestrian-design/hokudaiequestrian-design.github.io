@@ -2708,6 +2708,9 @@ const API = {
         '<button type="button" class="fk-out">ログアウト</button></p>';
       箱.querySelector('.fk-out').addEventListener('click', () => { 鍵を消す(); 入っていない('ログアウトしました。'); });
       休みの知らせを出す(鍵を読む(副将の鍵の名.当番));   // 了承待ちの休み（2026-09-21）
+      // 副将がログインしたら、馬休の枠も読み直す（枠がまだ無いときは、出すときに読む）
+      馬休の状態.名 = '';
+      馬休を出す(覚えた名前());
     }
     function 入っていない(文) {
       一覧.hidden = true;
@@ -2756,7 +2759,8 @@ const API = {
     ・チーフのパスワードは副将と同じく端末で覚える（6時間で切れたら覚えたもので入り直す）
     読むのは chiefLoadAll・chiefLoadUmaKyu と getCalendarData（大会の日）。決めるのは chiefSetUmaKyu。
   */
-  const 馬休の入る口 = () => typeof 立場 !== 'undefined' && 立場 === 'chieflinks';
+  const 馬休の入る口 = () => typeof 立場 !== 'undefined' && (立場 === 'chieflinks' || 立場 === 'admlinks');
+  const 副将か = () => typeof 立場 !== 'undefined' && 立場 === 'admlinks';
   const 馬休の枠 = '<section class="me-sec me-kyu" aria-label="馬休"><h2>馬休</h2>' +
     '<div id="kyuBody"><p class="me-msg">読み込んでいます…</p></div></section>';
   const 馬休の状態 = {
@@ -2769,6 +2773,7 @@ const API = {
   // ----- チーフの鍵。この端末で覚える（6時間で切れるので、切れる前に取り直す） -----
   const 鍵の長さ = 5.5 * 60 * 60 * 1000;
   function チーフの鍵を読む() {
+    if (副将か()) return 鍵を読む(副将の鍵の名.当番);
     try {
       const t = localStorage.getItem('chief:tok') || '';
       return t && Date.now() - Number(localStorage.getItem('chief:tokAt') || 0) < 鍵の長さ ? t : '';
@@ -2790,7 +2795,7 @@ const API = {
   }
   // 覚えたパスワード。無ければ null（空で覚えていれば ''）
   function 覚えたパスワード() {
-    try { return localStorage.getItem('chief:pw'); } catch (e) { return null; }
+    try { return localStorage.getItem(副将か() ? 副将の鍵の名.パスワード : 'chief:pw'); } catch (e) { return null; }
   }
   function 鍵が要る(文) {
     const e = new Error(文 || '');
@@ -2798,6 +2803,13 @@ const API = {
     return e;
   }
   async function チーフでログイン(pw) {
+    if (副将か()) {
+      // 副将は副将のパスワードで入る（チーフの鍵とは別。どちらの鍵もチーフの処理を受けられる）
+      const t = await 呼ぶ(API.当番, 'login', [pw]);
+      鍵を置く(副将の鍵の名.当番, t);
+      鍵を置く(副将の鍵の名.パスワード, pw);
+      return t;
+    }
     const t = await 呼ぶ(API.当番, 'loginChief', [pw]);
     チーフの鍵を置く(t, pw);
     return t;
@@ -2811,11 +2823,12 @@ const API = {
   // 鍵が無い・切れたとき。覚えたパスワードで入り直す。覚えていなければ、パスワード無しで試す（設けていなければ通る）
   async function チーフの鍵を入り直す() {
     const pw = 覚えたパスワード();
+    if (副将か() && pw === null) throw 鍵が要る('副将のログインが要ります。入口の「副将でログイン」で入れてください。');
     try {
       return await チーフでログイン(pw === null ? '' : pw);
     } catch (e) {
       if (e.通信) throw e;
-      if (pw !== null) チーフの鍵を消す();
+      if (pw !== null && !副将か()) チーフの鍵を消す();
       throw 鍵が要る(pw === null ? '' : e.message);
     }
   }
@@ -2892,6 +2905,8 @@ const API = {
     return 並び;
   }
   function 馬休のログインを作る() {
+    if (副将か()) return '<p class="hint">馬休を決めるには、副将のログインが要ります。上の「副将でログイン」で入れてください。</p>' +
+      (馬休の状態.知らせ ? '<p class="me-msg" role="status">' + esc(馬休の状態.知らせ) + '</p>' : '');
     return '<p class="hint">馬休を決めるには、チーフのパスワードが要ります。この端末では、ログアウトするまで聞きません。</p>' +
       '<div class="kyu-login"><input type="password" id="kyuPw" autocomplete="current-password" aria-label="チーフのパスワード">' +
       '<button type="button" data-kyu-act="login">入る</button></div>' +
@@ -2929,7 +2944,7 @@ const API = {
       '<p class="hint">馬休にする日にチェックを入れてください。チーフの決定なので、副将の承認は要りません。外せばすぐ取り消せます。<b>月曜は基本馬休</b>ですが、チェックは最初から入っていません。<b>大会の日</b>は背景が緑です。過ぎた日は変えられません。</p>' +
       '<div class="kyu-grid">' + 枠 + '</div>' +
       (大会の一覧.length ? '<ul class="kyu-taikai-list">' + 大会の一覧.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '') +
-      '<div class="kyu-act"><button type="button" class="secondary" data-kyu-act="logout">ログアウト</button></div>' +
+      (副将か() ? '' : '<div class="kyu-act"><button type="button" class="secondary" data-kyu-act="logout">ログアウト</button></div>') +
       (s.知らせ ? '<p class="me-msg" role="status">' + esc(s.知らせ) + '</p>' : '');
   }
   function 馬休を描く() {

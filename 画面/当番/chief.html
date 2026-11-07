@@ -36,25 +36,21 @@
       </div>
     </div>
 
-    <!-- 馬休の申請（2026-11-04 ユーザーの指示：チーフ側から馬休申請できるように）。1〜4の流れとは関係が無いので番号は付けない -->
+    <!-- 馬休（2026-11-08 ユーザーの指示：申請ではなく、チーフの決定で馬休が決まる）。1〜4の流れとは関係が無いので番号は付けない -->
     <div class="card" id="kyuCard">
       <details class="fold" id="kyuFold">
-        <summary>馬休の申請<span class="muted" id="kyuNow"></span></summary>
+        <summary>馬休<span class="muted" id="kyuNow"></span></summary>
         <div class="fold-body">
-          <p class="hint">馬を休ませたい日を<b>お願い</b>します。<b>馬休にするかどうかは副将が決めます</b>。副将が決めると、下の一覧の状態が「承認」か「却下」に変わります。</p>
+          <p class="hint">馬休にする日を選んで「馬休にする」を押すと、その日に決まります。<b>副将の承認は要りません</b>。取り消すときは下の一覧の「取り消す」を押してください。</p>
           <div class="row" style="margin-top:10px;">
             <div><label for="kyuHorse">馬</label><select id="kyuHorse"></select></div>
             <div><label for="kyuDate">日付</label><input type="date" id="kyuDate"></div>
-            <button type="button" class="secondary" id="kyuAddBtn" style="flex:0 0 auto;">追加</button>
+            <button type="button" id="kyuSetBtn" style="flex:0 0 auto;">馬休にする</button>
           </div>
-          <div id="kyuDates" class="pill-list"></div>
-          <p class="hint">日付は今日以降を最大60日まで。追加した日は×で取り消せます。</p>
-          <label for="kyuNote" style="margin-top:10px;display:block;">備考（200字まで）</label>
-          <textarea id="kyuNote" maxlength="200" rows="2" placeholder="例：脚の様子見のため"></textarea>
-          <div style="margin-top:12px;"><button id="kyuSubmit">申請する</button></div>
+          <p class="hint">日付は今日以降。過ぎた日は変えられません。</p>
           <div id="kyuMsg" role="status" aria-live="polite"></div>
 
-          <h3 style="margin-top:20px;">自分たちの申請</h3>
+          <h3 style="margin-top:20px;">馬休の日</h3>
           <div id="kyuList"><div class="muted">読み込み中…</div></div>
         </div>
       </details>
@@ -397,8 +393,7 @@ async function 始める(読んだぶん) {
 
 // ===================== 馬休の申請（2026-11-04 ユーザーの指示：チーフ側から馬休申請できるように） =====================
 
-const 馬休の最大日数 = 60;
-let KYU_DATES = [];   // 申請しようと選んだ日（'YYYY-MM-DD'）
+// 馬休（2026-11-08 ユーザーの指示：申請ではなく、チーフの決定で馬休が決まる）。日ごとに決め、取り消せる
 
 const 今日のキー = () => {
   const d = new Date();
@@ -416,65 +411,51 @@ function 馬休の準備() {
   $('kyuHorse').innerHTML = '<option value="">選択してください</option>' +
     使用中.map((h) => '<option value="' + esc(h.id) + '">' + esc(h.name) + '</option>').join('');
   $('kyuDate').min = 今日のキー();
-  KYU_DATES = [];
-  馬休の日を描く();
   馬休の一覧を読む();
 }
 
-function 馬休の日を描く() {
-  $('kyuDates').innerHTML = KYU_DATES.length
-    ? KYU_DATES.map((d) => '<span class="pill">' + esc(月日曜(d)) +
-        ' <button type="button" class="secondary small" data-kyu-del="' + esc(d) + '" aria-label="' + esc(月日曜(d)) + 'を外す">×</button></span>').join('')
-    : '<span class="muted">まだ日付がありません。日付を選んで「追加」を押してください。</span>';
+// 決める・取り消す。返りの一覧で描き直す（サーバの中身がそのまま出る）
+async function 馬休を決める(horseId, d, on) {
+  馬休の一覧を描く(await call('chiefSetUmaKyu', TOKEN, horseId, [d], on));
 }
 
-$('kyuAddBtn').addEventListener('click', () => {
-  const d = $('kyuDate').value;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return msgIn('kyuMsg', 'error', '日付を選んでください。');
-  if (d < 今日のキー()) return msgIn('kyuMsg', 'error', '過ぎた日は申請できません（今日以降を選んでください）。');
-  if (KYU_DATES.indexOf(d) >= 0) return msgIn('kyuMsg', 'warning', 'その日はもう追加してあります。');
-  if (KYU_DATES.length >= 馬休の最大日数) return msgIn('kyuMsg', 'error', '一度に申請できるのは' + 馬休の最大日数 + '日までです。');
-  KYU_DATES.push(d);
-  KYU_DATES.sort();
-  msgIn('kyuMsg', '', '');
-  馬休の日を描く();
-});
-
-$('kyuDates').addEventListener('click', (ev) => {
-  const b = ev.target.closest('[data-kyu-del]');
-  if (!b) return;
-  const d = b.getAttribute('data-kyu-del');
-  KYU_DATES = KYU_DATES.filter((x) => x !== d);
-  馬休の日を描く();
-});
-
-$('kyuSubmit').addEventListener('click', async () => {
+$('kyuSetBtn').addEventListener('click', async () => {
   const horseId = $('kyuHorse').value;
+  const d = $('kyuDate').value;
   if (!horseId) return msgIn('kyuMsg', 'error', '馬を選んでください。');
-  if (!KYU_DATES.length) return msgIn('kyuMsg', 'error', '日付を追加してください。');
+  if (!/^d{4}-d{2}-d{2}$/.test(d)) return msgIn('kyuMsg', 'error', '日付を選んでください。');
+  if (d < 今日のキー()) return msgIn('kyuMsg', 'error', '過ぎた日は変えられません（今日以降を選んでください）。');
   try {
-    const n = KYU_DATES.length;
-    await call('chiefRequestUmaKyu', TOKEN, horseId, KYU_DATES.slice(), $('kyuNote').value.slice(0, 200));
-    KYU_DATES = [];
-    $('kyuNote').value = '';
-    馬休の日を描く();
-    msgIn('kyuMsg', 'success', n + '日ぶん申請しました。副将が決めるまでお待ちください。');
-    await 馬休の一覧を読む();
+    await 馬休を決める(horseId, d, true);
+    msgIn('kyuMsg', 'success', 月日曜(d) + 'を馬休にしました。');
   } catch (e) { msgIn('kyuMsg', 'error', (e && e.message) || e); }
 });
 
+$('kyuList').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-kyu-off]');
+  if (!b) return;
+  const [horseId, d] = b.getAttribute('data-kyu-off').split('|');
+  try {
+    await 馬休を決める(horseId, d, false);
+    msgIn('kyuMsg', 'success', 月日曜(d) + 'の馬休を取り消しました。');
+  } catch (e) { msgIn('kyuMsg', 'error', (e && e.message) || e); }
+});
+
+function 馬休の一覧を描く(rows) {
+  const 印 = { '承認': ' yes', '却下': ' no' };
+  const 字 = { '承認': '馬休（チーフが決めた）', '申請中': '申請中（旧）', '却下': '却下' };
+  $('kyuNow').textContent = rows.length ? '　（' + rows.length + '日）' : '';
+  $('kyuList').innerHTML = rows.length
+    ? '<table><thead><tr><th>馬</th><th>日付</th><th>状態</th><th></th></tr></thead><tbody>' +
+      rows.map((r) => '<tr><td>' + esc(r.horseName) + '</td><td>' + esc(月日曜(r.date)) + '</td><td><span class="pill' + (印[r.state] || '') + '">' + esc(字[r.state] || r.state) + '</span></td>' +
+        '<td><button type="button" class="secondary small" data-kyu-off="' + esc(r.horseId) + '|' + esc(r.date) + '">取り消す</button></td></tr>').join('') +
+      '</tbody></table>'
+    : '<div class="muted">まだ馬休の日がありません。</div>';
+}
+
 async function 馬休の一覧を読む() {
   try {
-    const rows = await call('chiefLoadUmaKyu', TOKEN);
-    const 状態の見た目 = { '申請中': '', '承認': ' yes', '却下': ' no' };
-    $('kyuNow').textContent = rows.filter((r) => r.state === '申請中').length
-      ? '　（申請中 ' + rows.filter((r) => r.state === '申請中').length + '件）' : '';
-    $('kyuList').innerHTML = rows.length
-      ? '<table><thead><tr><th>馬</th><th>日付</th><th>備考</th><th>状態</th></tr></thead><tbody>' +
-        rows.map((r) => '<tr><td>' + esc(r.horseName) + '</td><td>' + esc(月日曜(r.date)) + '</td><td>' + esc(r.note) +
-          '</td><td><span class="pill' + (状態の見た目[r.state] || '') + '">' + esc(r.state) + '</span></td></tr>').join('') +
-        '</tbody></table>'
-      : '<div class="muted">まだ申請がありません。</div>';
+    馬休の一覧を描く(await call('chiefLoadUmaKyu', TOKEN));
   } catch (e) {
     $('kyuList').innerHTML = '<div class="msg error">' + esc((e && e.message) || e) + '</div>';
   }
