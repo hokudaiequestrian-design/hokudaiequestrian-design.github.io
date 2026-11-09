@@ -115,6 +115,7 @@ Apps Script は続けて叩くと、たまにJSONではなくHTMLのエラーペ
 | `teire-chief.html` | 手入れをまとめる（チーフパスワード） | 当番・手入れ |
 | `yasumi.html` | 休みを申し込む | 当番・手入れ |
 | `yasumi-admin.html` | 休みをまとめる（副将パスワード） | 当番・手入れ |
+| `umakyu-group.html` | 馬休日の手入れグループを決める（副将パスワード） | 当番・手入れ |
 | `taikai.html` | 大会の出欠を出す | 人員表 |
 | `taikai-admin.html` | 人員表をまとめる（管理者パスワード） | 人員表 |
 | `homegamen.html` | ホーム画面に置く方法（iPhone・Android。読むだけ） | 当番・手入れ |

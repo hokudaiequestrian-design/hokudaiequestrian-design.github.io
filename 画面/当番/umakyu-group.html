@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<base target="_top">
+<?!= include('style') ?>
+<style>
+/*
+  馬休日の手入れグループ（2026-11-09 ユーザーの指示）。
+  入れる人を学年ごと4列のチェックシートで選び、選んだ人を好きなグループ数にランダムで分ける。
+*/
+.ug-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 var(--space-sm); }
+.ug-col h3 { margin: 0 0 var(--space-2xs); font-size: var(--text-sm); display: flex; align-items: baseline; gap: var(--space-2xs); flex-wrap: wrap; }
+.ug-col h3 .cnt { font-weight: 400; color: var(--muted); font-size: var(--text-xs); }
+.ug-col h3 button { min-height: 26px; padding: 0 6px; font-size: var(--text-xs); font-weight: 400; margin-left: auto; }
+.ug-col label { display: flex; align-items: center; gap: var(--space-2xs); margin: 0; padding: 3px 0; font-weight: 400; overflow-wrap: anywhere; cursor: pointer; }
+.ug-col label input { flex: none; }
+.ug-col .nograde { color: var(--muted); font-size: var(--text-xs); }
+.ug-do { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-sm); }
+.ug-do label { margin: 0; }
+.ug-do input[type=number] { width: 5rem; }
+.ug-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--space-sm); margin-top: var(--space-sm); }
+.ug-group { border: 1px solid var(--rule-strong); border-radius: 6px; padding: var(--space-xs) var(--space-sm); background: var(--paper-2); }
+.ug-group h3 { margin: 0; }
+.ug-group .ratio { margin: 0 0 var(--space-2xs); color: var(--muted); font-size: var(--text-xs); }
+.ug-group ul { list-style: none; margin: 0; padding: 0; }
+.ug-group li { padding: 2px 0; }
+.ug-group li .g { color: var(--muted); font-size: var(--text-xs); margin-left: 4px; }
+.ug-state { font-weight: 700; }
+.ug-state.draft { color: var(--warning); }
+.ug-state.saved { color: var(--care); }
+.ug-save { display: flex; flex-wrap: wrap; gap: var(--space-xs); margin-top: var(--space-sm); }
+</style>
+</head>
+<body>
+<div id="busy">通信中です…</div>
+<header class="appbar"><span>馬休日の手入れグループ</span></header>
+
+<main>
+  <div id="loading" class="card muted">読み込んでいます…</div>
+  <div id="loginCard" class="card" style="display:none;"></div>
+
+  <div id="app" style="display:none;">
+    <div id="msg"></div>
+
+    <section class="card">
+      <h2>入れる人を選ぶ</h2>
+      <p class="hint">チェックした人だけをグループに分けます。</p>
+      <div class="ug-cols" id="sheet"></div>
+    </section>
+
+    <section class="card">
+      <h2>ランダムで分ける</h2>
+      <div class="ug-do">
+        <label for="count">グループ数</label>
+        <input type="number" id="count" min="1" step="1" value="2" inputmode="numeric">
+        <button type="button" id="split">ランダムで分ける</button>
+        <span class="muted" id="picked"></span>
+      </div>
+      <p class="hint">1年生と上級生の人数がどのグループでもほぼ同じになるように分けます（差は多くても1人）。</p>
+    </section>
+
+    <section class="card" id="resultCard" style="display:none;">
+      <h2>グループ　<span class="ug-state" id="state"></span></h2>
+      <div class="ug-groups" id="groups"></div>
+      <div class="ug-save">
+        <button type="button" id="save">このグループに決める</button>
+        <button type="button" class="secondary" id="clear">グループを全部消す</button>
+      </div>
+      <p class="hint">決めると、入っている人のマイページに「馬休日グループ ○」と出ます。</p>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let TOKEN = '';
+let D = { members: [], グループ: {} };
+let 選んだ = {};       // 部員ID → true
+let 組 = {};           // いま画面に出している 部員ID → グループ番号
+let 決めたまま = true;  // 組が保存ずみと同じか
+let busyCount = 0;
+
+function busy(on) {
+  busyCount += on ? 1 : -1;
+  $('busy').className = busyCount > 0 ? 'on' : '';
+}
+function call(fn) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  busy(true);
+  return new Promise((resolve, reject) => {
+    google.script.run
+      .withSuccessHandler((r) => { busy(false); resolve(r); })
+      .withFailureHandler((e) => { busy(false); reject(e); })[fn].apply(null, args);
+  });
+}
+function 知らせ(文, cls) {
+  $('msg').innerHTML = 文 ? '<div class="msg ' + (cls || 'success') + '" role="status">' + esc(文) + '</div>' : '';
+}
+
+// 4列目は 4年以上と学年の無い人。学年の無い人は上級生として分ける
+const 列の番号 = (m) => (m.grade >= 1 && m.grade <= 3 ? m.grade : 4);
+const 列の題 = { 1: '1年', 2: '2年', 3: '3年', 4: '4年〜' };
+
+function 混ぜる(並び) {
+  const a = 並び.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+/*
+  1年生→2年→3年→4年〜 の順に、学年の中は混ぜて、グループへ1人ずつ配る。
+  配る順は途切れず続くので、1年生も上級生も（どの学年も）グループごとの差は多くても1人になり、全体の人数の差も1人までになる。
+  余りがどのグループに行くかも偏らないよう、グループを回す順も混ぜる。
+*/
+function 分ける(人たち, グループ数) {
+  const 回す順 = 混ぜる(Array.from({ length: グループ数 }, (_, i) => i + 1));
+  const 表 = {};
+  let n = 0;
+  [1, 2, 3, 4].forEach((列) => {
+    混ぜる(人たち.filter((m) => 列の番号(m) === 列)).forEach((m) => {
+      表[m.id] = 回す順[n % グループ数];
+      n++;
+    });
+  });
+  return 表;
+}
+
+function シートを描く() {
+  $('sheet').innerHTML = [1, 2, 3, 4].map((列) => {
+    const 人 = D.members.filter((m) => 列の番号(m) === 列);
+    const 入 = 人.filter((m) => 選んだ[m.id]).length;
+    return '<div class="ug-col"><h3>' + 列の題[列] + '<span class="cnt">' + 入 + '/' + 人.length + '人</span>' +
+      (人.length ? '<button type="button" class="secondary" data-all="' + 列 + '">' + (入 === 人.length ? '全部外す' : '全部入れる') + '</button>' : '') + '</h3>' +
+      人.map((m) => '<label><input type="checkbox" data-id="' + esc(m.id) + '"' + (選んだ[m.id] ? ' checked' : '') + '><span>' + esc(m.name) +
+        (m.grade ? '' : '<span class="nograde">（学年なし）</span>') + '</span></label>').join('') +
+      '</div>';
+  }).join('');
+  $('picked').textContent = '選んだ人 ' + 選ばれた人().length + '人';
+}
+
+const 選ばれた人 = () => D.members.filter((m) => 選んだ[m.id]);
+
+function 結果を描く() {
+  const ids = Object.keys(組);
+  $('resultCard').style.display = ids.length ? 'block' : 'none';
+  if (!ids.length) return;
+  const 数 = Math.max.apply(null, ids.map((id) => 組[id]));
+  let html = '';
+  for (let g = 1; g <= 数; g++) {
+    const 人 = D.members.filter((m) => 組[m.id] === g);
+    const 一年 = 人.filter((m) => m.grade === 1).length;
+    html += '<div class="ug-group"><h3>グループ ' + g + '</h3>' +
+      '<p class="ratio">' + 人.length + '人（1年 ' + 一年 + '・上級生 ' + (人.length - 一年) + '）</p>' +
+      '<ul>' + 人.map((m) => '<li>' + esc(m.name) + '<span class="g">' + (m.grade ? m.grade + '年' : '') + '</span></li>').join('') + '</ul></div>';
+  }
+  $('groups').innerHTML = html;
+  $('state').textContent = 決めたまま ? '決定ずみ' : 'まだ決めていません';
+  $('state').className = 'ug-state ' + (決めたまま ? 'saved' : 'draft');
+  $('save').disabled = 決めたまま;
+}
+
+function 読んだものを入れる(r) {
+  D = r;
+  組 = Object.assign({}, D.グループ);
+  決めたまま = true;
+  選んだ = {};
+  if (Object.keys(組).length) {
+    Object.keys(組).forEach((id) => { 選んだ[id] = true; });
+    $('count').value = Math.max.apply(null, Object.keys(組).map((id) => 組[id]));
+  } else {
+    // まだ何も決めていないときは、当番に入らない人（4年以上など）を外しておく
+    D.members.forEach((m) => { if (!m.noDuty) 選んだ[m.id] = true; });
+  }
+}
+
+$('sheet').addEventListener('change', (e) => {
+  const c = e.target.closest('input[data-id]');
+  if (!c) return;
+  if (c.checked) 選んだ[c.dataset.id] = true; else delete 選んだ[c.dataset.id];
+  シートを描く();
+});
+$('sheet').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-all]');
+  if (!b) return;
+  const 人 = D.members.filter((m) => 列の番号(m) === Number(b.dataset.all));
+  const 全部 = 人.every((m) => 選んだ[m.id]);
+  人.forEach((m) => { if (全部) delete 選んだ[m.id]; else 選んだ[m.id] = true; });
+  シートを描く();
+});
+
+$('split').addEventListener('click', () => {
+  const 人 = 選ばれた人();
+  const 数 = Number($('count').value);
+  if (!Number.isInteger(数) || 数 < 1) return 知らせ('グループ数は1以上の整数で入れてください。', 'error');
+  if (!人.length) return 知らせ('グループに入れる人にチェックしてください。', 'error');
+  if (数 > 人.length) return 知らせ('グループ数が人数（' + 人.length + '人）より多くなっています。', 'error');
+  知らせ('');
+  組 = 分ける(人, 数);
+  決めたまま = false;
+  結果を描く();
+  $('split').textContent = 'もう一度ランダムで分ける';
+});
+
+$('save').addEventListener('click', async () => {
+  知らせ('');
+  // 分けたあとにチェックを変えたときは、シートと違う組を決めてしまわないよう止める
+  const ずれ = D.members.some((m) => !!選んだ[m.id] !== !!組[m.id]);
+  if (ずれ) return 知らせ('分けたあとにチェックを変えています。もう一度「ランダムで分ける」を押してください。', 'error');
+  try {
+    読んだものを入れる(await call('umakyuGroupSave', TOKEN, 組));
+    シートを描く();
+    結果を描く();
+    知らせ('決めました。入っている人のマイページに出ます。');
+    部品.光らせる([$('resultCard')]);
+  } catch (e) {
+    知らせ('保存できませんでした：' + ((e && e.message) || e), 'error');
+  }
+});
+
+$('clear').addEventListener('click', async () => {
+  if (!confirm('決めたグループを全部消します。マイページの表示も消えます。よろしいですか？')) return;
+  知らせ('');
+  try {
+    読んだものを入れる(await call('umakyuGroupSave', TOKEN, {}));
+    シートを描く();
+    結果を描く();
+    知らせ('グループを消しました。');
+  } catch (e) {
+    知らせ('消せませんでした：' + ((e && e.message) || e), 'error');
+  }
+});
+
+(async () => {
+  const 案内 = (文) => {
+    部品.副将の鍵を消す();
+    $('loading').style.display = 'none';
+    $('app').style.display = 'none';
+    $('loginCard').innerHTML = 部品.入口へ(文);
+    $('loginCard').style.display = 'block';
+  };
+  TOKEN = 部品.副将の鍵();
+  if (!TOKEN) return 案内('');
+  try {
+    読んだものを入れる(await call('umakyuGroupLoad', TOKEN));
+    $('loading').style.display = 'none';
+    $('app').style.display = 'block';
+    シートを描く();
+    結果を描く();
+  } catch (e) {
+    案内(/有効期限/.test((e && e.message) || '') ? 'ログインの有効期限が切れました。' : '開けませんでした：' + ((e && e.message) || e) + '。');
+  }
+})();
+</script>
+</body>
+</html>

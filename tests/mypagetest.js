@@ -656,7 +656,7 @@ delete 覚え箱['mypage:出したところ'];
 見出し('組み立てたページ：マイページに戻る');
 const docs = path.join(__dirname, '..', 'docs');
 const 中のページ = fs.readdirSync(docs).filter((f) => /[.]html$/.test(f) && f !== 'index.html');
-確かめる('中のページが18ある（掃除当番は 2026-10-21 に撤廃・ホーム画面の案内を足した）', 中のページ.length === 18, 中のページ.join(','));
+確かめる('中のページが19ある（掃除当番は 2026-10-21 に撤廃・ホーム画面の案内と馬休日の手入れグループを足した）', 中のページ.length === 19, 中のページ.join(','));
 中のページ.forEach((f) => {
   const s = fs.readFileSync(path.join(docs, f), 'utf8');
   const 帯 = (s.match(/<header class="appbar[^>]*>[\s\S]*?<\/header>/) || [''])[0];
