@@ -1228,13 +1228,23 @@ function 足す欄の中身(i) {
     ],
   };
 }
+// 馬に人を入れる位置（2026-11-13 ユーザーの指示：学年が上の人を先に。同じ学年の人が先に入っていたら、その学年の一番後ろ）
+// チーフが1鞍目にいるときは、チーフの前には入れない。学年が分からない人は一番後ろ
+function 学年順に入れる(r, id) {
+  const 学年 = (x) => Number((U.members.filter((m) => m.id === x)[0] || {}).grade) || 0;
+  const h = 馬で(r.horseId);
+  const 始め = h && h.chiefId && r.人[0] === h.chiefId && id !== h.chiefId ? 1 : 0;
+  let k = 始め;
+  while (k < r.人.length && 学年(r.人[k]) >= 学年(id)) k++;
+  r.人.splice(k, 0, id);
+}
 function 馬配に足す(i, v) {
   if (!v) return;
   // 「2:」は二頭目として足す（移さない）
-  if (v.indexOf('2:') === 0) { 編.馬[i].人.push(v.slice(2)); 直した(); return; }
+  if (v.indexOf('2:') === 0) { 学年順に入れる(編.馬[i], v.slice(2)); 直した(); return; }
   // ほかの馬に入っていたら、そこから移す
   編.馬.forEach((r) => { r.人 = r.人.filter((x) => x !== v); });
-  編.馬[i].人.push(v);
+  学年順に入れる(編.馬[i], v);
   直した();
 }
 // 馬休の手入れの人を選び直す
@@ -1482,7 +1492,7 @@ function タップ(e) {
     const p = 選んだ人.split(':');
     選んだ人 = '';
     if (p[0] !== 'tray') 編.馬[Number(p[0])].人.splice(Number(p[1]), 1);
-    編.馬[Number(馬.dataset.uhHorse)].人.push(id);
+    学年順に入れる(編.馬[Number(馬.dataset.uhHorse)], id);
     直した();
     return true;
   }
