@@ -556,7 +556,7 @@
   let 鳴らした = '';
   let 待ちを消す = null;   // 開いたときの音が「最初に触るまで」待っているとき、それを取り消す
   const 馬配の中身 = {};
-  const 音の名前 = { 太鼓: 'drum-roll1', 止め: 'electronic-roulette-button1', ジャン: 'jajean1', ラッパ: 'trumpet1', お金: 'money1' };
+  const 音の名前 = { 太鼓: 'drum-roll1', 止め: 'electronic-roulette-button1', お金: 'money1' };
   let 音のデータ = null;   // 読んだ mp3（ArrayBuffer）。1回だけ読む
   function 音を読む() {
     if (!音のデータ) {
@@ -602,12 +602,42 @@
         const 最後 = 止まる[止まる.length - 1];
         鳴る('太鼓', 0, 0.8, 最後);
         止まる.forEach((x) => 鳴る('止め', x, 1));
+        // 確定はキュインキュインキュイン（2026-11-15 ユーザーの指示）。パチスロの告知音のような電子音なので、その場で作る
         const 確定 = 最後 + 0.15;
-        鳴る('ジャン', 確定, 1);
-        const ラッパ = 確定 + Math.min(音.ジャン.duration, 1.1);
-        鳴る('ラッパ', ラッパ, 1);
-        鳴る('お金', ラッパ + Math.min(音.ラッパ.duration * 0.7, 2.2), 0.9);
-        const 全部 = ラッパ + Math.min(音.ラッパ.duration * 0.7, 2.2) + 音.お金.duration + 0.5;
+        const こだま = ac.createDelay(0.5), 返し = ac.createGain(), こだま出口 = ac.createGain();
+        こだま.delayTime.value = 0.11; 返し.gain.value = 0.32; こだま出口.gain.value = 0.45;
+        こだま.connect(返し); 返し.connect(こだま); こだま.connect(こだま出口); こだま出口.connect(出口);
+        const キュイン = (始) => {
+          const t = t0 + 始;
+          const 束 = ac.createGain(), 色 = ac.createBiquadFilter();
+          色.type = 'lowpass'; 色.Q.value = 6;
+          色.frequency.setValueAtTime(900, t);
+          色.frequency.exponentialRampToValueAtTime(7000, t + 0.2);
+          束.gain.setValueAtTime(0.0001, t);
+          束.gain.exponentialRampToValueAtTime(0.32, t + 0.02);
+          束.gain.setValueAtTime(0.32, t + 0.26);
+          束.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+          色.connect(束); 束.connect(出口); 束.connect(こだま);
+          // ゆれ（ビブラート）
+          const ゆれ = ac.createOscillator(), ゆれ幅 = ac.createGain();
+          ゆれ.frequency.value = 28; ゆれ幅.gain.value = 60;
+          ゆれ.connect(ゆれ幅);
+          ゆれ.start(t); ゆれ.stop(t + 0.45);
+          [[-9, 'sawtooth'], [0, 'square'], [9, 'sawtooth'], [1200, 'triangle']].forEach(([ずれ, 形]) => {
+            const o = ac.createOscillator();
+            o.type = 形; o.detune.value = ずれ;
+            o.frequency.setValueAtTime(520, t);
+            o.frequency.exponentialRampToValueAtTime(2300, t + 0.2);
+            o.frequency.setValueAtTime(2300, t + 0.2);
+            ゆれ幅.connect(o.frequency);
+            o.connect(色);
+            o.start(t); o.stop(t + 0.45);
+          });
+        };
+        [0, 0.46, 0.92].forEach((x) => キュイン(確定 + x));
+        const お金 = 確定 + 1.45;
+        鳴る('お金', お金, 0.9);
+        const 全部 = お金 + 音.お金.duration + 0.5;
         setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 全部 * 1000);
         並べた((performance.now() - 待ち始め) / 1000);
       }).catch(() => { 並べた(0); try { ac.close(); } catch (e) { /* 閉じ済み */ } });
@@ -671,12 +701,12 @@
     // 止まる時刻（秒）：1本目2秒、そこから1.6秒おきに1人ずつ決まる。最後の1本はリーチで2.2秒焦らす（2026-11-15「回るのをゆっくりにして／一つ一つ決まるように」）
     const 止まる = 当たり.map((_, i) => (i < n - 1 ? 2 + i * 1.6 : (n === 1 ? 3.2 : 2 + (n - 2) * 1.6 + 2.2)));
     const 最後 = 止まる[n - 1];
-    const 行 = 64;   // リールの1こま（px）
+    const 行 = Math.round(Math.min(130, Math.max(72, (window.innerHeight || 700) * 0.5 / 3)));   // リールの1こま（px）。画面の高さの半分を3段で使う
     const リール = 当たり.map((名, i) => {
       const こま数 = 2 + Math.round(止まる[i] * 3.5);   // 1秒に約4こま。ゆっくり、名前が読める速さ
       const 並び = [];
       for (let k = 0; k < こま数; k++) 並び.push(でたらめ());
-      並び.push(名, でたらめ());   // 当たりの下にも1こま
+      並び.unshift(でたらめ(), 名);   // 上から下へ回るので、当たりは上から2こま目（その上にも1こま）
       return '<div class="sjm-reel"><div class="sjm-strip" style="--n:' + 並び.length + '">' +
         並び.map((p) => '<div class="sjm-cell">' + esc(p) + '</div>').join('') + '</div></div>';
     }).join('');
@@ -695,7 +725,18 @@
         '<div class="sjm-lamps" aria-hidden="true">' + '<i></i>'.repeat(14) + '</div>' +
       '</div>' +
       '<div class="sjm-close">触って閉じる</div>';
+    台.style.setProperty('--row', 行 + 'px');
     document.body.appendChild(台);
+    // 長い名前は字を小さくして、リールの幅に収める
+    台.querySelectorAll('.sjm-reel').forEach((r) => {
+      const 幅 = r.clientWidth - 10;
+      r.querySelectorAll('.sjm-cell').forEach((c) => {
+        const 字数 = Math.max(2, Array.from(c.textContent).length);
+        c.style.fontSize = Math.floor(Math.min(行 * 0.46, 幅 / 字数)) + 'px';
+      });
+    });
+    // 回る前は、帯の下のほう（でたらめな名前）を見せておく
+    台.querySelectorAll('.sjm-strip').forEach((帯) => { 帯.style.transform = 'translateY(' + (-(帯.children.length - 3) * 行) + 'px)'; });
     document.documentElement.classList.add('sjm-open');
     const メッセージ = 台.querySelector('.sjm-msg');
     メッセージ.textContent = 'まもなく回転…';
@@ -708,14 +749,14 @@
       const 動きたち = [];
       台.querySelectorAll('.sjm-strip').forEach((帯, i) => {
         const 数 = 帯.children.length;
-        const 終わり = -(数 - 3) * 行;   // 当たりが真ん中の段に来る位置
+        const 始め = -(数 - 3) * 行;   // ここから下へ動かし、0 で当たりが真ん中の段に来る（上から下への回転。2026-11-15）
         const ms = 止まる[i] * 1000;
         帯.classList.add('spin');
         const 動き = 帯.animate([
+          { transform: 'translateY(' + 始め + 'px)' },
+          { transform: 'translateY(' + (始め * 0.1) + 'px)', offset: 0.82 },
+          { transform: 'translateY(' + Math.round(行 * 0.2) + 'px)', offset: 0.94 },
           { transform: 'translateY(0)' },
-          { transform: 'translateY(' + (終わり * 0.9) + 'px)', offset: 0.82 },
-          { transform: 'translateY(' + (終わり - 14) + 'px)', offset: 0.94 },
-          { transform: 'translateY(' + 終わり + 'px)' },
         ], { duration: ms, easing: 'linear', fill: 'forwards' });
         動きたち.push(動き);
         動き.onfinish = () => {
