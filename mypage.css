@@ -301,3 +301,20 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-ichigen { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
 .me-ichigen button { min-height: 36px; min-width: 40px; padding: 2px 10px; font-size: var(--text-sm); background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); }
 .me-ichigen button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+
+/* 掃除スロット（2026-11-15）：その日のバーを触ると、掃除の人の名前がスロットのように回って止まる */
+.me-uh .sj-lever { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+.me-uh .sj-lever:active { transform: scale(.98); }
+.me-uh .sj-lever:focus-visible { outline: 3px solid #ff004c; outline-offset: 2px; border-radius: 6px; }
+.me-uh .sj-hint { margin-left: auto; font-size: var(--text-sm); font-weight: 800; color: #fff; padding: 2px 10px; border-radius: 999px;
+  background: linear-gradient(90deg, #ff004c, #ff9900, #ffd400, #00c853, #00b0ff, #7c4dff, #ff004c); background-size: 300% 100%;
+  animation: sj-flow 3s linear infinite, sj-pulse 1.2s ease-in-out infinite; }
+.me-uh .sj-names .sj-spin { display: inline-block; text-align: center; filter: blur(.6px); animation: sj-reel .07s linear infinite; }
+.me-uh .sj-names .sj-stop { display: inline-block; text-align: center; animation: sj-thunk .35s cubic-bezier(.3, 1.8, .5, 1); }
+.me-uh .wb-souji-hot.sj-win { animation: sj-flow 1.2s linear infinite, sj-flash .25s steps(2) 10; }
+@keyframes sj-reel { 0% { transform: translateY(-35%); opacity: .5; } 50% { opacity: 1; } 100% { transform: translateY(35%); opacity: .5; } }
+@keyframes sj-thunk { 0% { transform: translateY(-40%) scale(1.15); } 100% { transform: none; } }
+@keyframes sj-flash { 0% { filter: brightness(1.6) saturate(1.5); } 100% { filter: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .me-uh .sj-hint, .me-uh .sj-names .sj-spin, .me-uh .sj-names .sj-stop, .me-uh .wb-souji-hot.sj-win { animation: none; filter: none; }
+}

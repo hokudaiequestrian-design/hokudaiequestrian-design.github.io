@@ -1336,6 +1336,23 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-ichigen { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs); }
 .me-ichigen button { min-height: 36px; min-width: 40px; padding: 2px 10px; font-size: var(--text-sm); background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); }
 .me-ichigen button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
+
+/* 掃除スロット（2026-11-15）：その日のバーを触ると、掃除の人の名前がスロットのように回って止まる */
+.me-uh .sj-lever { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+.me-uh .sj-lever:active { transform: scale(.98); }
+.me-uh .sj-lever:focus-visible { outline: 3px solid #ff004c; outline-offset: 2px; border-radius: 6px; }
+.me-uh .sj-hint { margin-left: auto; font-size: var(--text-sm); font-weight: 800; color: #fff; padding: 2px 10px; border-radius: 999px;
+  background: linear-gradient(90deg, #ff004c, #ff9900, #ffd400, #00c853, #00b0ff, #7c4dff, #ff004c); background-size: 300% 100%;
+  animation: sj-flow 3s linear infinite, sj-pulse 1.2s ease-in-out infinite; }
+.me-uh .sj-names .sj-spin { display: inline-block; text-align: center; filter: blur(.6px); animation: sj-reel .07s linear infinite; }
+.me-uh .sj-names .sj-stop { display: inline-block; text-align: center; animation: sj-thunk .35s cubic-bezier(.3, 1.8, .5, 1); }
+.me-uh .wb-souji-hot.sj-win { animation: sj-flow 1.2s linear infinite, sj-flash .25s steps(2) 10; }
+@keyframes sj-reel { 0% { transform: translateY(-35%); opacity: .5; } 50% { opacity: 1; } 100% { transform: translateY(35%); opacity: .5; } }
+@keyframes sj-thunk { 0% { transform: translateY(-40%) scale(1.15); } 100% { transform: none; } }
+@keyframes sj-flash { 0% { filter: brightness(1.6) saturate(1.5); } 100% { filter: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .me-uh .sj-hint, .me-uh .sj-names .sj-spin, .me-uh .sj-names .sj-stop, .me-uh .wb-souji-hot.sj-win { animation: none; filter: none; }
+}
 </style>
 <style>
 /*
@@ -1959,7 +1976,7 @@ const API = {
   "当番": "https://bajutsubu-api.hokudai-equestrian.workers.dev/touban",
   "人員表": "https://bajutsubu-api.hokudai-equestrian.workers.dev/jinin"
 };
-const ページの版 = "883888f42502";
+const ページの版 = "874b2acbb4fa";
 /*
   入口（マイページ）の中身。build.js が入口ページに埋め込む。
 
@@ -2465,8 +2482,9 @@ const ページの版 = "883888f42502";
           (k.人 ? マグネット(k.人, 名 && k.人 === 名 ? 'mine sm' : 一限.indexOf(k.人) >= 0 ? 'ichigen sm' : 'sm', n++) : '') + '</span>').join('') + '</span></div>' : '';
     return '<section class="me-uh" aria-label="朝練の馬配">' +
       '<div class="wb-board">' +
-      '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
-      '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span></div>' +
+      (掃除の人.length ? '<div class="wb-top sj-lever" role="button" tabindex="0" data-sj-spin="' + esc(x.date) + '" aria-label="掃除スロットを回す">' : '<div class="wb-top">') + '<span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
+      '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span>' +
+      (掃除の人.length ? '<span class="sj-hint" aria-hidden="true">🎰 触ると掃除スロット</span>' : '') + '</div>' +
       掃除 +   // 掃除はボードのいちばん上（2026-11-15）
       (名 ? '<p class="wb-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは乗る馬に入っていません') + '</p>' : '') +
       '<div class="wb-main">' + 列 +
@@ -2489,18 +2507,34 @@ const ページの版 = "883888f42502";
     if (html) 手書きの字を読む();
     // 前に描いた文字と比べる（中身の innerHTML は 動き.js が付けるクラスで変わるので比べない。2026-10-21）
     if (箱.dataset.html !== html) { 箱.innerHTML = html; 箱.dataset.html = html; }
+    (並び || []).forEach((x) => { 馬配の中身[x.date] = x; });
+    if (!箱.dataset.sjWired) {
+      箱.dataset.sjWired = '1';
+      const 押した = (e) => {
+        const バー = e.target.closest('[data-sj-spin]');
+        if (!バー || (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ')) return;
+        if (e.type === 'keydown') e.preventDefault();
+        スロットを回す(バー);
+      };
+      箱.addEventListener('click', 押した);
+      箱.addEventListener('keydown', 押した);
+    }
     // 掃除の人だけ、開いたら当確音（2026-11-15 ユーザーの指示）。ページを開くごとに、その日・その人で1回
     const 掃除の日 = (並び || []).filter((x) => x.date >= 今日 && 名 && (x.掃除 || []).indexOf(名) >= 0).map((x) => x.date).join(',');
     if (掃除の日 && 鳴らした !== 名 + ':' + 掃除の日) { 鳴らした = 名 + ':' + 掃除の日; 当確音(); }
   }
 
   /*
-    当確音（2026-11-15 ユーザーの指示：掃除担当の人だけ、パチンコの当確音みたいなのを鳴らす）。
+    当確音（2026-11-15 ユーザーの指示：掃除担当の人だけ、パチンコの当確音みたいなのを鳴らす）。→ スロットの大当たりの音に変えた（同日「スロットにして」）。
     音のファイルは使わず Web Audio でその場で作る：キュイーンと上がる音 → 駆け上がるアルペジオ → 和音のファンファーレ＋鐘。
     ブラウザは触る前の音を止めるので、止められたら最初に触ったときに鳴らす。
   */
   let 鳴らした = '';
-  function 当確音() {
+  let 待ちを消す = null;   // 開いたときの音が「最初に触るまで」待っているとき、それを取り消す
+  const 馬配の中身 = {};
+  function 当確音(止まる, 触った) {
+    止まる = 止まる || [0.9, 1.3, 2.05];
+    if (待ちを消す) 待ちを消す();
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     let ac;
@@ -2521,16 +2555,44 @@ const ページの版 = "883888f42502";
         o.connect(g); g.connect(出口);
         o.start(t0 + 始); o.stop(t0 + 始 + 長さ + 0.05);
       };
-      // キュイーン
-      音(300, 0, 0.6, 'sawtooth', 0.25, 2400);
-      音(310, 0, 0.6, 'square', 0.12, 2500);
-      // 駆け上がる
-      [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => 音(f, 0.62 + i * 0.06, 0.18, 'square', 0.22));
-      // ジャーン（ド・ミ・ソ・ド）を2回
-      [0, 0.55].forEach((s) => [523, 659, 784, 1047].forEach((f) => { 音(f, 1.1 + s, 0.5, 'sawtooth', 0.14); 音(f * 2, 1.1 + s, 0.5, 'triangle', 0.1); }));
-      // キラキラの鐘
-      for (let i = 0; i < 10; i++) 音([2093, 2637, 3136, 4186][i % 4], 2.2 + i * 0.08, 0.6, 'sine', 0.18);
-      setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 4500);
+      // スロット（2026-11-15 ユーザーの指示「スロットにして」）：レバー→リールが回る→3つ止まる（3つ目は焦らす）→7揃いのファンファーレ→メダルの払い出し
+      // 雑音（レバーとリールの止まる音・メダルのシャリッ）
+      const 雑音 = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.3), ac.sampleRate);
+      const d = 雑音.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const ザッ = (始, 長さ, 大きさ, 帯) => {
+        const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+        n.buffer = 雑音; f.type = 'bandpass'; f.frequency.value = 帯; f.Q.value = 1.2;
+        g.gain.setValueAtTime(大きさ, t0 + 始);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 始 + 長さ);
+        n.connect(f); f.connect(g); g.connect(出口);
+        n.start(t0 + 始); n.stop(t0 + 始 + 長さ + 0.02);
+      };
+      // レバーを叩く
+      ザッ(0, 0.08, 0.6, 1800); 音(180, 0, 0.12, 'square', 0.3, 90);
+      // リールが回る（カラカラ）。止まるたびに少し静かに
+      const 最後 = 止まる[止まる.length - 1];
+      for (let t = 0.1; t < 最後; t += 0.045) {
+        const 残り = 止まる.filter((x) => x > t).length;
+        音(残り > 1 ? 1200 : 1500, t, 0.03, 'square', Math.min(0.12, 0.04 * 残り));
+      }
+      // 最後の1つの手前はリーチ音で焦らす
+      const リーチ = 止まる.length > 1 ? 止まる[止まる.length - 2] + 0.1 : 最後 - 0.65;
+      for (let t = リーチ, i = 0; t < 最後 - 0.05; t += 0.1, i++) 音(i % 2 ? 1175 : 988, t, 0.09, 'square', 0.12);
+      // リールが止まる（ガコン）
+      止まる.forEach((x, i) => { ザッ(x, 0.1, 0.7, 900); 音(130, x, 0.18, 'square', 0.35, 60); 音(i === 止まる.length - 1 ? 1568 : [784, 988, 1175][i % 3], x, 0.15, 'square', 0.18); });
+      // 7揃い！ファンファーレ（タタタ・ターン・タ・ターーン）
+      const 始め = 最後 + 0.2;
+      [[784, 0, 0.1], [784, 0.12, 0.1], [784, 0.24, 0.1], [1047, 0.36, 0.3], [988, 0.7, 0.1], [1047, 0.82, 0.12], [1319, 0.96, 0.25], [1568, 1.24, 0.7]]
+        .forEach(([f, s0, l]) => { 音(f, 始め + s0, l, 'square', 0.2); 音(f / 2, 始め + s0, l, 'sawtooth', 0.1); });
+      [523, 659, 784, 1047].forEach((f) => 音(f, 始め + 1.24, 0.8, 'triangle', 0.12));
+      // メダルの払い出し（チャリチャリ…）
+      for (let i = 0; i < 40; i++) {
+        const t = 始め + 1.2 + i * 0.055 + Math.random() * 0.02;
+        const f = 3200 + Math.random() * 2400;
+        音(f, t, 0.12, 'sine', 0.1); 音(f * 1.5, t, 0.08, 'sine', 0.05); ザッ(t, 0.03, 0.15, 6000);
+      }
+      setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, (始め + 4.5) * 1000);
     };
     let 済 = false;
     // iPhone は pointerdown では音を許さないことがあるので、touchend・click でも開ける（2026-11-15）
@@ -2538,19 +2600,80 @@ const ページの版 = "883888f42502";
     const 一度だけ = () => {
       if (済 || ac.state !== 'running') return;
       済 = true;
+      待ちを消す = null;
       種類.forEach((n) => document.removeEventListener(n, 触ったら, true));
       鳴らす();
     };
     // Chrome は触る前の resume() を返事しないまま待たせることがあるので、触るのを待つ仕掛けは先に置く
-    const 触ったら = () => {
+    const 触ったら = (e) => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-sj-spin]')) return;   // バーを触ったときはスロットのほうで鳴らす
       // iPhone は、触ったその場で音を1つ鳴らし始めないと開かない。無音を一瞬鳴らす
       try { const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch (e) { /* 無くても resume で開くブラウザがある */ }
       ac.resume().then(一度だけ, () => {});
       setTimeout(一度だけ, 300);   // resume の返事が来ないまま running になっていることがある
     };
     if (ac.state === 'running') { 一度だけ(); return; }
+    if (触った) { 触ったら(); return; }   // バーを触ったその場で呼ばれた
     種類.forEach((n) => document.addEventListener(n, 触ったら, true));
+    待ちを消す = () => {
+      待ちを消す = null;
+      済 = true;
+      種類.forEach((n) => document.removeEventListener(n, 触ったら, true));
+      try { ac.close(); } catch (e) { /* 閉じ済み */ }
+    };
     ac.resume().then(一度だけ, () => {});
+  }
+
+  /*
+    掃除スロット（2026-11-15 ユーザーの指示：副将側の決定は変えずに、マイページでその日の初めのバーを触ると掃除の人のスロットが回る）。
+    出る人は副将が決めた掃除の人のまま。回っている間はその日のボードにいる人の名前が流れ、1人ずつ止まる（最後の1人は焦らす）。
+  */
+  let 回し中 = false;
+  function スロットを回す(バー) {
+    if (回し中) return;
+    const x = 馬配の中身[バー.dataset.sjSpin];
+    const 板 = バー.closest('.wb-board');
+    const 欄 = 板 && 板.querySelector('.sj-names');
+    if (!x || !欄) return;
+    const 枠 = Array.prototype.slice.call(欄.children);
+    if (!枠.length) return;
+    回し中 = true;
+    // 流す名前：その日のボードにいる人みんな
+    const 名前 = [];
+    const 足す = (p) => { if (p && 名前.indexOf(p) < 0) 名前.push(p); };
+    ['前', '後'].forEach((k) => (x[k] || []).forEach((r) => r.人.forEach(足す)));
+    (x.出席 || []).forEach((r) => r.人.forEach(足す));
+    (x.馬休 || []).forEach((r) => 足す(r.人));
+    (x.掃除 || []).forEach(足す);
+    // 止まる時刻：最初は0.9秒、最後は少し間をあけて焦らす
+    const n = 枠.length;
+    const 止まる = 枠.map((_, i) => (n === 1 ? 1.6 : i < n - 1 ? 0.9 + i * 0.4 : 0.9 + (n - 2) * 0.4 + 0.75));
+    当確音(止まる, true);
+    const 本当 = 枠.map((el) => el.textContent);
+    const 板の箱 = 板.querySelector('.wb-souji-hot');
+    if (板の箱) 板の箱.classList.add('sj-spinning');
+    枠.forEach((el) => { el.classList.remove('sj-stop'); el.classList.add('sj-spin'); el.style.minWidth = el.offsetWidth + 'px'; });
+    const 始 = performance.now();
+    let k = 0;
+    const 回す = setInterval(() => {
+      const 経 = (performance.now() - 始) / 1000;
+      k++;
+      枠.forEach((el, i) => {
+        if (!el.classList.contains('sj-spin')) return;
+        if (経 >= 止まる[i]) {
+          el.textContent = 本当[i];
+          el.classList.remove('sj-spin');
+          el.classList.add('sj-stop');
+          return;
+        }
+        el.textContent = 名前[(k + i * 3) % 名前.length];
+      });
+      if (経 >= 止まる[n - 1]) {
+        clearInterval(回す);
+        if (板の箱) { 板の箱.classList.remove('sj-spinning'); 板の箱.classList.add('sj-win'); setTimeout(() => 板の箱.classList.remove('sj-win'), 2600); }
+        setTimeout(() => { 回し中 = false; 枠.forEach((el) => { el.style.minWidth = ''; }); }, 600);
+      }
+    }, 70);
   }
 
   /*
