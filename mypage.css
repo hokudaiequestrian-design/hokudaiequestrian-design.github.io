@@ -356,7 +356,7 @@ html.sjm-open, html.sjm-open body { overflow: hidden; }
 .sjm-reel::after { content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(0,0,0,.55), transparent 30%, transparent 70%, rgba(0,0,0,.55)); }
 .sjm-strip { will-change: transform; }
-.sjm-strip.spin { filter: blur(1.5px); }
+.sjm-strip.spin { filter: none; }   /* 名前が読めるように、ぼかさない */
 .sjm-cell { height: 64px; display: flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;
   font-size: clamp(1rem, 5.5vw, 1.7rem); font-weight: 900; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   border-bottom: 1px solid rgba(0, 0, 0, .12); }
