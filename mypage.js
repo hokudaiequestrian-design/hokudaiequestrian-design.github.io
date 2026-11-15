@@ -483,9 +483,18 @@
     const 出席 = (x.出席 || []).filter((s) => s.欄 !== '一限').map((s) =>
       '<div class="wb-srow"><span class="wb-hand wb-lab">' + esc(s.欄) + '</span><span class="wb-mags">' +
       s.人.map((p) => マグネット(p, 名 && p === 名 ? 'mine sm' : 'sm', n++)).join('') + '</span></div>').join('');
-    const 掃除 = ((x.掃除 || []).length || x.掃除場所)
-      ? '<div class="wb-souji"><span class="wb-hand wb-lab">掃除</span>' +
-        (x.掃除場所 ? '<span class="wb-hand wb-place">' + esc(x.掃除場所) + '</span>' : '') + '<span class="wb-hand wb-names">' + (x.掃除 || []).map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : esc(p))).join('・') + '</span></div>' : '';
+    // 掃除は最大限目立たせる（2026-11-15 ユーザーの指示：誰も掃除してくれないので、虹色・いちばん上・文字を動かす）
+    const 掃除の人 = x.掃除 || [];
+    if (名 && 掃除の人.indexOf(名) >= 0) 私 += (私 ? '、' : '') + '掃除' + (x.掃除場所 ? '（' + x.掃除場所 + '）' : '');
+    const 波 = (文字) => Array.from(文字).map((c, i) => '<span style="--i:' + i + '">' + esc(c) + '</span>').join('');
+    const 流れ = '🧹 掃除の人はわすれずに！ 🧹 みんなで掃除！ ';
+    const 掃除 = (掃除の人.length || x.掃除場所)
+      ? '<div class="wb-souji-hot" role="note" aria-label="掃除">' +
+        '<div class="sj-ticker" aria-hidden="true"><span>' + esc(流れ.repeat(4)) + '</span><span>' + esc(流れ.repeat(4)) + '</span></div>' +
+        '<div class="sj-body"><span class="sj-broom" aria-hidden="true">🧹</span><span class="sj-lab">' + 波('掃除') + '</span>' +
+        (x.掃除場所 ? '<span class="sj-place">' + esc(x.掃除場所) + '</span>' : '') +
+        '<span class="sj-names">' + 掃除の人.map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : '<span>' + esc(p) + '</span>')).join('') + '</span>' +
+        '<span class="sj-broom r" aria-hidden="true">🧹</span></div></div>' : '';
     // 馬休コーナー（2026-10-21）：馬と手入れの人。古い返り（馬休が無い）は馬だけ
     const 馬休 = x.馬休 || (x.休む馬 || []).map((h) => ({ 馬: h, 人: '' }));
     馬休.forEach((k) => { if (名 && k.人 === 名) 私 += (私 ? '、' : '') + '馬休の ' + k.馬 + ' の手入れ'; });
@@ -496,10 +505,11 @@
       '<div class="wb-board">' +
       '<div class="wb-top"><span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
       '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span></div>' +
+      掃除 +   // 掃除はボードのいちばん上（2026-11-15）
       (名 ? '<p class="wb-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは乗る馬に入っていません') + '</p>' : '') +
       '<div class="wb-main">' + 列 +
       (出席 ? '<div class="wb-side"><div class="wb-hand wb-time">出席</div>' + 出席 + '</div>' : '') + '</div>' +
-      (掃除 || 休む馬 ? '<div class="wb-bottom">' + 掃除 + 休む馬 + '</div>' : '') +
+      (休む馬 ? '<div class="wb-bottom">' + 休む馬 + '</div>' : '') +
       '</div></section>';
   }
 
