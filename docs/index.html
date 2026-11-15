@@ -1434,6 +1434,33 @@ html.sjm-open, html.sjm-open body { overflow: hidden; }
 .sjm-reel.stop .sjm-cell { color: #b00020; }
 .sjm-one { display: inline-block; color: #fff; text-shadow: 0 0 8px #ffd400, 0 0 16px #ff9900; animation: sjm-pop .4s cubic-bezier(.3, 1.8, .5, 1); }
 @keyframes sjm-hit { 0% { filter: brightness(2); } 100% { filter: none; } }
+/* 3Dの「掃除」「確定」（2026-11-15）：掃除＝左手前→右奥→中央の左、確定＝右手前→左奥→中央の右 */
+.sjm-big { position: absolute; inset: 0; pointer-events: none; z-index: 3; perspective: 900px; perspective-origin: 50% 45%; }
+.sjm-w { position: absolute; left: 50%; top: 45%; font-size: clamp(3.6rem, 19vw, 9rem); font-weight: 900; line-height: 1; white-space: nowrap;
+  color: #ffe27a; -webkit-text-stroke: 2px #7a3b00;
+  text-shadow: 1px 1px 0 #e0a100, 2px 2px 0 #d39400, 3px 3px 0 #c58600, 4px 4px 0 #b77800, 5px 5px 0 #a86a00, 6px 6px 0 #995c00,
+    7px 7px 0 #8a4e00, 8px 8px 0 #7a4000, 10px 12px 16px rgba(0, 0, 0, .7), 0 0 30px rgba(255, 200, 0, .8);
+  transform-style: preserve-3d; opacity: 0; animation: var(--fly) 1.7s forwards, sjm-glow .5s ease-in-out 1.7s infinite alternate; }
+.sjm-w1 { --fly: sjm-fly1; --to: translate(calc(-100% - 2vw), -50%); }
+.sjm-w2 { --fly: sjm-fly2; --to: translate(2vw, -50%); color: #fff2b0; animation-delay: .2s, 1.9s; }
+@keyframes sjm-fly1 {
+  0% { opacity: 0; transform: translate(-50%, -50%) translate3d(-60vw, 38vh, 760px) rotateY(40deg) rotateZ(-12deg); animation-timing-function: cubic-bezier(.3, 0, .6, 1); }
+  8% { opacity: 1; }
+  48% { opacity: 1; transform: translate(-50%, -50%) translate3d(45vw, -28vh, -2600px) rotateY(-35deg) rotateZ(10deg); animation-timing-function: cubic-bezier(.2, .7, .3, 1); }
+  88% { opacity: 1; transform: var(--to) translate3d(0, 0, 60px) rotateY(-6deg); }
+  100% { opacity: 1; transform: var(--to) translate3d(0, 0, 0) rotateY(0); }
+}
+@keyframes sjm-fly2 {
+  0% { opacity: 0; transform: translate(-50%, -50%) translate3d(60vw, 38vh, 760px) rotateY(-40deg) rotateZ(12deg); animation-timing-function: cubic-bezier(.3, 0, .6, 1); }
+  8% { opacity: 1; }
+  48% { opacity: 1; transform: translate(-50%, -50%) translate3d(-45vw, -28vh, -2600px) rotateY(35deg) rotateZ(-10deg); animation-timing-function: cubic-bezier(.2, .7, .3, 1); }
+  88% { opacity: 1; transform: var(--to) translate3d(0, 0, 60px) rotateY(6deg); }
+  100% { opacity: 1; transform: var(--to) translate3d(0, 0, 0) rotateY(0); }
+}
+@keyframes sjm-glow { to { filter: brightness(1.25) drop-shadow(0 0 14px #ffd400); } }
+@media (prefers-reduced-motion: reduce) {
+  .sjm-w { animation: none; opacity: 1; transform: var(--to); }
+}
 </style>
 <style>
 /*
@@ -2057,7 +2084,7 @@ const API = {
   "当番": "https://bajutsubu-api.hokudai-equestrian.workers.dev/touban",
   "人員表": "https://bajutsubu-api.hokudai-equestrian.workers.dev/jinin"
 };
-const ページの版 = "55abcbebeba4";
+const ページの版 = "71c97a7d3ce4";
 /*
   入口（マイページ）の中身。build.js が入口ページに埋め込む。
 
@@ -2694,8 +2721,8 @@ const ページの版 = "55abcbebeba4";
             o.start(t); o.stop(t + 0.45);
           });
         };
-        [0, 0.23, 0.46].forEach((x) => キュイン(確定 + x));   // 間隔は0.23秒（2026-11-15「キュインの間隔を半分にして」「重ならせたい」：1回は0.42秒のままで重ねる）
-        const お金 = 確定 + 1.0;
+        [0, 0.23, 0.46, 0.69, 0.92].forEach((x) => キュイン(確定 + x));   // 0.23秒おきに5回（2026-11-15「キュインの間隔を半分にして」「重ならせたい」「キュインを2回増やして」：1回は0.42秒のままで重ねる）
+        const お金 = 確定 + 1.45;
         鳴る('お金', お金, 0.9);
         const 全部 = お金 + 音.お金.duration + 0.5;
         setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 全部 * 1000);
@@ -2834,7 +2861,14 @@ const ページの版 = "55abcbebeba4";
         台.classList.add('win');
         動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
         台.classList.remove('reach');
-        メッセージ.innerHTML = '<b>掃除 確定！！</b>';
+        メッセージ.textContent = '';
+        // 3Dの「掃除」「確定」（2026-11-15）：掃除は左手前→右奥→中央の左、確定は右手前→左奥→中央の右に収まる
+        const 大字 = document.createElement('div');
+        大字.className = 'sjm-big';
+        大字.setAttribute('role', 'status');
+        大字.setAttribute('aria-label', '掃除 確定');
+        大字.innerHTML = '<span class="sjm-w sjm-w1" aria-hidden="true">掃除</span><span class="sjm-w sjm-w2" aria-hidden="true">確定</span>';
+        台.appendChild(大字);
         const 紙 = document.createElement('div');
         紙.className = 'sjm-confetti';
         紙.setAttribute('aria-hidden', 'true');

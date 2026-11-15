@@ -634,8 +634,8 @@
             o.start(t); o.stop(t + 0.45);
           });
         };
-        [0, 0.23, 0.46].forEach((x) => キュイン(確定 + x));   // 間隔は0.23秒（2026-11-15「キュインの間隔を半分にして」「重ならせたい」：1回は0.42秒のままで重ねる）
-        const お金 = 確定 + 1.0;
+        [0, 0.23, 0.46, 0.69, 0.92].forEach((x) => キュイン(確定 + x));   // 0.23秒おきに5回（2026-11-15「キュインの間隔を半分にして」「重ならせたい」「キュインを2回増やして」：1回は0.42秒のままで重ねる）
+        const お金 = 確定 + 1.45;
         鳴る('お金', お金, 0.9);
         const 全部 = お金 + 音.お金.duration + 0.5;
         setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 全部 * 1000);
@@ -774,7 +774,14 @@
         台.classList.add('win');
         動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
         台.classList.remove('reach');
-        メッセージ.innerHTML = '<b>掃除 確定！！</b>';
+        メッセージ.textContent = '';
+        // 3Dの「掃除」「確定」（2026-11-15）：掃除は左手前→右奥→中央の左、確定は右手前→左奥→中央の右に収まる
+        const 大字 = document.createElement('div');
+        大字.className = 'sjm-big';
+        大字.setAttribute('role', 'status');
+        大字.setAttribute('aria-label', '掃除 確定');
+        大字.innerHTML = '<span class="sjm-w sjm-w1" aria-hidden="true">掃除</span><span class="sjm-w sjm-w2" aria-hidden="true">確定</span>';
+        台.appendChild(大字);
         const 紙 = document.createElement('div');
         紙.className = 'sjm-confetti';
         紙.setAttribute('aria-hidden', 'true');
