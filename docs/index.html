@@ -2057,7 +2057,7 @@ const API = {
   "当番": "https://bajutsubu-api.hokudai-equestrian.workers.dev/touban",
   "人員表": "https://bajutsubu-api.hokudai-equestrian.workers.dev/jinin"
 };
-const ページの版 = "9d3697bef5c4";
+const ページの版 = "55abcbebeba4";
 /*
   入口（マイページ）の中身。build.js が入口ページに埋め込む。
 
@@ -2672,30 +2672,30 @@ const ページの版 = "9d3697bef5c4";
           const 束 = ac.createGain(), 色 = ac.createBiquadFilter();
           色.type = 'lowpass'; 色.Q.value = 6;
           色.frequency.setValueAtTime(900, t);
-          色.frequency.exponentialRampToValueAtTime(7000, t + 0.15);
+          色.frequency.exponentialRampToValueAtTime(7000, t + 0.2);
           束.gain.setValueAtTime(0.0001, t);
           束.gain.exponentialRampToValueAtTime(0.32, t + 0.02);
-          束.gain.setValueAtTime(0.32, t + 0.18);
-          束.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+          束.gain.setValueAtTime(0.32, t + 0.26);
+          束.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
           色.connect(束); 束.connect(出口); 束.connect(こだま);
           // ゆれ（ビブラート）
           const ゆれ = ac.createOscillator(), ゆれ幅 = ac.createGain();
           ゆれ.frequency.value = 28; ゆれ幅.gain.value = 60;
           ゆれ.connect(ゆれ幅);
-          ゆれ.start(t); ゆれ.stop(t + 0.24);
+          ゆれ.start(t); ゆれ.stop(t + 0.45);
           [[-9, 'sawtooth'], [0, 'square'], [9, 'sawtooth'], [1200, 'triangle']].forEach(([ずれ, 形]) => {
             const o = ac.createOscillator();
             o.type = 形; o.detune.value = ずれ;
             o.frequency.setValueAtTime(520, t);
-            o.frequency.exponentialRampToValueAtTime(2300, t + 0.15);
-            o.frequency.setValueAtTime(2300, t + 0.15);
+            o.frequency.exponentialRampToValueAtTime(2300, t + 0.2);
+            o.frequency.setValueAtTime(2300, t + 0.2);
             ゆれ幅.connect(o.frequency);
             o.connect(色);
-            o.start(t); o.stop(t + 0.24);
+            o.start(t); o.stop(t + 0.45);
           });
         };
-        [0, 0.23, 0.46].forEach((x) => キュイン(確定 + x));   // 間隔は0.23秒（2026-11-15「キュインの間隔を半分にして」）
-        const お金 = 確定 + 0.8;
+        [0, 0.23, 0.46].forEach((x) => キュイン(確定 + x));   // 間隔は0.23秒（2026-11-15「キュインの間隔を半分にして」「重ならせたい」：1回は0.42秒のままで重ねる）
+        const お金 = 確定 + 1.0;
         鳴る('お金', お金, 0.9);
         const 全部 = お金 + 音.お金.duration + 0.5;
         setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 全部 * 1000);
