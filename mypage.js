@@ -546,74 +546,71 @@
   }
 
   /*
-    当確音（2026-11-15 ユーザーの指示：掃除担当の人だけ、パチンコの当確音みたいなのを鳴らす）。→ スロットの大当たりの音に変えた（同日「スロットにして」）。
-    音のファイルは使わず Web Audio でその場で作る：キュイーンと上がる音 → 駆け上がるアルペジオ → 和音のファンファーレ＋鐘。
+    当確音（2026-11-15 ユーザーの指示：掃除担当の人だけ、パチンコの当確音みたいなのを鳴らす）。→ スロットの大当たりの音に（同日「スロットにして」）。
+    → 合成音は「安っぽい」（同日）ので、効果音ラボ（https://soundeffect-lab.info/ 無料・クレジット不要・直リンク禁止なので docs/oto に置く）の録音に替えた：
+      回っている間＝ドラムロール、リールが止まるたび＝電子ルーレットの停止ボタン、確定＝ジャジャーン → ラッパのファンファーレ → お金がジャラジャラ。
+    音のファイルは、鳴らすときに初めて読む（ほかの人のページは重くしない）。
     ブラウザは触る前の音を止めるので、止められたら最初に触ったときに鳴らす。
+    返り値の Promise は、音を並べ終えた（または鳴らせないと分かった）ときに、鳴り始めの時刻のずれ（秒）を返す。
   */
   let 鳴らした = '';
   let 待ちを消す = null;   // 開いたときの音が「最初に触るまで」待っているとき、それを取り消す
   const 馬配の中身 = {};
+  const 音の名前 = { 太鼓: 'drum-roll1', 止め: 'electronic-roulette-button1', ジャン: 'jajean1', ラッパ: 'trumpet1', お金: 'money1' };
+  let 音のデータ = null;   // 読んだ mp3（ArrayBuffer）。1回だけ読む
+  function 音を読む() {
+    if (!音のデータ) {
+      音のデータ = Promise.all(Object.keys(音の名前).map((k) =>
+        fetch('oto/' + 音の名前[k] + '.mp3').then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); }).then((b) => [k, b])))
+        .catch((e) => { 音のデータ = null; throw e; });
+    }
+    return 音のデータ;
+  }
+  function ほどく(ac, データ) {
+    // Safari の古い版は decodeAudioData が Promise を返さないので、コールバックで受ける。元のデータは使い回すので写しを渡す
+    return Promise.all(データ.map(([k, b]) => new Promise((ok, ng) => ac.decodeAudioData(b.slice(0), (x) => ok([k, x]), ng))))
+      .then((並び) => { const o = {}; 並び.forEach(([k, x]) => { o[k] = x; }); return o; });
+  }
   function 当確音(止まる, 触った) {
     止まる = 止まる || [0.9, 1.3, 2.05];
     if (待ちを消す) 待ちを消す();
     const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
+    if (!AC) return Promise.resolve(0);
     let ac;
-    try { ac = new AC(); } catch (e) { return; }
+    try { ac = new AC(); } catch (e) { return Promise.resolve(0); }
+    let 並べた;
+    const 並べ終わり = new Promise((ok) => { 並べた = ok; });
     const 鳴らす = () => {
-      const t0 = ac.currentTime + 0.05;
-      const 出口 = ac.createGain();
-      出口.gain.value = 0.35;
-      出口.connect(ac.destination);
-      const 音 = (f, 始, 長さ, 形, 大きさ, 終わりf) => {
-        const o = ac.createOscillator(), g = ac.createGain();
-        o.type = 形;
-        o.frequency.setValueAtTime(f, t0 + 始);
-        if (終わりf) o.frequency.exponentialRampToValueAtTime(終わりf, t0 + 始 + 長さ);
-        g.gain.setValueAtTime(0.0001, t0 + 始);
-        g.gain.exponentialRampToValueAtTime(大きさ, t0 + 始 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 始 + 長さ);
-        o.connect(g); g.connect(出口);
-        o.start(t0 + 始); o.stop(t0 + 始 + 長さ + 0.05);
-      };
-      // スロット（2026-11-15 ユーザーの指示「スロットにして」）：レバー→リールが回る→3つ止まる（3つ目は焦らす）→7揃いのファンファーレ→メダルの払い出し
-      // 雑音（レバーとリールの止まる音・メダルのシャリッ）
-      const 雑音 = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.3), ac.sampleRate);
-      const d = 雑音.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      const ザッ = (始, 長さ, 大きさ, 帯) => {
-        const n = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-        n.buffer = 雑音; f.type = 'bandpass'; f.frequency.value = 帯; f.Q.value = 1.2;
-        g.gain.setValueAtTime(大きさ, t0 + 始);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 始 + 長さ);
-        n.connect(f); f.connect(g); g.connect(出口);
-        n.start(t0 + 始); n.stop(t0 + 始 + 長さ + 0.02);
-      };
-      // レバーを叩く
-      ザッ(0, 0.08, 0.6, 1800); 音(180, 0, 0.12, 'square', 0.3, 90);
-      // リールが回る（カラカラ）。止まるたびに少し静かに
-      const 最後 = 止まる[止まる.length - 1];
-      for (let t = 0.1; t < 最後; t += 0.045) {
-        const 残り = 止まる.filter((x) => x > t).length;
-        音(残り > 1 ? 1200 : 1500, t, 0.03, 'square', Math.min(0.12, 0.04 * 残り));
-      }
-      // 最後の1つの手前はリーチ音で焦らす
-      const リーチ = 止まる.length > 1 ? 止まる[止まる.length - 2] + 0.1 : 最後 - 0.65;
-      for (let t = リーチ, i = 0; t < 最後 - 0.05; t += 0.1, i++) 音(i % 2 ? 1175 : 988, t, 0.09, 'square', 0.12);
-      // リールが止まる（ガコン）
-      止まる.forEach((x, i) => { ザッ(x, 0.1, 0.7, 900); 音(130, x, 0.18, 'square', 0.35, 60); 音(i === 止まる.length - 1 ? 1568 : [784, 988, 1175][i % 3], x, 0.15, 'square', 0.18); });
-      // 7揃い！ファンファーレ（タタタ・ターン・タ・ターーン）
-      const 始め = 最後 + 0.2;
-      [[784, 0, 0.1], [784, 0.12, 0.1], [784, 0.24, 0.1], [1047, 0.36, 0.3], [988, 0.7, 0.1], [1047, 0.82, 0.12], [1319, 0.96, 0.25], [1568, 1.24, 0.7]]
-        .forEach(([f, s0, l]) => { 音(f, 始め + s0, l, 'square', 0.2); 音(f / 2, 始め + s0, l, 'sawtooth', 0.1); });
-      [523, 659, 784, 1047].forEach((f) => 音(f, 始め + 1.24, 0.8, 'triangle', 0.12));
-      // メダルの払い出し（チャリチャリ…）
-      for (let i = 0; i < 40; i++) {
-        const t = 始め + 1.2 + i * 0.055 + Math.random() * 0.02;
-        const f = 3200 + Math.random() * 2400;
-        音(f, t, 0.12, 'sine', 0.1); 音(f * 1.5, t, 0.08, 'sine', 0.05); ザッ(t, 0.03, 0.15, 6000);
-      }
-      setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, (始め + 4.5) * 1000);
+      const 待ち始め = performance.now();
+      音を読む().then((d) => ほどく(ac, d)).then((音) => {
+        const t0 = ac.currentTime + 0.03;
+        const 出口 = ac.createGain();
+        出口.gain.value = 0.9;
+        出口.connect(ac.destination);
+        const 鳴る = (名, 始, 大きさ, 終わり) => {
+          const s = ac.createBufferSource(), g = ac.createGain();
+          s.buffer = 音[名];
+          g.gain.value = 大きさ;
+          s.connect(g); g.connect(出口);
+          if (終わり) {   // 決めた時刻まで繰り返して、すっと消す
+            s.loop = true;
+            g.gain.setValueAtTime(大きさ, t0 + 終わり - 0.08);
+            g.gain.linearRampToValueAtTime(0.0001, t0 + 終わり);
+            s.start(t0 + 始); s.stop(t0 + 終わり + 0.02);
+          } else s.start(t0 + 始);
+        };
+        const 最後 = 止まる[止まる.length - 1];
+        鳴る('太鼓', 0, 0.8, 最後);
+        止まる.forEach((x) => 鳴る('止め', x, 1));
+        const 確定 = 最後 + 0.15;
+        鳴る('ジャン', 確定, 1);
+        const ラッパ = 確定 + Math.min(音.ジャン.duration, 1.1);
+        鳴る('ラッパ', ラッパ, 1);
+        鳴る('お金', ラッパ + Math.min(音.ラッパ.duration * 0.7, 2.2), 0.9);
+        const 全部 = ラッパ + Math.min(音.ラッパ.duration * 0.7, 2.2) + 音.お金.duration + 0.5;
+        setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 全部 * 1000);
+        並べた((performance.now() - 待ち始め) / 1000);
+      }).catch(() => { 並べた(0); try { ac.close(); } catch (e) { /* 閉じ済み */ } });
     };
     let 済 = false;
     // iPhone は pointerdown では音を許さないことがあるので、touchend・click でも開ける（2026-11-15）
@@ -633,8 +630,12 @@
       ac.resume().then(一度だけ, () => {});
       setTimeout(一度だけ, 300);   // resume の返事が来ないまま running になっていることがある
     };
-    if (ac.state === 'running') { 一度だけ(); return; }
-    if (触った) { 触ったら(); return; }   // バーを触ったその場で呼ばれた
+    if (ac.state === 'running') { 一度だけ(); return 並べ終わり; }
+    if (触った) {   // バーを触ったその場で呼ばれた。開けなければ音なしで回す
+      触ったら();
+      setTimeout(() => { if (!済) 並べた(0); }, 1500);
+      return 並べ終わり;
+    }
     種類.forEach((n) => document.addEventListener(n, 触ったら, true));
     待ちを消す = () => {
       待ちを消す = null;
@@ -643,6 +644,7 @@
       try { ac.close(); } catch (e) { /* 閉じ済み */ }
     };
     ac.resume().then(一度だけ, () => {});
+    return 並べ終わり;
   }
 
   /*
@@ -689,50 +691,60 @@
         '<div class="sjm-title">🧹 掃除スロット 🧹</div>' +
         '<div class="sjm-sub">' + esc(ボードの日付(x.date)) + (x.掃除場所 ? '・' + esc(x.掃除場所) : '') + '</div>' +
         '<div class="sjm-window"><div class="sjm-reels" style="--cols:' + n + '">' + リール + '</div><div class="sjm-line" aria-hidden="true"></div></div>' +
-        '<div class="sjm-msg" aria-live="polite">回転中…</div>' +
+        '<div class="sjm-msg" aria-live="polite"></div>' +
         '<div class="sjm-lamps" aria-hidden="true">' + '<i></i>'.repeat(14) + '</div>' +
       '</div>' +
       '<div class="sjm-close">触って閉じる</div>';
     document.body.appendChild(台);
     document.documentElement.classList.add('sjm-open');
-    当確音(止まる, true);
     const メッセージ = 台.querySelector('.sjm-msg');
-    const 動きたち = [];
-    台.querySelectorAll('.sjm-strip').forEach((帯, i) => {
-      const 数 = 帯.children.length;
-      const 終わり = -(数 - 3) * 行;   // 当たりが真ん中の段に来る位置
-      const ms = 止まる[i] * 1000;
-      帯.classList.add('spin');
-      const 動き = 帯.animate([
-        { transform: 'translateY(0)' },
-        { transform: 'translateY(' + (終わり * 0.9) + 'px)', offset: 0.82 },
-        { transform: 'translateY(' + (終わり - 14) + 'px)', offset: 0.94 },
-        { transform: 'translateY(' + 終わり + 'px)' },
-      ], { duration: ms, easing: 'linear', fill: 'forwards' });
-      動きたち.push(動き);
-      動き.onfinish = () => {
-        帯.classList.remove('spin');
-        帯.parentNode.classList.add('stop');
-        if (i === n - 2 && !台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); }
-      };
-    });
-    if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1000);
-    setTimeout(() => {
-      台.classList.add('win');
-      動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
-      台.classList.remove('reach');
-      メッセージ.innerHTML = '<b>掃除 確定！！</b>';
-      const 紙 = document.createElement('div');
-      紙.className = 'sjm-confetti';
-      紙.setAttribute('aria-hidden', 'true');
-      let h = '';
-      for (let k = 0; k < 60; k++) {
-        h += '<i style="left:' + (Math.random() * 100) + '%;--d:' + (1.6 + Math.random() * 1.6).toFixed(2) + 's;--w:' + (Math.random() * 1.2).toFixed(2) +
-          's;--c:' + ['#ff004c', '#ffd400', '#00c853', '#00b0ff', '#7c4dff', '#ff9900'][k % 6] + ';--r:' + Math.round(Math.random() * 360) + 'deg"></i>';
-      }
-      紙.innerHTML = h;
-      台.appendChild(紙);
-    }, 最後 * 1000 + 150);
+    メッセージ.textContent = 'まもなく回転…';
+    // 音を読み終えてから回す（止まる音と見た目をそろえる）。読めなくても2秒で回す
+    let 回した = false;
+    const 回し始める = () => {
+      if (回した) return;
+      回した = true;
+      メッセージ.textContent = '回転中…';
+      const 動きたち = [];
+      台.querySelectorAll('.sjm-strip').forEach((帯, i) => {
+        const 数 = 帯.children.length;
+        const 終わり = -(数 - 3) * 行;   // 当たりが真ん中の段に来る位置
+        const ms = 止まる[i] * 1000;
+        帯.classList.add('spin');
+        const 動き = 帯.animate([
+          { transform: 'translateY(0)' },
+          { transform: 'translateY(' + (終わり * 0.9) + 'px)', offset: 0.82 },
+          { transform: 'translateY(' + (終わり - 14) + 'px)', offset: 0.94 },
+          { transform: 'translateY(' + 終わり + 'px)' },
+        ], { duration: ms, easing: 'linear', fill: 'forwards' });
+        動きたち.push(動き);
+        動き.onfinish = () => {
+          帯.classList.remove('spin');
+          帯.parentNode.classList.add('stop');
+          if (i === n - 2 && !台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); }
+        };
+      });
+      if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1000);
+      setTimeout(() => {
+        台.classList.add('win');
+        動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
+        台.classList.remove('reach');
+        メッセージ.innerHTML = '<b>掃除 確定！！</b>';
+        const 紙 = document.createElement('div');
+        紙.className = 'sjm-confetti';
+        紙.setAttribute('aria-hidden', 'true');
+        let h = '';
+        for (let k = 0; k < 60; k++) {
+          h += '<i style="left:' + (Math.random() * 100) + '%;--d:' + (1.6 + Math.random() * 1.6).toFixed(2) + 's;--w:' + (Math.random() * 1.2).toFixed(2) +
+            's;--c:' + ['#ff004c', '#ffd400', '#00c853', '#00b0ff', '#7c4dff', '#ff9900'][k % 6] + ';--r:' + Math.round(Math.random() * 360) + 'deg"></i>';
+        }
+        紙.innerHTML = h;
+        台.appendChild(紙);
+      }, 最後 * 1000 + 150);
+    };
+    当確音(止まる, true).then(回し始める, 回し始める);
+    setTimeout(回し始める, 2000);
+
     // 回り終わってから触ると閉じる（回っている間は閉じない）
     const 閉じる = () => {
       if (!台.classList.contains('win')) return;
