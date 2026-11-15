@@ -1337,21 +1337,97 @@ a.me-todo .go { flex: 0 0 auto; width: 10px; height: 16px; color: var(--rule-str
 .me-ichigen button { min-height: 36px; min-width: 40px; padding: 2px 10px; font-size: var(--text-sm); background: var(--paper-2); color: var(--ink); border: 1px solid var(--rule-strong); }
 .me-ichigen button[aria-pressed="true"] { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700; }
 
-/* 掃除スロット（2026-11-15）：その日のバーを触ると、掃除の人の名前がスロットのように回って止まる */
-.me-uh .sj-lever { cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
-.me-uh .sj-lever:active { transform: scale(.98); }
-.me-uh .sj-lever:focus-visible { outline: 3px solid #ff004c; outline-offset: 2px; border-radius: 6px; }
-.me-uh .sj-hint { margin-left: auto; font-size: var(--text-sm); font-weight: 800; color: #fff; padding: 2px 10px; border-radius: 999px;
+/* 掃除スロット（2026-11-15）：その日のバー全体がスロット台の帯。触ると画面いっぱいのスロット台が出る */
+.me-uh .wb-top.sj-lever {
+  cursor: pointer; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  margin: -4px -4px 8px; padding: 8px 12px; border-radius: 10px; align-items: center;
+  background: linear-gradient(180deg, #3a0010, #12000a 55%, #2a0012); color: #ffe27a;
+  border: 3px solid #d4a017; box-shadow: 0 0 0 2px #5a3b00 inset, 0 0 14px rgba(255, 196, 0, .55);
+  position: relative; overflow: hidden;
+}
+.me-uh .wb-top.sj-lever::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #ffd400 0 6px, transparent 6px 18px) top / 200% 3px no-repeat,
+              repeating-linear-gradient(90deg, #ffd400 0 6px, transparent 6px 18px) bottom / 200% 3px no-repeat;
+  animation: sj-chase .6s linear infinite;
+}
+.me-uh .wb-top.sj-lever .wb-date { color: #fff3c4; text-shadow: 0 0 6px #ff9900; }
+.me-uh .wb-top.sj-lever .wb-when { color: #ffcf6b; }
+.me-uh .wb-top.sj-lever:active { transform: translateY(2px); filter: brightness(1.3); }
+.me-uh .wb-top.sj-lever:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.me-uh .sj-hint { margin-left: auto; font-weight: 900; font-size: 1rem; letter-spacing: .04em; color: #ffd400;
+  text-shadow: 0 0 6px #ff004c, 0 0 12px #ff004c; animation: sj-blink 1s steps(2) infinite; }
+@keyframes sj-chase { from { background-position: 0 0, 0 100%; } to { background-position: 18px 0, -18px 100%; } }
+@keyframes sj-blink { 50% { opacity: .45; } }
+
+html.sjm-open, html.sjm-open body { overflow: hidden; }
+.sjm { box-sizing: border-box;
+  position: fixed; inset: 0; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 16px; background: radial-gradient(circle at 50% 40%, #3b0018, #07000a 70%); overflow: hidden;
+  animation: sjm-in .25s ease-out; font-family: system-ui, sans-serif;
+}
+.sjm.bye { animation: sjm-out .3s ease-in forwards; }
+.sjm-rays { position: absolute; inset: -50%; opacity: .18;
+  background: repeating-conic-gradient(from 0deg, #ffd400 0 8deg, transparent 8deg 20deg); animation: sjm-turn 12s linear infinite; }
+.sjm-cab {
+  position: relative; box-sizing: border-box; width: min(100%, 560px); padding: 14px 10px 12px; border-radius: 22px;
+  background: linear-gradient(180deg, #c8102e, #7a0016 60%, #4a000e);
+  border: 6px solid #e6b422; box-shadow: 0 0 0 4px #6b4a00, 0 0 40px rgba(255, 200, 0, .6), inset 0 0 30px rgba(0, 0, 0, .5);
+  text-align: center; color: #fff;
+}
+.sjm-title { font-size: clamp(1.6rem, 8vw, 2.6rem); font-weight: 900; letter-spacing: .06em; margin: 6px 0 2px;
+  background: linear-gradient(90deg, #fff6a8, #ffd400, #ff9900, #ffd400, #fff6a8); background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: sj-flow 2s linear infinite;
+  filter: drop-shadow(0 2px 0 #5a0010) drop-shadow(0 0 8px rgba(255, 210, 0, .8)); }
+.sjm-sub { font-size: .95rem; color: #ffe0a0; margin-bottom: 10px; }
+.sjm-lamps { display: flex; justify-content: space-between; padding: 0 6px; }
+.sjm-lamps i { width: 12px; height: 12px; border-radius: 50%; background: #ffd400; box-shadow: 0 0 8px #ffd400; animation: sjm-lamp .5s steps(2) infinite; }
+.sjm-lamps i:nth-child(odd) { animation-delay: .25s; }
+.sjm-window { position: relative; box-sizing: border-box; margin: 6px auto 10px; padding: 8px; border-radius: 12px; background: #111;
+  border: 4px solid #e6b422; box-shadow: inset 0 0 0 3px #333; }
+.sjm-reels { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 6px; }
+.sjm-reel { height: 192px; overflow: hidden; border-radius: 6px; position: relative;
+  background: linear-gradient(180deg, #9a9a9a, #fff 22%, #fff 78%, #9a9a9a); }
+.sjm-reel::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,.55), transparent 30%, transparent 70%, rgba(0,0,0,.55)); }
+.sjm-strip { will-change: transform; }
+.sjm-strip.spin { filter: blur(1.5px); }
+.sjm-cell { height: 64px; display: flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box;
+  font-size: clamp(1rem, 5.5vw, 1.7rem); font-weight: 900; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-bottom: 1px solid rgba(0, 0, 0, .12); }
+.sjm-reel.stop { animation: sjm-thunk .25s ease-out; }
+.sjm-line { position: absolute; left: 2px; right: 2px; top: 50%; height: 64px; transform: translateY(-50%); pointer-events: none;
+  border-top: 3px solid #ff004c; border-bottom: 3px solid #ff004c; box-shadow: 0 0 10px #ff004c; }
+.sjm-msg { min-height: 2.4rem; font-size: clamp(1.3rem, 6.5vw, 2rem); font-weight: 900; color: #ffe27a; text-shadow: 0 0 8px #ff9900; }
+.sjm.reach .sjm-msg { color: #fff; animation: sjm-reach .2s steps(2) infinite; }
+.sjm.reach .sjm-cab { animation: sjm-shake .12s linear infinite; }
+.sjm.reach { background: radial-gradient(circle at 50% 40%, #6b0030, #07000a 70%); }
+.sjm.win .sjm-msg b { display: inline-block; font-size: clamp(2rem, 11vw, 3.4rem);
   background: linear-gradient(90deg, #ff004c, #ff9900, #ffd400, #00c853, #00b0ff, #7c4dff, #ff004c); background-size: 300% 100%;
-  animation: sj-flow 3s linear infinite, sj-pulse 1.2s ease-in-out infinite; }
-.me-uh .sj-names .sj-spin { display: inline-block; text-align: center; filter: blur(.6px); animation: sj-reel .07s linear infinite; }
-.me-uh .sj-names .sj-stop { display: inline-block; text-align: center; animation: sj-thunk .35s cubic-bezier(.3, 1.8, .5, 1); }
-.me-uh .wb-souji-hot.sj-win { animation: sj-flow 1.2s linear infinite, sj-flash .25s steps(2) 10; }
-@keyframes sj-reel { 0% { transform: translateY(-35%); opacity: .5; } 50% { opacity: 1; } 100% { transform: translateY(35%); opacity: .5; } }
-@keyframes sj-thunk { 0% { transform: translateY(-40%) scale(1.15); } 100% { transform: none; } }
-@keyframes sj-flash { 0% { filter: brightness(1.6) saturate(1.5); } 100% { filter: none; } }
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: sj-flow 1s linear infinite, sjm-pop .5s cubic-bezier(.3, 1.8, .5, 1);
+  filter: drop-shadow(0 0 6px #fff); }
+.sjm.win .sjm-line { border-color: #ffd400; box-shadow: 0 0 18px #ffd400, inset 0 0 18px rgba(255, 212, 0, .6); }
+.sjm.win .sjm-cab { animation: sjm-flash .2s steps(2) 8; }
+.sjm.win::before { content: ''; position: absolute; inset: 0; background: #fff; animation: sjm-strobe .15s steps(2) 6 forwards; pointer-events: none; z-index: 2; }
+.sjm-close { position: relative; margin-top: 14px; color: rgba(255, 255, 255, .6); font-size: .9rem; visibility: hidden; }
+.sjm.win .sjm-close { visibility: visible; animation: sj-blink 1.2s steps(2) infinite; }
+.sjm-confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.sjm-confetti i { position: absolute; top: -20px; width: 10px; height: 16px; background: var(--c); transform: rotate(var(--r));
+  animation: sjm-fall var(--d) linear var(--w) infinite; }
+@keyframes sjm-in { from { opacity: 0; transform: scale(1.08); } }
+@keyframes sjm-out { to { opacity: 0; transform: scale(.95); } }
+@keyframes sjm-turn { to { transform: rotate(360deg); } }
+@keyframes sjm-lamp { 50% { background: #ff004c; box-shadow: 0 0 8px #ff004c; } }
+@keyframes sjm-thunk { 0% { transform: translateY(-6px); } 60% { transform: translateY(3px); } 100% { transform: none; } }
+@keyframes sjm-reach { 50% { color: #ff004c; } }
+@keyframes sjm-shake { 25% { transform: translate(-2px, 1px); } 75% { transform: translate(2px, -1px); } }
+@keyframes sjm-flash { 50% { filter: brightness(1.8) saturate(1.6); } }
+@keyframes sjm-strobe { 0% { opacity: .9; } 100% { opacity: 0; } }
+@keyframes sjm-pop { from { transform: scale(.2); } }
+@keyframes sjm-fall { to { transform: translateY(110vh) rotate(calc(var(--r) + 720deg)); } }
 @media (prefers-reduced-motion: reduce) {
-  .me-uh .sj-hint, .me-uh .sj-names .sj-spin, .me-uh .sj-names .sj-stop, .me-uh .wb-souji-hot.sj-win { animation: none; filter: none; }
+  .me-uh .wb-top.sj-lever::before, .me-uh .sj-hint, .sjm-rays, .sjm-lamps i, .sjm.reach .sjm-cab, .sjm.win .sjm-cab, .sjm-confetti i { animation: none; }
+  .sjm-confetti, .sjm.win::before { display: none; }
 }
 </style>
 <style>
@@ -1976,7 +2052,7 @@ const API = {
   "当番": "https://bajutsubu-api.hokudai-equestrian.workers.dev/touban",
   "人員表": "https://bajutsubu-api.hokudai-equestrian.workers.dev/jinin"
 };
-const ページの版 = "874b2acbb4fa";
+const ページの版 = "0575b8f6846d";
 /*
   入口（マイページ）の中身。build.js が入口ページに埋め込む。
 
@@ -2484,7 +2560,7 @@ const ページの版 = "874b2acbb4fa";
       '<div class="wb-board">' +
       (掃除の人.length ? '<div class="wb-top sj-lever" role="button" tabindex="0" data-sj-spin="' + esc(x.date) + '" aria-label="掃除スロットを回す">' : '<div class="wb-top">') + '<span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
       '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span>' +
-      (掃除の人.length ? '<span class="sj-hint" aria-hidden="true">🎰 触ると掃除スロット</span>' : '') + '</div>' +
+      (掃除の人.length ? '<span class="sj-hint" aria-hidden="true">🎰 さわって掃除スロット ▶</span>' : '') + '</div>' +
       掃除 +   // 掃除はボードのいちばん上（2026-11-15）
       (名 ? '<p class="wb-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは乗る馬に入っていません') + '</p>' : '') +
       '<div class="wb-main">' + 列 +
@@ -2625,55 +2701,103 @@ const ページの版 = "874b2acbb4fa";
   }
 
   /*
-    掃除スロット（2026-11-15 ユーザーの指示：副将側の決定は変えずに、マイページでその日の初めのバーを触ると掃除の人のスロットが回る）。
-    出る人は副将が決めた掃除の人のまま。回っている間はその日のボードにいる人の名前が流れ、1人ずつ止まる（最後の1人は焦らす）。
+    掃除スロット（2026-11-15 ユーザーの指示：副将側の決定は変えずに、マイページでその日の初めのバーを触ると掃除の人のスロットが回る。
+    同日「もっと本物っぽくして画面支配／ボタンじゃなくてバーにして」→ 画面いっぱいのスロット台にした）。
+    出る人は副将が決めた掃除の人のまま。リールにはその日のボードにいる人の名前が並び、1本ずつ止まる（最後の1本はリーチで焦らす）。
   */
   let 回し中 = false;
   function スロットを回す(バー) {
     if (回し中) return;
     const x = 馬配の中身[バー.dataset.sjSpin];
-    const 板 = バー.closest('.wb-board');
-    const 欄 = 板 && 板.querySelector('.sj-names');
-    if (!x || !欄) return;
-    const 枠 = Array.prototype.slice.call(欄.children);
-    if (!枠.length) return;
+    if (!x || !(x.掃除 || []).length) return;
     回し中 = true;
-    // 流す名前：その日のボードにいる人みんな
+    const 当たり = x.掃除.slice();
+    // リールに流す名前：その日のボードにいる人みんな
     const 名前 = [];
     const 足す = (p) => { if (p && 名前.indexOf(p) < 0) 名前.push(p); };
     ['前', '後'].forEach((k) => (x[k] || []).forEach((r) => r.人.forEach(足す)));
     (x.出席 || []).forEach((r) => r.人.forEach(足す));
     (x.馬休 || []).forEach((r) => 足す(r.人));
-    (x.掃除 || []).forEach(足す);
-    // 止まる時刻：最初は0.9秒、最後は少し間をあけて焦らす
-    const n = 枠.length;
-    const 止まる = 枠.map((_, i) => (n === 1 ? 1.6 : i < n - 1 ? 0.9 + i * 0.4 : 0.9 + (n - 2) * 0.4 + 0.75));
+    当たり.forEach(足す);
+    const でたらめ = () => 名前[Math.floor(Math.random() * 名前.length)];
+    const n = 当たり.length;
+    // 止まる時刻（秒）：1本目1.2秒、そこから0.5秒おき。最後の1本はリーチで1.2秒焦らす
+    const 止まる = 当たり.map((_, i) => (i < n - 1 ? 1.2 + i * 0.5 : (n === 1 ? 2.2 : 1.2 + (n - 2) * 0.5 + 1.2)));
+    const 最後 = 止まる[n - 1];
+    const 行 = 64;   // リールの1こま（px）
+    const リール = 当たり.map((名, i) => {
+      const こま数 = 18 + Math.round(止まる[i] * 14);
+      const 並び = [];
+      for (let k = 0; k < こま数; k++) 並び.push(でたらめ());
+      並び.push(名, でたらめ());   // 当たりの下にも1こま
+      return '<div class="sjm-reel"><div class="sjm-strip" style="--n:' + 並び.length + '">' +
+        並び.map((p) => '<div class="sjm-cell">' + esc(p) + '</div>').join('') + '</div></div>';
+    }).join('');
+    const 台 = document.createElement('div');
+    台.className = 'sjm';
+    台.setAttribute('role', 'dialog');
+    台.setAttribute('aria-label', '掃除スロット');
+    台.innerHTML =
+      '<div class="sjm-rays" aria-hidden="true"></div>' +
+      '<div class="sjm-cab">' +
+        '<div class="sjm-lamps" aria-hidden="true">' + '<i></i>'.repeat(14) + '</div>' +
+        '<div class="sjm-title">🧹 掃除スロット 🧹</div>' +
+        '<div class="sjm-sub">' + esc(ボードの日付(x.date)) + (x.掃除場所 ? '・' + esc(x.掃除場所) : '') + '</div>' +
+        '<div class="sjm-window"><div class="sjm-reels" style="--cols:' + n + '">' + リール + '</div><div class="sjm-line" aria-hidden="true"></div></div>' +
+        '<div class="sjm-msg" aria-live="polite">回転中…</div>' +
+        '<div class="sjm-lamps" aria-hidden="true">' + '<i></i>'.repeat(14) + '</div>' +
+      '</div>' +
+      '<div class="sjm-close">触って閉じる</div>';
+    document.body.appendChild(台);
+    document.documentElement.classList.add('sjm-open');
     当確音(止まる, true);
-    const 本当 = 枠.map((el) => el.textContent);
-    const 板の箱 = 板.querySelector('.wb-souji-hot');
-    if (板の箱) 板の箱.classList.add('sj-spinning');
-    枠.forEach((el) => { el.classList.remove('sj-stop'); el.classList.add('sj-spin'); el.style.minWidth = el.offsetWidth + 'px'; });
-    const 始 = performance.now();
-    let k = 0;
-    const 回す = setInterval(() => {
-      const 経 = (performance.now() - 始) / 1000;
-      k++;
-      枠.forEach((el, i) => {
-        if (!el.classList.contains('sj-spin')) return;
-        if (経 >= 止まる[i]) {
-          el.textContent = 本当[i];
-          el.classList.remove('sj-spin');
-          el.classList.add('sj-stop');
-          return;
-        }
-        el.textContent = 名前[(k + i * 3) % 名前.length];
-      });
-      if (経 >= 止まる[n - 1]) {
-        clearInterval(回す);
-        if (板の箱) { 板の箱.classList.remove('sj-spinning'); 板の箱.classList.add('sj-win'); setTimeout(() => 板の箱.classList.remove('sj-win'), 2600); }
-        setTimeout(() => { 回し中 = false; 枠.forEach((el) => { el.style.minWidth = ''; }); }, 600);
+    const メッセージ = 台.querySelector('.sjm-msg');
+    const 動きたち = [];
+    台.querySelectorAll('.sjm-strip').forEach((帯, i) => {
+      const 数 = 帯.children.length;
+      const 終わり = -(数 - 3) * 行;   // 当たりが真ん中の段に来る位置
+      const ms = 止まる[i] * 1000;
+      帯.classList.add('spin');
+      const 動き = 帯.animate([
+        { transform: 'translateY(0)' },
+        { transform: 'translateY(' + (終わり * 0.9) + 'px)', offset: 0.82 },
+        { transform: 'translateY(' + (終わり - 14) + 'px)', offset: 0.94 },
+        { transform: 'translateY(' + 終わり + 'px)' },
+      ], { duration: ms, easing: 'linear', fill: 'forwards' });
+      動きたち.push(動き);
+      動き.onfinish = () => {
+        帯.classList.remove('spin');
+        帯.parentNode.classList.add('stop');
+        if (i === n - 2 && !台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); }
+      };
+    });
+    if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1000);
+    setTimeout(() => {
+      台.classList.add('win');
+      動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
+      台.classList.remove('reach');
+      メッセージ.innerHTML = '<b>掃除 確定！！</b>';
+      const 紙 = document.createElement('div');
+      紙.className = 'sjm-confetti';
+      紙.setAttribute('aria-hidden', 'true');
+      let h = '';
+      for (let k = 0; k < 60; k++) {
+        h += '<i style="left:' + (Math.random() * 100) + '%;--d:' + (1.6 + Math.random() * 1.6).toFixed(2) + 's;--w:' + (Math.random() * 1.2).toFixed(2) +
+          's;--c:' + ['#ff004c', '#ffd400', '#00c853', '#00b0ff', '#7c4dff', '#ff9900'][k % 6] + ';--r:' + Math.round(Math.random() * 360) + 'deg"></i>';
       }
-    }, 70);
+      紙.innerHTML = h;
+      台.appendChild(紙);
+    }, 最後 * 1000 + 150);
+    // 回り終わってから触ると閉じる（回っている間は閉じない）
+    const 閉じる = () => {
+      if (!台.classList.contains('win')) return;
+      台.classList.add('bye');
+      document.documentElement.classList.remove('sjm-open');
+      setTimeout(() => { 台.remove(); 回し中 = false; }, 300);
+    };
+    台.addEventListener('click', 閉じる);
+    const キー = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { 閉じる(); if (!document.body.contains(台) || 台.classList.contains('bye')) document.removeEventListener('keydown', キー); } };
+    document.addEventListener('keydown', キー);
   }
 
   /*

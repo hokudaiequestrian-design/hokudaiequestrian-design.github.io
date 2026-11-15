@@ -505,7 +505,7 @@
       '<div class="wb-board">' +
       (掃除の人.length ? '<div class="wb-top sj-lever" role="button" tabindex="0" data-sj-spin="' + esc(x.date) + '" aria-label="掃除スロットを回す">' : '<div class="wb-top">') + '<span class="wb-hand wb-date">' + esc(ボードの日付(x.date)) + '</span>' +
       '<span class="wb-when">' + (x.date === 今日 ? '今日' : '明日') + 'の朝練</span>' +
-      (掃除の人.length ? '<span class="sj-hint" aria-hidden="true">🎰 触ると掃除スロット</span>' : '') + '</div>' +
+      (掃除の人.length ? '<span class="sj-hint" aria-hidden="true">🎰 さわって掃除スロット ▶</span>' : '') + '</div>' +
       掃除 +   // 掃除はボードのいちばん上（2026-11-15）
       (名 ? '<p class="wb-me">' + (私 ? 'あなたは ' + esc(私) : 'あなたは乗る馬に入っていません') + '</p>' : '') +
       '<div class="wb-main">' + 列 +
@@ -646,55 +646,103 @@
   }
 
   /*
-    掃除スロット（2026-11-15 ユーザーの指示：副将側の決定は変えずに、マイページでその日の初めのバーを触ると掃除の人のスロットが回る）。
-    出る人は副将が決めた掃除の人のまま。回っている間はその日のボードにいる人の名前が流れ、1人ずつ止まる（最後の1人は焦らす）。
+    掃除スロット（2026-11-15 ユーザーの指示：副将側の決定は変えずに、マイページでその日の初めのバーを触ると掃除の人のスロットが回る。
+    同日「もっと本物っぽくして画面支配／ボタンじゃなくてバーにして」→ 画面いっぱいのスロット台にした）。
+    出る人は副将が決めた掃除の人のまま。リールにはその日のボードにいる人の名前が並び、1本ずつ止まる（最後の1本はリーチで焦らす）。
   */
   let 回し中 = false;
   function スロットを回す(バー) {
     if (回し中) return;
     const x = 馬配の中身[バー.dataset.sjSpin];
-    const 板 = バー.closest('.wb-board');
-    const 欄 = 板 && 板.querySelector('.sj-names');
-    if (!x || !欄) return;
-    const 枠 = Array.prototype.slice.call(欄.children);
-    if (!枠.length) return;
+    if (!x || !(x.掃除 || []).length) return;
     回し中 = true;
-    // 流す名前：その日のボードにいる人みんな
+    const 当たり = x.掃除.slice();
+    // リールに流す名前：その日のボードにいる人みんな
     const 名前 = [];
     const 足す = (p) => { if (p && 名前.indexOf(p) < 0) 名前.push(p); };
     ['前', '後'].forEach((k) => (x[k] || []).forEach((r) => r.人.forEach(足す)));
     (x.出席 || []).forEach((r) => r.人.forEach(足す));
     (x.馬休 || []).forEach((r) => 足す(r.人));
-    (x.掃除 || []).forEach(足す);
-    // 止まる時刻：最初は0.9秒、最後は少し間をあけて焦らす
-    const n = 枠.length;
-    const 止まる = 枠.map((_, i) => (n === 1 ? 1.6 : i < n - 1 ? 0.9 + i * 0.4 : 0.9 + (n - 2) * 0.4 + 0.75));
+    当たり.forEach(足す);
+    const でたらめ = () => 名前[Math.floor(Math.random() * 名前.length)];
+    const n = 当たり.length;
+    // 止まる時刻（秒）：1本目1.2秒、そこから0.5秒おき。最後の1本はリーチで1.2秒焦らす
+    const 止まる = 当たり.map((_, i) => (i < n - 1 ? 1.2 + i * 0.5 : (n === 1 ? 2.2 : 1.2 + (n - 2) * 0.5 + 1.2)));
+    const 最後 = 止まる[n - 1];
+    const 行 = 64;   // リールの1こま（px）
+    const リール = 当たり.map((名, i) => {
+      const こま数 = 18 + Math.round(止まる[i] * 14);
+      const 並び = [];
+      for (let k = 0; k < こま数; k++) 並び.push(でたらめ());
+      並び.push(名, でたらめ());   // 当たりの下にも1こま
+      return '<div class="sjm-reel"><div class="sjm-strip" style="--n:' + 並び.length + '">' +
+        並び.map((p) => '<div class="sjm-cell">' + esc(p) + '</div>').join('') + '</div></div>';
+    }).join('');
+    const 台 = document.createElement('div');
+    台.className = 'sjm';
+    台.setAttribute('role', 'dialog');
+    台.setAttribute('aria-label', '掃除スロット');
+    台.innerHTML =
+      '<div class="sjm-rays" aria-hidden="true"></div>' +
+      '<div class="sjm-cab">' +
+        '<div class="sjm-lamps" aria-hidden="true">' + '<i></i>'.repeat(14) + '</div>' +
+        '<div class="sjm-title">🧹 掃除スロット 🧹</div>' +
+        '<div class="sjm-sub">' + esc(ボードの日付(x.date)) + (x.掃除場所 ? '・' + esc(x.掃除場所) : '') + '</div>' +
+        '<div class="sjm-window"><div class="sjm-reels" style="--cols:' + n + '">' + リール + '</div><div class="sjm-line" aria-hidden="true"></div></div>' +
+        '<div class="sjm-msg" aria-live="polite">回転中…</div>' +
+        '<div class="sjm-lamps" aria-hidden="true">' + '<i></i>'.repeat(14) + '</div>' +
+      '</div>' +
+      '<div class="sjm-close">触って閉じる</div>';
+    document.body.appendChild(台);
+    document.documentElement.classList.add('sjm-open');
     当確音(止まる, true);
-    const 本当 = 枠.map((el) => el.textContent);
-    const 板の箱 = 板.querySelector('.wb-souji-hot');
-    if (板の箱) 板の箱.classList.add('sj-spinning');
-    枠.forEach((el) => { el.classList.remove('sj-stop'); el.classList.add('sj-spin'); el.style.minWidth = el.offsetWidth + 'px'; });
-    const 始 = performance.now();
-    let k = 0;
-    const 回す = setInterval(() => {
-      const 経 = (performance.now() - 始) / 1000;
-      k++;
-      枠.forEach((el, i) => {
-        if (!el.classList.contains('sj-spin')) return;
-        if (経 >= 止まる[i]) {
-          el.textContent = 本当[i];
-          el.classList.remove('sj-spin');
-          el.classList.add('sj-stop');
-          return;
-        }
-        el.textContent = 名前[(k + i * 3) % 名前.length];
-      });
-      if (経 >= 止まる[n - 1]) {
-        clearInterval(回す);
-        if (板の箱) { 板の箱.classList.remove('sj-spinning'); 板の箱.classList.add('sj-win'); setTimeout(() => 板の箱.classList.remove('sj-win'), 2600); }
-        setTimeout(() => { 回し中 = false; 枠.forEach((el) => { el.style.minWidth = ''; }); }, 600);
+    const メッセージ = 台.querySelector('.sjm-msg');
+    const 動きたち = [];
+    台.querySelectorAll('.sjm-strip').forEach((帯, i) => {
+      const 数 = 帯.children.length;
+      const 終わり = -(数 - 3) * 行;   // 当たりが真ん中の段に来る位置
+      const ms = 止まる[i] * 1000;
+      帯.classList.add('spin');
+      const 動き = 帯.animate([
+        { transform: 'translateY(0)' },
+        { transform: 'translateY(' + (終わり * 0.9) + 'px)', offset: 0.82 },
+        { transform: 'translateY(' + (終わり - 14) + 'px)', offset: 0.94 },
+        { transform: 'translateY(' + 終わり + 'px)' },
+      ], { duration: ms, easing: 'linear', fill: 'forwards' });
+      動きたち.push(動き);
+      動き.onfinish = () => {
+        帯.classList.remove('spin');
+        帯.parentNode.classList.add('stop');
+        if (i === n - 2 && !台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); }
+      };
+    });
+    if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1000);
+    setTimeout(() => {
+      台.classList.add('win');
+      動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
+      台.classList.remove('reach');
+      メッセージ.innerHTML = '<b>掃除 確定！！</b>';
+      const 紙 = document.createElement('div');
+      紙.className = 'sjm-confetti';
+      紙.setAttribute('aria-hidden', 'true');
+      let h = '';
+      for (let k = 0; k < 60; k++) {
+        h += '<i style="left:' + (Math.random() * 100) + '%;--d:' + (1.6 + Math.random() * 1.6).toFixed(2) + 's;--w:' + (Math.random() * 1.2).toFixed(2) +
+          's;--c:' + ['#ff004c', '#ffd400', '#00c853', '#00b0ff', '#7c4dff', '#ff9900'][k % 6] + ';--r:' + Math.round(Math.random() * 360) + 'deg"></i>';
       }
-    }, 70);
+      紙.innerHTML = h;
+      台.appendChild(紙);
+    }, 最後 * 1000 + 150);
+    // 回り終わってから触ると閉じる（回っている間は閉じない）
+    const 閉じる = () => {
+      if (!台.classList.contains('win')) return;
+      台.classList.add('bye');
+      document.documentElement.classList.remove('sjm-open');
+      setTimeout(() => { 台.remove(); 回し中 = false; }, 300);
+    };
+    台.addEventListener('click', 閉じる);
+    const キー = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { 閉じる(); if (!document.body.contains(台) || 台.classList.contains('bye')) document.removeEventListener('keydown', キー); } };
+    document.addEventListener('keydown', キー);
   }
 
   /*
