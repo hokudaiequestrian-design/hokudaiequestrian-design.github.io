@@ -571,7 +571,8 @@
       setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 4500);
     };
     let 済 = false;
-    const 種類 = ['pointerdown', 'keydown', 'touchend'];
+    // iPhone は pointerdown では音を許さないことがあるので、touchend・click でも開ける（2026-11-15）
+    const 種類 = ['pointerdown', 'touchend', 'click', 'keydown'];
     const 一度だけ = () => {
       if (済 || ac.state !== 'running') return;
       済 = true;
@@ -579,7 +580,12 @@
       鳴らす();
     };
     // Chrome は触る前の resume() を返事しないまま待たせることがあるので、触るのを待つ仕掛けは先に置く
-    const 触ったら = () => { ac.resume().then(一度だけ, () => {}); };
+    const 触ったら = () => {
+      // iPhone は、触ったその場で音を1つ鳴らし始めないと開かない。無音を一瞬鳴らす
+      try { const b = ac.createBuffer(1, 1, 22050), s = ac.createBufferSource(); s.buffer = b; s.connect(ac.destination); s.start(0); } catch (e) { /* 無くても resume で開くブラウザがある */ }
+      ac.resume().then(一度だけ, () => {});
+      setTimeout(一度だけ, 300);   // resume の返事が来ないまま running になっていることがある
+    };
     if (ac.state === 'running') { 一度だけ(); return; }
     種類.forEach((n) => document.addEventListener(n, 触ったら, true));
     ac.resume().then(一度だけ, () => {});
@@ -720,9 +726,35 @@
    *     名前を覚えている人は **2回の往復（当番・人員表を同時）** だけで済む
    *   ・名簿も中身も前回のぶんを覚えてあるので、開いた瞬間は通信0回で出る
    */
+  /*
+    新しい版が出ていたら読み直す（2026-11-15：iPhone のホーム画面のアプリが古い画面のままで、公開した掃除の欄が出なかった）。
+    組み立てのときに入口の中身の指紋を ページの版 と version.txt に書いてある。開いたとき・画面に戻ったときに比べる。
+    読み直す前にページを取り直してブラウザの覚えも新しくする。同じ版へは1回だけ（行ったり来たりしない）。
+  */
+  function 新しい版を見張る() {
+    if (typeof ページの版 !== 'string' || ページの版.indexOf('__') === 0) return;
+    let 調べ中 = false;
+    const 調べる = async () => {
+      if (調べ中) return;
+      調べ中 = true;
+      try {
+        const r = await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' });
+        const 版 = r.ok ? (await r.text()).trim() : '';
+        if (!/^[0-9a-f]{12}$/.test(版) || 版 === ページの版) return;
+        try { if (sessionStorage.getItem('mypage:読み直した版') === 版) return; sessionStorage.setItem('mypage:読み直した版', 版); } catch (e) { /* 覚えられなくても読み直す */ }
+        await fetch(location.href, { cache: 'reload' }).catch(() => {});
+        location.reload();
+      } catch (e) { /* 読めなければ次に戻ったとき */ } finally { 調べ中 = false; }
+    };
+    調べる();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) 調べる(); });
+    window.addEventListener('pageshow', (e) => { if (e.persisted) 調べる(); });
+  }
+
   async function 始める() {
     const sel = $('meSelect');
     if (!sel) return;
+    新しい版を見張る();
     馬配の知らせを受ける();
     sel.addEventListener('change', () => 出す(sel.value));
     一限を押せるようにする();

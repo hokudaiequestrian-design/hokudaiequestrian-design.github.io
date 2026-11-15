@@ -599,6 +599,7 @@ document.getElementById('hub-groups').innerHTML = 中身.groups.map((g) => (
   // マイページの中身。API の2本をここで渡す（mypage.js から見えるようにする）
   const マイページ = '<script>' + NL +
     'const API = ' + JSON.stringify(API, null, 2) + ';' + NL +
+    'const ページの版 = "__ページの版__";' + NL +   // 入口を書き出すときに中身の指紋に置き換える（2026-11-15）
     読む(path.join(__dirname, 'mypage.js')) + NL +
     '<' + '/script>' + NL;
 
@@ -675,7 +676,19 @@ p.lead { max-width: 1100px; margin: 12px auto 0; padding: 0 16px; color: #555; f
 }
 出番表を写す();
 
-fs.writeFileSync(path.join(出す先, 'index.html'), 動きを差す(入口を作る()), 'utf8');
+/*
+  2026-11-15：iPhone のホーム画面のアプリは、開いたままの古い画面を使い続けることがある（公開した掃除の欄が出なかった）。
+  入口の中身の指紋を、ページの中（ページの版）と version.txt の両方に書く。
+  マイページは画面に戻ったときに version.txt を読み、違えば読み直す（mypage.js 新しい版を見張る）。
+  指紋は中身だけで決まるので、何も変えずに組み立て直しても変わらない。
+*/
+{
+  const 入口 = 動きを差す(入口を作る());
+  const 版 = require('crypto').createHash('sha1').update(入口).digest('hex').slice(0, 12);
+  if (入口.indexOf('"__ページの版__"') < 0) throw new Error('入口に ページの版 の印が無い');
+  fs.writeFileSync(path.join(出す先, 'index.html'), 入口.replace('"__ページの版__"', JSON.stringify(版)), 'utf8');
+  fs.writeFileSync(path.join(出す先, 'version.txt'), 版 + NL, 'utf8');
+}
 console.log('  index.html  ← 当番/hub.html（?role=chieflinks / admlinks で切り替え）');
 件++;
 
