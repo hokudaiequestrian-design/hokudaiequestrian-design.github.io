@@ -2488,6 +2488,62 @@ const API = {
     if (html) 手書きの字を読む();
     // 前に描いた文字と比べる（中身の innerHTML は 動き.js が付けるクラスで変わるので比べない。2026-10-21）
     if (箱.dataset.html !== html) { 箱.innerHTML = html; 箱.dataset.html = html; }
+    // 掃除の人だけ、開いたら当確音（2026-11-15 ユーザーの指示）。ページを開くごとに、その日・その人で1回
+    const 掃除の日 = (並び || []).filter((x) => x.date >= 今日 && 名 && (x.掃除 || []).indexOf(名) >= 0).map((x) => x.date).join(',');
+    if (掃除の日 && 鳴らした !== 名 + ':' + 掃除の日) { 鳴らした = 名 + ':' + 掃除の日; 当確音(); }
+  }
+
+  /*
+    当確音（2026-11-15 ユーザーの指示：掃除担当の人だけ、パチンコの当確音みたいなのを鳴らす）。
+    音のファイルは使わず Web Audio でその場で作る：キュイーンと上がる音 → 駆け上がるアルペジオ → 和音のファンファーレ＋鐘。
+    ブラウザは触る前の音を止めるので、止められたら最初に触ったときに鳴らす。
+  */
+  let 鳴らした = '';
+  function 当確音() {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    let ac;
+    try { ac = new AC(); } catch (e) { return; }
+    const 鳴らす = () => {
+      const t0 = ac.currentTime + 0.05;
+      const 出口 = ac.createGain();
+      出口.gain.value = 0.35;
+      出口.connect(ac.destination);
+      const 音 = (f, 始, 長さ, 形, 大きさ, 終わりf) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = 形;
+        o.frequency.setValueAtTime(f, t0 + 始);
+        if (終わりf) o.frequency.exponentialRampToValueAtTime(終わりf, t0 + 始 + 長さ);
+        g.gain.setValueAtTime(0.0001, t0 + 始);
+        g.gain.exponentialRampToValueAtTime(大きさ, t0 + 始 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 始 + 長さ);
+        o.connect(g); g.connect(出口);
+        o.start(t0 + 始); o.stop(t0 + 始 + 長さ + 0.05);
+      };
+      // キュイーン
+      音(300, 0, 0.6, 'sawtooth', 0.25, 2400);
+      音(310, 0, 0.6, 'square', 0.12, 2500);
+      // 駆け上がる
+      [523, 659, 784, 1047, 1319, 1568, 2093].forEach((f, i) => 音(f, 0.62 + i * 0.06, 0.18, 'square', 0.22));
+      // ジャーン（ド・ミ・ソ・ド）を2回
+      [0, 0.55].forEach((s) => [523, 659, 784, 1047].forEach((f) => { 音(f, 1.1 + s, 0.5, 'sawtooth', 0.14); 音(f * 2, 1.1 + s, 0.5, 'triangle', 0.1); }));
+      // キラキラの鐘
+      for (let i = 0; i < 10; i++) 音([2093, 2637, 3136, 4186][i % 4], 2.2 + i * 0.08, 0.6, 'sine', 0.18);
+      setTimeout(() => { try { ac.close(); } catch (e) { /* 閉じ済み */ } }, 4500);
+    };
+    let 済 = false;
+    const 種類 = ['pointerdown', 'keydown', 'touchend'];
+    const 一度だけ = () => {
+      if (済 || ac.state !== 'running') return;
+      済 = true;
+      種類.forEach((n) => document.removeEventListener(n, 触ったら, true));
+      鳴らす();
+    };
+    // Chrome は触る前の resume() を返事しないまま待たせることがあるので、触るのを待つ仕掛けは先に置く
+    const 触ったら = () => { ac.resume().then(一度だけ, () => {}); };
+    if (ac.state === 'running') { 一度だけ(); return; }
+    種類.forEach((n) => document.addEventListener(n, 触ったら, true));
+    ac.resume().then(一度だけ, () => {});
   }
 
   /*
