@@ -668,12 +668,12 @@
     当たり.forEach(足す);
     const でたらめ = () => 名前[Math.floor(Math.random() * 名前.length)];
     const n = 当たり.length;
-    // 止まる時刻（秒）：1本目1.6秒、そこから0.7秒おき。最後の1本はリーチで1.6秒焦らす（回っている名前が読める速さにした。2026-11-15「回る人の名前わかるように」）
-    const 止まる = 当たり.map((_, i) => (i < n - 1 ? 1.6 + i * 0.7 : (n === 1 ? 2.8 : 1.6 + (n - 2) * 0.7 + 1.6)));
+    // 止まる時刻（秒）：1本目2秒、そこから1.6秒おきに1人ずつ決まる。最後の1本はリーチで2.2秒焦らす（2026-11-15「回るのをゆっくりにして／一つ一つ決まるように」）
+    const 止まる = 当たり.map((_, i) => (i < n - 1 ? 2 + i * 1.6 : (n === 1 ? 3.2 : 2 + (n - 2) * 1.6 + 2.2)));
     const 最後 = 止まる[n - 1];
     const 行 = 64;   // リールの1こま（px）
     const リール = 当たり.map((名, i) => {
-      const こま数 = 3 + Math.round(止まる[i] * 6);   // 1秒に約8こま。名前が読める速さ
+      const こま数 = 2 + Math.round(止まる[i] * 3.5);   // 1秒に約4こま。ゆっくり、名前が読める速さ
       const 並び = [];
       for (let k = 0; k < こま数; k++) 並び.push(でたらめ());
       並び.push(名, でたらめ());   // 当たりの下にも1こま
@@ -721,10 +721,14 @@
         動き.onfinish = () => {
           帯.classList.remove('spin');
           帯.parentNode.classList.add('stop');
-          if (i === n - 2 && !台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); }
+          if (!台.classList.contains('win') && i < n - 1) {   // 1人ずつ「〇〇 決定！」
+            メッセージ.innerHTML = '<span class="sjm-one">' + esc(当たり[i]) + ' 決定！</span>';
+            台.classList.remove('reach');
+            if (i === n - 2) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 900);
+          }
         };
       });
-      if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1000);
+      if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1400);
       setTimeout(() => {
         台.classList.add('win');
         動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });

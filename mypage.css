@@ -394,3 +394,8 @@ html.sjm-open, html.sjm-open body { overflow: hidden; }
   .me-uh .wb-top.sj-lever::before, .me-uh .sj-hint, .sjm-rays, .sjm-lamps i, .sjm.reach .sjm-cab, .sjm.win .sjm-cab, .sjm-confetti i { animation: none; }
   .sjm-confetti, .sjm.win::before { display: none; }
 }
+/* 1人ずつ決まる（2026-11-15）：止まったリールは金に光り続け、「〇〇 決定！」が飛び出す */
+.sjm-reel.stop { box-shadow: 0 0 0 3px #ffd400, 0 0 16px #ffd400; animation: sjm-thunk .25s ease-out, sjm-hit .6s ease-out; }
+.sjm-reel.stop .sjm-cell { color: #b00020; }
+.sjm-one { display: inline-block; color: #fff; text-shadow: 0 0 8px #ffd400, 0 0 16px #ff9900; animation: sjm-pop .4s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes sjm-hit { 0% { filter: brightness(2); } 100% { filter: none; } }
