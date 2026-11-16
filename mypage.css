@@ -438,3 +438,16 @@ html.sjm-open, html.sjm-open body { overflow: hidden; }
 .me-uh .sj-hint { font-size: 1.2rem; }
 @keyframes sj-start-pulse { 50% { transform: scale(1.04); filter: brightness(1.15); } }
 @media (prefers-reduced-motion: reduce) { .me-uh .sj-start { animation: none; } }
+/* 次の朝練を体調不良で休む（2026-11-17）：マイページのいちばん上 */
+.me-taichou { margin: 0 0 14px; }
+.me-taichou .tc-go { display: block; width: 100%; padding: 16px 12px; border: 3px solid #0d47a1; border-radius: 16px; cursor: pointer;
+  font: inherit; font-size: clamp(1.3rem, 6vw, 1.7rem); font-weight: 900; line-height: 1.2; color: #fff;
+  background: linear-gradient(180deg, #42a5f5, #1565c0); box-shadow: 0 5px 0 #0d47a1; }
+.me-taichou .tc-go small { display: block; margin-top: 4px; font-size: .62em; font-weight: 700; color: #e3f2fd; }
+.me-taichou .tc-go:active { transform: translateY(4px); box-shadow: 0 1px 0 #0d47a1; }
+.me-taichou .tc-go:focus-visible, .me-taichou .tc-undo:focus-visible { outline: 3px solid #ffb300; outline-offset: 3px; }
+.me-taichou button:disabled { opacity: .6; cursor: wait; }
+.me-taichou .tc-done { margin: 0 0 8px; padding: 12px; border-radius: 12px; background: #e3f2fd; border: 2px solid #1565c0; color: #0d2a4d; font-weight: 700; }
+.me-taichou .tc-undo { padding: 8px 14px; border: 2px solid #1565c0; border-radius: 10px; background: #fff; color: #1565c0; font: inherit; font-weight: 700; cursor: pointer; }
+.me-taichou .tc-off { margin: 0; padding: 10px 12px; border-radius: 12px; background: #f1f3f5; color: #444; font-size: .9rem; }
+.me-taichou .tc-err { margin: 8px 0 0; color: #b00020; font-weight: 700; }

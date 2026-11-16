@@ -531,7 +531,8 @@
       if (!先頭 || !先頭.parentNode) return;
       箱 = document.createElement('div');
       箱.id = 'meUmahai';
-      先頭.parentNode.insertBefore(箱, 先頭.parentNode.firstChild);   // ページのいちばん上
+      const 体調欄 = $('meTaichou');   // 体調不良の欄（2026-11-17）があれば、そのすぐ下
+      先頭.parentNode.insertBefore(箱, 体調欄 ? 体調欄.nextSibling : 先頭.parentNode.firstChild);   // ページのいちばん上
     }
     const 今日 = 文字に(new Date());
     const html = (並び || []).filter((x) => x.date >= 今日).map((x) => 馬配の見た目(x, 名, 今日)).join('');
@@ -851,9 +852,85 @@
     if (名 && members.some((m) => m.name === 名)) sel.value = 名;
   }
 
+  /*
+    次の朝練を体調不良で休む（2026-11-17 ユーザーの指示：マイページのいちばん上に作る）。
+    休みの画面（yasumi.html）と同じ submitLeaveDays で「体調不良」を1日出す。副将が了承すると決まり。
+    申し込める日はサーバーが決める（前の日の10:00〜その日の集合時間の15分前。getYasumiMemberData の 体調不良で出せる日）。
+    出したあとは、ここで取り消せる（cancelLeave）。
+  */
+  const 体調 = { 名: '', id: '', 日: null, 出した: null, 困った: '', 送り中: false };
+  function 体調の箱() {
+    let 箱 = $('meTaichou');
+    if (!箱) {
+      const 先頭 = document.querySelector('main .me-pick');
+      if (!先頭 || !先頭.parentNode) return null;
+      箱 = document.createElement('div');
+      箱.id = 'meTaichou';
+      先頭.parentNode.insertBefore(箱, 先頭.parentNode.firstChild);   // ページのいちばん上（馬配より上）
+      箱.addEventListener('click', 体調を押した);
+    }
+    return 箱;
+  }
+  function 体調を描く() {
+    const 箱 = 体調の箱();
+    if (!箱) return;
+    if (!体調.id) { 箱.innerHTML = ''; return; }
+    const 日 = 体調.日 ? ボードの日付(体調.日) : '';
+    let h;
+    if (体調.出した) {
+      const 待ち = 体調.出した.state === '申請中';
+      h = '<p class="tc-done">🤒 <b>' + esc(ボードの日付(体調.出した.from)) + '</b> の朝練は体調不良で' + (待ち ? '申し込みました（副将の了承待ち）' : '休みです（副将が了承ずみ）') + '</p>' +
+        '<button type="button" class="tc-undo" data-tc="undo"' + (体調.送り中 ? ' disabled' : '') + '>取り消して朝練に出る</button>';
+    } else if (体調.日) {
+      h = '<button type="button" class="tc-go" data-tc="go"' + (体調.送り中 ? ' disabled' : '') + '>🤒 次の朝練を体調不良で休む<small>' + esc(日) + ' の朝練</small></button>';
+    } else {
+      h = '<p class="tc-off">🤒 体調不良の休みは、休む日の前の日の10:00〜その日の集合時間の15分前に申し込めます。今は受け付けていません（急ぎは副将に直接伝えてください）。</p>';
+    }
+    if (体調.困った) h += '<p class="tc-err" role="alert">' + esc(体調.困った) + '</p>';
+    箱.innerHTML = '<section class="me-taichou" aria-label="体調不良で休む">' + h + '</section>';
+  }
+  async function 体調を読む(名, t) {
+    const me = t && t.me && t.me.id ? t.me : ((t && t.members) || []).filter((m) => m.name === 名)[0];
+    if (!名 || !me) { 体調.id = ''; 体調を描く(); return; }
+    if (体調.名 !== 名) { 体調.名 = 名; 体調.日 = null; 体調.出した = null; 体調.困った = ''; }
+    体調.id = me.id;
+    try {
+      const r = await 呼ぶ(API.当番, 'getYasumiMemberData', [me.id]);
+      if (体調.名 !== 名) return;   // 読んでいるうちに名前を変えた
+      体調.日 = r.体調不良で出せる日 || null;
+      const 今日 = 文字に(new Date());
+      // 次の朝練（申し込める日。無ければ今日以降）にかかる、自分の体調不良
+      const 見る日 = 体調.日 || 今日;
+      体調.出した = (r.mine || []).filter((l) => l.kind === '体調不良' && (l.state === '申請中' || l.state === '承認') && l.from <= 見る日 && l.to >= 見る日)[0] || null;
+    } catch (e) {
+      体調.困った = '体調不良の受付を読めませんでした：' + e.message;
+    }
+    体調を描く();
+  }
+  async function 体調を押した(e) {
+    const b = e.target.closest('[data-tc]');
+    if (!b || 体調.送り中) return;
+    const 名 = 体調.名;
+    if (b.dataset.tc === 'go') {
+      if (!confirm(ボードの日付(体調.日) + ' の朝練を体調不良で休みます。副将が了承すると決まりです。よろしいですか？')) return;
+      体調.送り中 = true; 体調.困った = ''; 体調を描く();
+      try { await 呼ぶ(API.当番, 'submitLeaveDays', [体調.id, '体調不良', [体調.日], 'マイページから']); }
+      catch (err) { 体調.困った = '申し込めませんでした：' + err.message; }
+    } else {
+      if (!confirm('体調不良の休みを取り消して、朝練に出ます。よろしいですか？')) return;
+      体調.送り中 = true; 体調.困った = ''; 体調を描く();
+      try { await 呼ぶ(API.当番, 'cancelLeave', [体調.id, 体調.出した.id]); }
+      catch (err) { 体調.困った = '取り消せませんでした：' + err.message; }
+    }
+    体調.送り中 = false;
+    const 困 = 体調.困った;
+    await 体調を読む(名, { me: { id: 体調.id } });
+    if (困) { 体調.困った = 困; 体調を描く(); }
+  }
+
   async function 出す(名) {
     // 名前を選んでいなくても、カレンダーの枠だけは出す
-    if (!名) { $('meBody').innerHTML = '<div id="meCal">' + カレンダーの節 + '</div>'; Object.keys(描いた).forEach((k) => { delete 描いた[k]; }); return; }
+    if (!名) { 体調.id = ''; 体調を描く(); $('meBody').innerHTML = '<div id="meCal">' + カレンダーの節 + '</div>'; Object.keys(描いた).forEach((k) => { delete 描いた[k]; }); return; }
     名前を覚える(名);
 
     // 前に取ってあるぶんを先に出す。通信を待たずに読み始められる。
@@ -903,6 +980,7 @@
     描く(t, j, 困った, false, 追いつかず);
     今の = { 名: 名, t: t };
     if (t) 馬配を出す(t.馬配, 名);
+    体調を読む(名, t);
   }
 
   /*
