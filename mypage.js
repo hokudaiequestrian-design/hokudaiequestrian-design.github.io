@@ -485,7 +485,9 @@
       s.人.map((p) => マグネット(p, 名 && p === 名 ? 'mine sm' : 'sm', n++)).join('') + '</span></div>').join('');
     // 掃除は最大限目立たせる（2026-11-15 ユーザーの指示：誰も掃除してくれないので、虹色・いちばん上・文字を動かす）
     const 掃除の人 = x.掃除 || [];
-    if (名 && 掃除の人.indexOf(名) >= 0) 私 += (私 ? '、' : '') + '掃除' + (x.掃除場所 ? '（' + x.掃除場所 + '）' : '');
+    // 回すまで誰が掃除か分からない（2026-11-17 ユーザーの指示）。回したかどうかは、この端末に日付ごとに覚える
+    const 見せる = !掃除の人.length || スロットを見た(x.date);
+    if (見せる && 名 && 掃除の人.indexOf(名) >= 0) 私 += (私 ? '、' : '') + '掃除' + (x.掃除場所 ? '（' + x.掃除場所 + '）' : '');
     const 波 = (文字) => Array.from(文字).map((c, i) => '<span style="--i:' + i + '">' + esc(c) + '</span>').join('');
     const 流れ = '🧹 掃除の人はわすれずに！ 🧹 みんなで掃除！ ';
     const 掃除 = (掃除の人.length || x.掃除場所)
@@ -493,7 +495,10 @@
         '<div class="sj-ticker" aria-hidden="true"><span>' + esc(流れ.repeat(4)) + '</span><span>' + esc(流れ.repeat(4)) + '</span></div>' +
         '<div class="sj-body"><span class="sj-broom" aria-hidden="true">🧹</span><span class="sj-lab">' + 波('掃除') + '</span>' +
         (x.掃除場所 ? '<span class="sj-place">' + esc(x.掃除場所) + '</span>' : '') +
-        '<span class="sj-names">' + 掃除の人.map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : '<span>' + esc(p) + '</span>')).join('') + '</span>' +
+        (見せる
+          ? '<span class="sj-names">' + 掃除の人.map((p) => (名 && p === 名 ? '<b class="me">' + esc(p) + '</b>' : '<span>' + esc(p) + '</span>')).join('') + '</span>'
+          : '<span class="sj-names sj-hidden" aria-label="まだ分かりません">' + 掃除の人.map(() => '<span>？？？</span>').join('') + '</span>' +
+            '<button type="button" class="sj-start" data-sj-spin="' + esc(x.date) + '">🎰 スロットを回す<small>回すと掃除の人が分かる</small></button>') +
         '<span class="sj-broom r" aria-hidden="true">🧹</span></div></div>' : '';
     // 馬休コーナー（2026-10-21）：馬と手入れの人。古い返り（馬休が無い）は馬だけ
     const 馬休 = x.馬休 || (x.休む馬 || []).map((h) => ({ 馬: h, 人: '' }));
@@ -514,7 +519,12 @@
       '</div></section>';
   }
 
+  function スロットを見た(日) { if (見た日[日]) return true; try { return localStorage.getItem('sj-seen:' + 日) === '1'; } catch (e) { return false; } }
+  function スロットを見たにする(日) { try { localStorage.setItem('sj-seen:' + 日, '1'); } catch (e) { /* 覚えられなくても、この画面では見せる */ } 見た日[日] = 1; }
+  const 見た日 = {};
+  let 前の馬配 = null;
   function 馬配を出す(並び, 名) {
+    前の馬配 = [並び, 名];
     let 箱 = $('meUmahai');
     if (!箱) {
       const 先頭 = document.querySelector('main .me-pick');
@@ -541,7 +551,7 @@
       箱.addEventListener('keydown', 押した);
     }
     // 掃除の人だけ、開いたら当確音（2026-11-15 ユーザーの指示）。ページを開くごとに、その日・その人で1回
-    const 掃除の日 = (並び || []).filter((x) => x.date >= 今日 && 名 && (x.掃除 || []).indexOf(名) >= 0).map((x) => x.date).join(',');
+    const 掃除の日 = (並び || []).filter((x) => x.date >= 今日 && 名 && (x.掃除 || []).indexOf(名) >= 0 && スロットを見た(x.date)).map((x) => x.date).join(',');
     if (掃除の日 && 鳴らした !== 名 + ':' + 掃除の日) { 鳴らした = 名 + ':' + 掃除の日; 当確音(); }
   }
 
@@ -772,6 +782,7 @@
       if (n === 1) setTimeout(() => { if (!台.classList.contains('win')) { メッセージ.textContent = 'リーチ！'; 台.classList.add('reach'); } }, 1400);
       setTimeout(() => {
         台.classList.add('win');
+        スロットを見たにする(x.date);
         動きたち.forEach((a) => { try { a.finish(); } catch (e) { /* 終わり済み */ } });
         台.classList.remove('reach');
         メッセージ.textContent = '';
@@ -802,7 +813,7 @@
       if (!台.classList.contains('win')) return;
       台.classList.add('bye');
       document.documentElement.classList.remove('sjm-open');
-      setTimeout(() => { 台.remove(); 回し中 = false; }, 300);
+      setTimeout(() => { 台.remove(); 回し中 = false; if (前の馬配) 馬配を出す(前の馬配[0], 前の馬配[1]); }, 300);
     };
     台.addEventListener('click', 閉じる);
     const キー = (e) => { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { 閉じる(); if (!document.body.contains(台) || 台.classList.contains('bye')) document.removeEventListener('keydown', キー); } };

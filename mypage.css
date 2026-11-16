@@ -426,3 +426,15 @@ html.sjm-open, html.sjm-open body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .sjm-w { animation: none; opacity: 1; transform: var(--to); }
 }
+/* 回すまで隠す・大きなスタートボタン（2026-11-17） */
+.me-uh .sj-names.sj-hidden > span { background: #333; color: #ffd400; border-color: #ffd400; }
+.me-uh .sj-start { display: block; width: 100%; margin: 12px 0 2px; padding: 18px 12px; border: 4px solid #fff; border-radius: 18px; cursor: pointer;
+  font: inherit; font-size: clamp(1.6rem, 8vw, 2.4rem); font-weight: 900; line-height: 1.15; color: #fff; text-shadow: 0 2px 0 #8a0020, 0 0 10px #ff9900;
+  background: linear-gradient(180deg, #ff4d6d, #d00030 55%, #8a0020); box-shadow: 0 8px 0 #5a0014, 0 0 24px rgba(255, 212, 0, .8);
+  animation: sj-start-pulse 1s ease-in-out infinite; }
+.me-uh .sj-start small { display: block; margin-top: 4px; font-size: .5em; font-weight: 800; color: #ffe27a; text-shadow: none; }
+.me-uh .sj-start:active { transform: translateY(6px); box-shadow: 0 2px 0 #5a0014, 0 0 24px rgba(255, 212, 0, .8); }
+.me-uh .sj-start:focus-visible { outline: 3px solid #ffd400; outline-offset: 3px; }
+.me-uh .sj-hint { font-size: 1.2rem; }
+@keyframes sj-start-pulse { 50% { transform: scale(1.04); filter: brightness(1.15); } }
+@media (prefers-reduced-motion: reduce) { .me-uh .sj-start { animation: none; } }
